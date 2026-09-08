@@ -1,0 +1,3643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+<title>TPAS2 List</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TPAS2">
+<meta name="theme-color" content="#070812">
+<meta name="color-scheme" content="dark">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
+<link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAFYElEQVR4nJ2XTa9cxRGGn+ruM2PfywLzoThKMIuALEshVpQs2BEpm0iITaSbHwAxrLxgw99gjUj8B7zFCmITeUHiRaLEyioSJELGifHHtXOv8Xx118ui+8ycmTs2udRoZvr0OVP11ltv1TljAHvsxctcLq+cffNs1OhdyX8l5R+IEt2Luc8pPieXKYsyIecJizKh+JRS5hQtcM8IRxIgBiagSNzE+Bi39+fze/8EIlDC3l4Nfv7l317oGF+LIb5jxosGCcyM7fa4/cdcmqpPe8eCro3Hpy4ABYgG8JOzF94chZ3flzLF5cVMQe4mHPdM8QXFZysGyoRcpuQypfiM4gvcC6KAhNYZGDLhQDQz5HprNtu/ZD/90VsvKabrZpyQHCCAkDvHAqCC9EQAvXnDM0XpfFAM78WQdlyuGhykHnLv6okOj2uhOgw7svJectfrsBBSWIVpobVaawAHraEEbPl9FOpW8KFSpdcT+Gm5bPgDIaRSqS8zihYUn9d1mdV1U35PvVQGXbDyZRbAbAW4mgGY2ekkPIiVqvvgi8UjnIylEdBhboQUiB7BO4KfaOLLDUDVzLJkEsKZTw8oeUoI3TY2QpLnNaIE5Pw1afcU5157l/Hus0hg2EBcagmtZ7tGvISZmE7u8ulHF7l/+x/EONpgCFLxOWtdbTCbH/DcuV/y3Ms/Zj6pDB6xzb0tpZbDM0+d4YXP3+Duf/5CjCeo7X8EwNCx4WWOorGIsLCChXjU+cbEW46sAVopE0PCUmpFPwo05TI9kpkM9r/8K4f/u0M6+TS4BhnXRQU1COZ9Zn13CDpxcHiXW/++ivUa2GDOXjj9Wt9Iy59LTs4TuqdO0e0+vdzDDIuRH/7sN5z5+a8p8zpT0ihw4+9X+Neff0fOU1QW0MQ8fXiPRw9uEGK32QmNgTzZUs+KdHpwi0f3b+AUXAUQuUx55twv0BhKqQ7DGCbTe3z1+VUwoxc2AguBkEbNZ1+mFZtpUSZt39YALF/BAMMUapvlTNEc76CkennsoJBBIqQRCmkjEOtKHqxT8V4Dw6u1FJlaP9cSCC8ZN5HTCkBJ4LFet+ZqIEzDNpi2BqDM1/f6Cbz89LUbjHA8QBkwkBOVKTMIdcqaAf0UtB5MD2LIgBbDxDdMy8EhtBxGHkVJFQRA6MBjbUUzgx6MhQrI6vG2Vk3eC2ZI0ZYpV1slgDsy8A68MeAdKLbzMbaMAxYagAEINkqRlnXbysA6G/2nx0p/X4KQwGPLPAwCx1iPbRNEb0banM3/j3nQFgBAiBATxAAhYjG2vVAZ6QEMdJCO9bDRD7kNEa4YCFiMKLbgKdWJ2QAsGRhq4Hi5qzHAWhtaqhqwRrvFVIOn2MoQ67ktnXBMABWEzClRlFgnpiXhplXdU2zBUwVzRIjfGYChkvEY0K7h01Ah7RjqYu3/vu6hBe+FuFWE9QHRt0R6XO5YTBz+7Y88un2XEjMlZib7Dzi4fhVLXWOhvVvmFnpQYfPtNhqfumlm31/j5UkWAvJM970zpGefx0IgPzwk798inNyF0QjrRhVMSo2RFrB3b6jNlP8mzK6AXQAV6t+lb6FBWOxY3P6SfOdmFd1ojJ3cadOuUR1sQ/WDteQWUxT5io3Hz7+E5etgJwZl2W69es2a2lurpQ5Sh7Xs6boVA30b0u4TyLEA0tRKPh9mszufIbtoZqEFrzf+J9na08vGXn9gG/tm9QnFQrDUBfCLB9c++SwAcTbbvyT3t4EHYHHT3bHMjix6AGapi2APfD57+/DTjy+xtxf7jONsdv9Dub0q9IHEF0DmWGPysSZkGfSFvHyAL159+Kc/fMjeXuTy5fIN8ycP2vCAAqsAAAAASUVORK5CYII=">
+<link rel="icon" type="image/png" sizes="16x16" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAACQklEQVR4nGWSQY4URxBF34/MqupuNxgsq2UL4QUSZmXZawQSZ/AVDHMI7KXNIbC4A95wAw6AxIKVZSGQYJAZmh5muiorI7yo6RlG/psMKRU//o8fAvjx+t17Uv7Nfbgy1mMbykbHw3u2wwF92VC9x6MCBOARvBbxe98f/Jl/+v7uL2bdw/Dx5F8gATbVZhCaahARSeI7sIdd95VnggfhIx6jAxYx4j4SXqa3FryWnQLMMoBDWBAPskddEZUIt7EeE0koMokFTapobMheiKhA0G8/QIQhIWmVx7oNKWnoP3Dt1h7f3rhN6R1JRPiprQinnSX+fv6Ep3/do2mXRHjkoWwkS/TlIz7r4NIF2DpKDWaTc3fwOqBZIi0v8hmkK6ubgUR4JZLIX3zJsF3z9Y07/PDzHwh49vhXXj97TOoWHH98Qy1HSAmAvB0OdmT4MOKHb+iP3tGurlLmwgw2639Yv3tBO78MZqjpTiXkftycRBQnPEZIRJMoc5ABbUtul6TFBYKYYpYmglp7zsEM90JVZZhP3J6FckZtO91FSkgCQd7le7qVgIjALRi6OCEw1HZovpiaU5qIgHx2fp/DiSZTlkKCmLXT9Nkc5YRS3tmI/P/mQMoM632OhkNkohz+i7o5ahrIGeW824HUdpffSlpN54mdeYH8zVXUdtRPa2x5Ec0XqGkhmZOy4b5vQvcnEbJzQmSUt68o+68myWbTVBNYNlkipPvW9+8fEb4XES+BepYnqGnPZY4UQEW89LHsHT598ug/fFkOtT2WG8UAAAAASUVORK5CYII=">
+<!-- fonts intentionally use the device's built-in system fonts only,
+     so the app renders identically with no network connection -->
+<style>
+  :root{
+    --bg: #05060d;
+    --bg2: #0a0d1c;
+    --panel: rgba(140, 130, 255, 0.06);
+    --panel-solid: #0d1024;
+    --panel-raised: #12162c;
+    --text: #e8ebfb;
+    --text-dim: #8890b8;
+    --text-faint: #565d84;
+    --line: rgba(140, 150, 255, 0.16);
+    --accent: #7c5cff;
+    --accent2: #22e0ff;
+    --success: #2af5b0;
+    --danger: #ff4f79;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+  html,body{ margin:0; padding:0; touch-action: manipulation; }
+  html{
+    background: #05060d;
+    color-scheme: dark;
+    height: 100%;
+    overflow-x: hidden;
+  }
+  body{
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    height: 100%;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overscroll-behavior-y: contain;
+    overflow-x: hidden;
+  }
+
+  /* drifting ambient background glow */
+  .bg-glow{
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -20%;
+    right: -20%;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 30% at 18% 22%, rgba(124,92,255,0.28) 0%, transparent 65%),
+      radial-gradient(32% 26% at 82% 15%, rgba(34,224,255,0.16) 0%, transparent 65%),
+      radial-gradient(40% 34% at 70% 85%, rgba(42,245,176,0.10) 0%, transparent 65%),
+      radial-gradient(30% 24% at 10% 80%, rgba(124,92,255,0.14) 0%, transparent 65%);
+    animation: driftGlow 22s ease-in-out infinite alternate;
+    filter: saturate(1.1);
+  }
+  @keyframes driftGlow{
+    0%{ transform: translate(0,0) rotate(0deg); }
+    50%{ transform: translate(3%, -2%) rotate(3deg); }
+    100%{ transform: translate(-2%, 3%) rotate(-2deg); }
+  }
+  body::after{
+    content:"";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(140,150,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(140,150,255,0.035) 1px, transparent 1px);
+    background-size: 34px 34px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 40% at 50% 20%, black 40%, transparent 90%);
+    mask-image: radial-gradient(ellipse 80% 40% at 50% 20%, black 40%, transparent 90%);
+  }
+
+  html, body{ height: 100%; }
+  body{
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: calc(var(--app-vh, 1vh) * 100);
+    overflow: hidden;
+  }
+  .wrap{
+    max-width: 560px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 18px 18px 4px;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  /* mobile: horizontal swipe pager between List / Calendar / Expenses,
+     each page scrolls independently and only when its own content needs it */
+  .page-dots{
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+  }
+  .page-dot{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 5px 11px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+  }
+  .page-dot.active{
+    color: #04050c;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-color: transparent;
+    font-weight: 600;
+    box-shadow: 0 0 10px -2px rgba(34,224,255,0.7);
+  }
+  .page-columns{
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  .left-stack{ display: contents; }
+  .page{
+    flex: 0 0 100%;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-align: start;
+    box-sizing: border-box;
+    padding: 8px 18px 90px;
+  }
+  #page-list{ order: 0; }
+  #page-calendar{ order: 1; }
+  #page-expenses{ order: 2; }
+
+  @media (min-width: 860px){
+    html, body{ height: auto; }
+    body{ display: block; overflow: visible; }
+    .wrap{ max-width: 1040px; padding: 22px 18px 8px; }
+    .page-dots{ display: none; }
+    .page-columns{
+      display: flex;
+      align-items: flex-start;
+      flex: none;
+      min-height: unset;
+      overflow: visible;
+      scroll-snap-type: none;
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 18px 30px;
+      gap: 64px;
+      position: relative;
+    }
+    .page-columns::before{
+      content: "";
+      position: absolute;
+      top: 0; bottom: 0;
+      left: calc(50% - 0.5px);
+      width: 1px;
+      background: linear-gradient(to bottom, transparent, var(--accent), var(--accent2), transparent);
+      opacity: 0.5;
+      overflow: hidden;
+    }
+    .left-stack{
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    .page{
+      padding: 0;
+      height: auto;
+      overflow-y: visible;
+      scroll-snap-align: none;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    header{ margin-bottom: 16px; padding-bottom: 12px; }
+    .brandblock h1{ font-size: 1.9rem; letter-spacing: 0.06em; }
+    .section{ margin-bottom: 18px; }
+    .restaurants-nav-row{ margin-top: 2px; }
+    .cal-nav{ margin-bottom: 6px; }
+    .cal-dow{ margin-bottom: 3px; }
+    .cal-grid{
+      grid-auto-rows: unset;
+      gap: 0;
+      margin-bottom: 8px;
+    }
+    .cal-day{
+      aspect-ratio: unset;
+      min-height: 0;
+      height: 40px;
+      font-size: 0.8rem;
+      border-radius: 0;
+      border-color: var(--line);
+    }
+    .section-title{ font-size: 0.85rem; }
+    form.add-row{ margin-bottom: 8px; }
+    input[type="text"]{ padding: 8px 12px; }
+  }
+  header{
+    margin-bottom: 10px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  header::after{
+    content:"";
+    position:absolute;
+    left:0; bottom:-1px;
+    height:1px; width: 120px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+    box-shadow: 0 0 10px 0 rgba(124,92,255,0.8);
+  }
+  .header-row{
+    display:flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: nowrap;
+  }
+  .restaurants-nav-row{
+    display:flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 6px;
+    margin-bottom: 28px;
+  }
+  .nav-btn{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.82rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    padding: 10px 20px;
+    border-radius: 24px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: box-shadow .15s ease, background .15s ease;
+  }
+  .nav-btn:hover{ box-shadow: 0 0 12px -2px rgba(124,92,255,0.8); }
+  .nav-btn:active{ opacity: 0.75; }
+
+  .brandblock h1{
+    cursor: pointer;
+    transition: opacity .15s ease;
+    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: 0.04em;
+    margin: 0;
+    white-space: nowrap;
+    color: var(--text);
+    text-transform: uppercase;
+    background: linear-gradient(90deg, var(--text) 30%, var(--accent2) 60%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-size: 200% auto;
+    animation: titleShimmer 6s ease-in-out infinite;
+  }
+  @keyframes titleShimmer{
+    0%{ background-position: 0% center; }
+    50%{ background-position: 100% center; }
+    100%{ background-position: 0% center; }
+  }
+  .brandblock h1:hover{ opacity: 0.8; }
+  .brandblock h1:active{ opacity: 0.6; }
+
+  .header-right{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    margin-top: 4px;
+  }
+  .header-right .save-badge{ margin-top: 0; }
+  .sync-btn{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  .sync-btn:hover{ border-color: var(--accent2); color: var(--accent2); }
+  .sync-btn.synced{ border-color: var(--success); color: var(--success); }
+  .sync-refresh-btn{
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(34,224,255,0.1);
+    border: 1.5px solid var(--accent2);
+    color: var(--accent2);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px -2px rgba(34,224,255,0.7);
+    transition: border-color .15s ease, color .15s ease, transform .4s ease, box-shadow .15s ease;
+  }
+  .sync-refresh-btn:hover{ box-shadow: 0 0 12px -1px rgba(34,224,255,0.9); }
+  .sync-refresh-btn:active{ transform: rotate(180deg); }
+  .sync-refresh-btn.spinning{ animation: spinLoader .7s linear infinite; }
+  .undo-btn{
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: rgba(124,92,255,0.12);
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 8px -2px rgba(124,92,255,0.7);
+    transition: border-color .15s ease, color .15s ease, opacity .15s ease, box-shadow .15s ease;
+  }
+  .undo-btn:hover:not(:disabled){ box-shadow: 0 0 12px -1px rgba(124,92,255,0.9); }
+  .undo-btn:disabled{
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+    background: var(--panel);
+    border-color: var(--line);
+    color: var(--text-dim);
+  }
+  .save-badge{
+    display:flex;
+    align-items:center;
+    gap: 7px;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 6px 12px;
+    border-radius: 20px;
+    white-space: nowrap;
+    margin-top: 4px;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    transition: color .15s ease, border-color .15s ease;
+  }
+  .save-badge .dot{
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 8px 1px var(--success);
+    flex-shrink:0;
+    border: none;
+    transition: background .15s ease, box-shadow .15s ease;
+  }
+  .save-badge.saving .dot{
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: transparent;
+    box-shadow: none;
+    border: 2px solid rgba(59,130,246,0.25);
+    border-top-color: #3b82f6;
+    animation: spinLoader .6s linear infinite;
+  }
+  .save-badge.error .dot{ background: var(--danger); box-shadow: 0 0 8px 1px var(--danger); border: none; animation: none; }
+  .save-badge .dot.pop{ animation: savePop .45s ease; }
+  .save-badge:hover{ border-color: var(--accent2); color: var(--text); }
+  .save-badge:active{ opacity: 0.7; }
+  @keyframes spinLoader{
+    to{ transform: rotate(360deg); }
+  }
+  @keyframes savePop{
+    0%{ transform: scale(0.5); box-shadow: 0 0 0 0 rgba(42,245,176,0.9); }
+    50%{ transform: scale(1.3); box-shadow: 0 0 16px 4px rgba(42,245,176,0.8); }
+    100%{ transform: scale(1); box-shadow: 0 0 8px 1px rgba(42,245,176,0.9); }
+  }
+
+  .section{ margin-bottom: 34px; }
+  .section-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 12px;
+  }
+  .section-title{
+    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text);
+    display:flex;
+    align-items:baseline;
+    gap: 8px;
+  }
+  .section-title::before{
+    content: "";
+    display:inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent2);
+    box-shadow: 0 0 8px 1px var(--accent2);
+    margin-right: 2px;
+  }
+  .section-title .count{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
+    text-transform: none;
+  }
+  .section-head .clear-btn{
+    background:none;
+    border:none;
+    color: var(--text-faint);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    cursor:pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    padding:0;
+  }
+  .section-head .clear-btn:hover{ color: var(--accent2); }
+  .today-btn{
+    background: var(--panel);
+    border: 1px solid var(--accent2);
+    color: var(--accent2);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease;
+  }
+  .today-btn:hover{ box-shadow: 0 0 10px -2px rgba(34,224,255,0.7); }
+  .today-btn:active{ opacity: 0.7; }
+
+  form.add-row{
+    display:flex;
+    gap:8px;
+    margin-bottom: 14px;
+  }
+  input[type="text"]{
+    flex:1;
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    padding: 11px 13px;
+    border-radius: 6px;
+    outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  input[type="text"]::placeholder{ color: var(--text-faint); }
+  input[type="text"]:focus{
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 1px var(--accent2), 0 0 14px -2px rgba(34,224,255,0.6);
+  }
+  button.add{
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #04050c;
+    border: none;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-weight:600;
+    font-size: 0.74rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 0 14px -3px rgba(124,92,255,0.7);
+    transition: opacity .15s ease, transform .1s ease;
+  }
+  button.add:active{ opacity: 0.75; transform: scale(0.97); }
+
+  .list{
+    list-style:none;
+    margin:0; padding:0;
+    display:flex;
+    flex-direction:column;
+    border-radius: 8px;
+    transition: background .15s ease, box-shadow .15s ease;
+    min-height: 46px;
+  }
+  .list.drop-hover{
+    background: var(--panel);
+    box-shadow: inset 0 0 0 1.5px dashed var(--accent2);
+  }
+  .item{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding: 13px 10px;
+    margin-bottom: 6px;
+    border: 1px solid var(--line);
+    position: relative;
+    background: var(--panel);
+    touch-action: pan-y;
+    border-radius: 8px;
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .item:hover{ background: var(--panel-raised); border-color: var(--accent2); }
+  .item.dragging{ opacity: 0.35; }
+  .handle{
+    color: var(--text-faint);
+    font-size: 0.95rem;
+    line-height: 1;
+    padding: 4px 2px;
+    cursor: grab;
+    flex-shrink:0;
+    letter-spacing: 1px;
+    touch-action: none;
+  }
+  .box{
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--text-dim);
+    border-radius: 50%;
+    flex-shrink:0;
+    margin-top: 2px;
+    cursor:pointer;
+    position: relative;
+    transition: border-color .15s ease, box-shadow .2s ease;
+  }
+  .box:hover{ border-color: var(--accent2); }
+  .item.done .box{
+    border-color: var(--success);
+    background: radial-gradient(circle, var(--success) 0%, var(--success) 55%, transparent 60%);
+    box-shadow: 0 0 12px 1px rgba(42,245,176,0.8);
+    animation: checkPulse .4s ease;
+  }
+  @keyframes checkPulse{
+    0%{ box-shadow: 0 0 0 0 rgba(42,245,176,0.9); transform: scale(0.8); }
+    60%{ box-shadow: 0 0 16px 4px rgba(42,245,176,0.6); }
+    100%{ box-shadow: 0 0 12px 1px rgba(42,245,176,0.8); transform: scale(1); }
+  }
+  .text{
+    flex:1;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.45;
+    padding-top: 1px;
+    word-break: break-word;
+    cursor:pointer;
+    color: #f7f8ff;
+    text-shadow: 0 0 14px rgba(232,235,251,0.18);
+    letter-spacing: 0.01em;
+  }
+  .item.done .text{
+    color: var(--text-faint);
+    font-weight: 400;
+    text-shadow: none;
+    text-decoration: line-through;
+    text-decoration-color: var(--success);
+    text-decoration-thickness: 1.5px;
+  }
+  .text.editing, .rname.editing{
+    -webkit-user-select: text;
+    user-select: text;
+    outline: none;
+    border-bottom: 1px solid var(--accent2);
+    cursor: text;
+    box-shadow: 0 1px 0 0 rgba(34,224,255,0.4);
+  }
+  .stamp-mark{
+    flex-shrink: 0;
+    align-self: center;
+    transform: scale(0);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    color: var(--success);
+    border: 1px solid var(--success);
+    padding: 2px 6px;
+    border-radius: 3px;
+    opacity: 0;
+    pointer-events:none;
+    white-space: nowrap;
+    box-shadow: 0 0 10px -1px rgba(42,245,176,0.7);
+  }
+  .item.done .stamp-mark{
+    animation: stampIn .32s cubic-bezier(.2,1.4,.4,1) forwards;
+  }
+  @keyframes stampIn{
+    0%{ transform: scale(1.8); opacity: 0; }
+    60%{ opacity: 0.95; }
+    100%{ transform: scale(1); opacity: 0.9; }
+  }
+  .del{
+    background:none;
+    border:none;
+    color: var(--text-faint);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9rem;
+    cursor:pointer;
+    padding: 0 2px;
+    line-height:1;
+    flex-shrink:0;
+    transition: color .15s ease;
+  }
+  .del:hover{ color: var(--danger); }
+
+  .expense-row{
+    flex-wrap: wrap;
+  }
+  .expense-row input#expenseDesc{
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .ledger-row{
+    flex-wrap: wrap;
+  }
+  .ledger-row input{
+    flex: 1 1 110px;
+    min-width: 0;
+    font-size: 16px;
+    padding: 11px 13px;
+  }
+  .ledger-item{
+    display:flex;
+    align-items:flex-start;
+    flex-wrap: wrap;
+    gap:8px 10px;
+    padding: 13px 6px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  .ledger-item:last-child{ border-bottom: none; }
+  .ledger-item .text{ flex: 1 1 160px; font-size: 16px; }
+  .ledger-automation-badge{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.02em;
+    padding: 3px 7px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-dim);
+  }
+  .ledger-amount{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    flex-shrink: 0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .paid-toggle{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    white-space: nowrap;
+    border: 1px solid rgba(255,79,121,0.4);
+    background: rgba(255,79,121,0.08);
+    color: var(--danger);
+  }
+  .paid-toggle.paid{
+    border-color: rgba(42,245,176,0.4);
+    background: rgba(42,245,176,0.08);
+    color: var(--success);
+  }
+  .failed-indicator{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    border: 1px solid rgba(255,79,121,0.6);
+    background: rgba(255,79,121,0.16);
+    color: #ff8fa8;
+    font-weight: 700;
+  }
+  .ledger-automation-badge.failed{
+    border-color: rgba(255,79,121,0.5);
+    background: rgba(255,79,121,0.1);
+    color: var(--danger);
+    font-weight: 600;
+  }
+  .ledger-item.failed{
+    border-left: 2px solid var(--danger);
+    background: rgba(255,79,121,0.04);
+    padding-left: 8px;
+  }
+  .expense-row input#expenseAmount{
+    flex: 0 0 90px;
+    min-width: 0;
+    text-align: right;
+  }
+  .expense-item{
+    display:flex;
+    align-items:flex-start;
+    flex-wrap: wrap;
+    gap:8px 10px;
+    padding: 13px 6px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 4px;
+    transition: background .15s ease;
+  }
+  .expense-item:last-child{ border-bottom: none; }
+  .expense-item:hover{ background: var(--panel); }
+  .expense-item .text{ flex: 1; }
+  .expense-head-actions{
+    display:flex;
+    gap: 8px;
+  }
+  .expense-head-btn{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    background: rgba(34,224,255,0.08);
+    border: 1px solid rgba(34,224,255,0.4);
+    padding: 5px 10px;
+    border-radius: 20px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease, box-shadow .15s ease;
+  }
+  .expense-head-btn:hover{ box-shadow: 0 0 10px -2px rgba(34,224,255,0.7); }
+  .expense-head-btn:active{ opacity: 0.7; }
+  .expense-head-btn.danger{
+    color: var(--danger);
+    background: rgba(255,79,121,0.08);
+    border-color: rgba(255,79,121,0.4);
+  }
+  .expense-head-btn.danger:hover{ box-shadow: 0 0 10px -2px rgba(255,79,121,0.7); }
+  .expense-type-toggle{
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    border: 1px solid var(--danger);
+    background: rgba(255,79,121,0.08);
+    color: var(--danger);
+    transition: all .15s ease;
+  }
+  .expense-type-toggle[data-type="income"]{
+    border-color: var(--success);
+    background: rgba(42,245,176,0.08);
+    color: var(--success);
+  }
+  .expense-amount{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--danger);
+    flex-shrink: 0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .expense-amount.income{ color: var(--success); }
+  .expense-count-badge{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+  .expense-timestamp{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.64rem;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    margin-top: 3px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .expense-timestamp:hover{ color: var(--accent2); }
+  .expense-timestamp-input{
+    background: var(--panel-solid);
+    border: 1px solid var(--accent2);
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    padding: 4px 6px;
+    border-radius: 4px;
+    outline: none;
+    flex-shrink: 0;
+    color-scheme: dark;
+  }
+  }
+  .expense-summary{
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px dashed var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .expense-summary-row{
+    display:flex;
+    justify-content: space-between;
+    align-items:center;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .expense-summary-row .sum-income{ color: var(--success); font-weight: 600; }
+  .expense-summary-row .sum-expense{ color: var(--danger); font-weight: 600; }
+  .expense-summary-row.total{
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .expense-summary-row.total span:last-child{ font-size: 1.1rem; }
+  .empty-row{
+    text-align:center;
+    padding: 22px 10px;
+    color: var(--text-faint);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    border-bottom: 1px solid var(--line);
+  }
+  #list-expenses .empty-row{ border-bottom: none; }
+
+  .status{
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--panel-raised);
+    color: var(--text);
+    border: 1px solid var(--accent2);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.7rem;
+    padding: 7px 14px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity .3s ease;
+    pointer-events:none;
+    z-index: 50;
+    box-shadow: 0 0 16px -2px rgba(34,224,255,0.6);
+  }
+  .status.show{ opacity: 1; }
+
+  .drag-clone{
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+    background: var(--panel-raised);
+    border: 1px solid var(--accent2);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.9rem;
+    color: var(--text);
+    box-shadow: 0 0 20px -2px rgba(34,224,255,0.7);
+    max-width: 260px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .drop-indicator{
+    position: fixed;
+    z-index: 99;
+    height: 2px;
+    background: var(--accent2);
+    box-shadow: 0 0 8px 1px rgba(34,224,255,0.9);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  /* calendar */
+  .cal-nav{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom: 10px;
+  }
+  .cal-nav-btn{
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 1rem;
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color .15s ease;
+  }
+  .cal-nav-btn:hover{ border-color: var(--accent2); }
+  .cal-nav-btn:active{ opacity: 0.6; }
+  .cal-month-label{
+    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .cal-dow{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 4px;
+  }
+  .cal-dow span{
+    text-align:center;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.6rem;
+    color: var(--text-faint);
+    letter-spacing: 0.05em;
+  }
+  .cal-grid{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: minmax(34px, auto);
+    gap: 4px;
+    margin-bottom: 14px;
+  }
+  .cal-day{
+    aspect-ratio: 1;
+    min-height: 46px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    background: var(--panel-solid);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .cal-day:hover{ border-color: var(--line); }
+  .cal-day.empty{ visibility: hidden; cursor: default; }
+  .cal-day.today{
+    border-color: var(--accent2);
+    color: var(--accent2);
+    font-weight: 600;
+    box-shadow: 0 0 10px -2px rgba(34,224,255,0.8);
+    animation: todayPulse 2.4s ease-in-out infinite;
+  }
+  @keyframes todayPulse{
+    0%, 100%{ box-shadow: 0 0 8px -2px rgba(34,224,255,0.6); }
+    50%{ box-shadow: 0 0 16px 0px rgba(34,224,255,0.95); }
+  }
+  .cal-day.selected{
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #04050c;
+    font-weight: 600;
+  }
+  .cal-day .dot{
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 5px 0 var(--accent);
+    position: absolute;
+    bottom: 4px;
+  }
+  .cal-day.selected .dot{ background: #04050c; box-shadow: none; }
+  #calDetail{
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .cal-detail-label{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+  }
+
+  /* dedicated full-page views */
+  .restaurants-page{
+    display: none;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 30px 18px 90px;
+  }
+  .restaurants-page.active{ display: block; }
+  .wrap.hidden{ display: none; }
+  .restaurants-page-header{
+    display:flex;
+    align-items:center;
+    gap: 14px;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .restaurants-page-header h2{
+    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
+    font-weight: 700;
+    font-size: 1.4rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0;
+    color: var(--text);
+    background: linear-gradient(90deg, var(--text) 30%, var(--accent2) 60%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .restaurants-page-header .count{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    margin-left: auto;
+  }
+  .back-btn{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease;
+    flex-shrink: 0;
+  }
+  .back-btn:hover{ border-color: var(--accent2); color: var(--accent2); }
+  .restaurants-page form.add-row{ max-width: 480px; margin-bottom: 30px; }
+
+  .resto-grid{
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  @media (min-width: 620px){
+    .resto-grid{ grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 940px){
+    .resto-grid{ grid-template-columns: repeat(3, 1fr); }
+  }
+  .resto-card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .resto-card-head{
+    display:flex;
+    align-items:flex-start;
+    gap: 10px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .resto-card-head .rname{
+    flex:1;
+    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
+    font-weight: 600;
+    font-size: 1.1rem;
+    letter-spacing: 0.02em;
+    color: var(--text);
+    min-width: 0;
+    word-break: break-word;
+  }
+  .resto-card-head .del{
+    background:none;
+    border:none;
+    color: var(--text-faint);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.95rem;
+    cursor:pointer;
+    padding: 0 2px;
+    flex-shrink:0;
+  }
+  .resto-card-head .del:hover{ color: var(--danger); }
+
+  /* card/sub-item styles shared by Other and Calendar */
+  .sub-add-row{
+    display:flex;
+    gap: 6px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .sub-add-row input[type="text"]{
+    font-size: 16px;
+    padding: 8px 10px;
+    flex: 1;
+    min-width: 120px;
+  }
+  .cal-time-input{
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 16px;
+    padding: 8px 8px;
+    border-radius: 6px;
+    outline: none;
+    width: 110px;
+    flex-shrink: 0;
+    color-scheme: dark;
+  }
+  .cal-time-input:focus{
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 1px var(--accent2);
+  }
+  .cal-repeat-select{
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    padding: 8px 6px;
+    border-radius: 6px;
+    outline: none;
+    flex-shrink: 0;
+    color-scheme: dark;
+  }
+  .cal-repeat-select:focus{
+    border-color: var(--accent2);
+    box-shadow: 0 0 0 1px var(--accent2);
+  }
+  .cal-repeat-select:disabled{ opacity: 0.4; cursor: not-allowed; }
+  .repeat-badge{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.6rem;
+    color: var(--accent);
+    border: 1px solid rgba(124,92,255,0.4);
+    background: rgba(124,92,255,0.08);
+    padding: 2px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .repeat-badge.add-repeat{
+    color: var(--text-faint);
+    border-color: var(--line);
+    background: transparent;
+    opacity: 0.7;
+  }
+  .span-badge{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.6rem;
+    color: #ffb84d;
+    border: 1px solid rgba(255,184,77,0.4);
+    background: rgba(255,184,77,0.08);
+    padding: 2px 5px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .cal-enddate-toggle{
+    background: var(--panel-solid);
+    border: 1px solid var(--line);
+    color: var(--text-dim);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem;
+    padding: 8px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .cal-enddate-toggle.active{
+    border-color: #ffb84d;
+    color: #ffb84d;
+  }
+  .cal-enddate-input{
+    background: var(--panel-solid);
+    border: 1px solid #ffb84d;
+    color: var(--text);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 16px;
+    padding: 8px 6px;
+    border-radius: 6px;
+    outline: none;
+    flex-shrink: 0;
+    color-scheme: dark;
+  }
+  .time-badge{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    color: var(--accent2);
+    background: rgba(34,224,255,0.08);
+    border: 1px solid rgba(34,224,255,0.35);
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .sub-item.done .time-badge{ opacity: 0.5; }
+  .sub-add-row button{
+    padding: 0 12px;
+    font-size: 0.66rem;
+  }
+  .sub-list{
+    list-style:none;
+    margin:0; padding:0;
+  }
+  .sub-item{
+    display:flex;
+    align-items:flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--line);
+    border-radius: 4px;
+  }
+  .sub-item.dragging{ opacity: 0.35; }
+  #calItemsWrap .sub-item{
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 8px;
+    margin-bottom: 6px;
+    background: var(--panel);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  #calItemsWrap .sub-item:hover{
+    border-color: var(--accent2);
+    background: var(--panel-raised);
+  }
+  #calItemsWrap .sub-item:last-child{ margin-bottom: 0; }
+  .cal-note{
+    flex: 1 0 100%;
+    font-size: 0.8rem;
+    color: #0d2b12;
+    font-style: normal;
+    font-weight: 500;
+    padding: 6px 0 2px 24px;
+    cursor: pointer;
+    word-break: break-word;
+  }
+  .cal-note:not(.empty)::before{
+    content: '';
+  }
+  .cal-note span.highlight{
+    background: #39ff14;
+    box-shadow: 2px 0 0 #39ff14, -2px 0 0 #39ff14;
+    border-radius: 2px;
+  }
+  .cal-note.empty{ color: var(--text-faint); font-style: italic; font-weight: 400; }
+  .cal-note.editing{
+    font-style: normal;
+    color: var(--text);
+    outline: none;
+    border-bottom: 1px solid var(--accent2);
+  }
+  .sub-handle{
+    color: var(--text-faint);
+    font-size: 0.85rem;
+    line-height: 1;
+    padding: 3px 1px;
+    cursor: grab;
+    flex-shrink:0;
+    touch-action: none;
+    margin-top: 1px;
+  }
+  .sub-item:last-child{ border-bottom: none; }
+  .sub-item .box{
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+  }
+  .sub-item .text{
+    font-size: 16px;
+    color: #ffffff;
+    text-shadow: 0 0 16px rgba(255,255,255,0.25);
+  }
+  .sub-item.done .box{
+    border-color: var(--success);
+    background: radial-gradient(circle, var(--success) 0%, var(--success) 55%, transparent 60%);
+    box-shadow: 0 0 10px 1px rgba(42,245,176,0.75);
+  }
+  .sub-item.done .text{
+    color: var(--text-faint);
+    font-weight: 400;
+    text-shadow: none;
+    text-decoration: line-through;
+    text-decoration-color: var(--success);
+  }
+  .sub-item .del{
+    font-size: 0.8rem;
+  }
+  .empty-sub{
+    color: var(--text-faint);
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.7rem;
+    padding: 4px 2px 8px;
+  }
+</style>
+</head>
+<body>
+<div class="bg-glow"></div>
+<div class="wrap">
+  <header>
+    <div class="header-row">
+      <div class="brandblock">
+        <h1 id="titleRefresh" title="Tap to refresh">TPAS2 List</h1>
+      </div>
+      <div class="header-right">
+        <button type="button" class="undo-btn" id="undoBtn" title="Undo last change" disabled>↩</button>
+        <button type="button" class="sync-refresh-btn" id="syncRefreshBtn" title="Refresh sync">↻</button>
+        <button type="button" class="sync-btn" id="syncBtn">🔄 Sync</button>
+        <button type="button" class="save-badge" id="saveBadge"><span class="dot"></span><span id="saveBadgeText">Saved</span></button>
+      </div>
+    </div>
+  </header>
+</div>
+
+<div class="page-dots" id="pageDots">
+  <span class="page-dot active" data-page="0">List</span>
+  <span class="page-dot" data-page="1">Calendar</span>
+  <span class="page-dot" data-page="2">Expenses</span>
+</div>
+
+<div class="page-columns" id="pageColumns">
+  <div class="left-stack" id="leftStack">
+  <div class="page" id="page-list">
+    <div class="section" id="section-list">
+      <div class="section-head">
+        <div class="section-title">List <span class="count" id="tally-list">0 open</span></div>
+        <button class="clear-btn" data-section="list">clear completed</button>
+      </div>
+      <form class="add-row" data-section="list">
+        <input type="text" placeholder="Add to the list…" autocomplete="off">
+        <button type="button" class="add">Add</button>
+      </form>
+      <ul class="list" id="list-list" data-section="list"></ul>
+    </div>
+
+    <div class="restaurants-nav-row">
+      <button type="button" class="nav-btn" id="otherNavBtn">📦 Other</button>
+    </div>
+
+    <div class="section" id="section-today-cal">
+      <div class="section-head">
+        <div class="section-title">Today <span class="count" id="tally-today-cal"></span></div>
+      </div>
+      <ul class="list" id="todayCalList"></ul>
+    </div>
+
+    <div class="section" id="section-overdue-list">
+      <div class="section-head">
+        <div class="section-title">Overdue <span class="count" id="tally-overdue2">0</span></div>
+      </div>
+      <ul class="list" id="overdueList2"></ul>
+    </div>
+  </div>
+  <div class="page" id="page-expenses">
+    <div class="section" id="section-expenses">
+      <div class="section-head">
+        <div class="section-title">Expenses</div>
+      </div>
+      <div class="cal-nav expense-nav">
+        <button type="button" id="expensePrevBtn" class="cal-nav-btn">‹</button>
+        <div class="cal-month-label" id="expenseMonthLabel"></div>
+        <button type="button" id="expenseNextBtn" class="cal-nav-btn">›</button>
+      </div>
+      <form class="add-row expense-row no-generic-add" id="expenseForm">
+        <button type="button" class="expense-type-toggle" id="expenseTypeToggle" data-type="expense" title="Tap to switch between expense and income">−</button>
+        <input type="text" id="expenseDesc" placeholder="Description…" autocomplete="off">
+        <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
+        <button type="button" class="add">Add</button>
+      </form>
+      <div class="expense-summary" id="expenseSummary">
+        <div class="expense-summary-row" id="carryRow" style="display:none;">
+          <span>Carried over</span>
+          <span id="sumCarry">€0.00</span>
+        </div>
+        <div class="expense-summary-row">
+          <span>Income</span>
+          <span id="sumIncome" class="sum-income">€0.00</span>
+        </div>
+        <div class="expense-summary-row">
+          <span>Expenses</span>
+          <span id="sumExpense" class="sum-expense">€0.00</span>
+        </div>
+        <div class="expense-summary-row total">
+          <span>Balance</span>
+          <span id="sumBalance">€0.00</span>
+        </div>
+      </div>
+      <ul class="list" id="list-expenses"></ul>
+    </div>
+  </div>
+  </div>
+
+
+  <div class="page" id="page-calendar">
+    <div class="section" id="section-calendar">
+      <div class="section-head">
+        <div class="section-title">Calendar <span class="count" id="tally-calendar"></span></div>
+        <button type="button" class="today-btn" id="calTodayBtn">Today</button>
+      </div>
+      <div class="cal-nav">
+        <button type="button" id="calPrev" class="cal-nav-btn">‹</button>
+        <div class="cal-month-label" id="calMonthLabel"></div>
+        <button type="button" id="calNext" class="cal-nav-btn">›</button>
+      </div>
+      <div class="cal-dow">
+        <span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span><span>S</span>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+      <div id="calDetail">
+        <div class="cal-detail-label" id="calDetailLabel"></div>
+        <div class="empty-sub" id="calHint" style="display:none;">tap a date to add items</div>
+        <form class="sub-add-row" id="calAddForm">
+          <input type="time" id="calItemTime" class="cal-time-input">
+          <select id="calRepeatSelect" class="cal-repeat-select">
+            <option value="">No repeat</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Every 2 weeks</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+          <button type="button" id="calEndDateToggle" class="cal-enddate-toggle">+ end date</button>
+          <input type="date" id="calEndDateInput" class="cal-enddate-input" style="display:none;">
+          <input type="text" id="calItemInput" placeholder="Add item for this date…" autocomplete="off">
+          <button type="button" class="add">Add</button>
+        </form>
+        <div id="calItemsWrap"></div>
+      </div>
+    </div>
+
+    <div class="section" id="section-ledger">
+      <div class="section-head">
+        <div class="section-title">Ledger <span class="count" id="tally-ledger">0</span></div>
+      </div>
+      <form class="add-row ledger-row no-generic-add" id="ledgerForm">
+        <input type="text" id="ledgerAutomation" placeholder="Automation…" autocomplete="off">
+        <input type="text" id="ledgerDesc" placeholder="Description…" autocomplete="off">
+        <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off">
+        <button type="button" class="add">Add</button>
+      </form>
+      <ul class="list" id="ledgerList"></ul>
+    </div>
+  </div>
+
+
+</div>
+
+
+<div class="restaurants-page" id="otherPage">
+  <div class="restaurants-page-header">
+    <button type="button" class="back-btn" id="otherBackBtn">← Back</button>
+    <h2>Other</h2>
+    <span class="count" id="tally-other">0 items</span>
+  </div>
+  <form class="add-row restaurant-add" id="addOtherForm">
+    <input type="text" id="otherInput" placeholder="Add a category…" autocomplete="off">
+    <button type="button" class="add">Add</button>
+  </form>
+  <div class="resto-grid" id="otherContainer"></div>
+</div>
+
+<div class="status" id="status"></div>
+
+<script>
+/* Sets a real, JS-measured viewport height as a CSS custom property. iOS Safari's
+   address bar can collapse/expand after first paint, and vh/dvh units sometimes
+   don't recompute correctly until then — this keeps the fixed mobile layout (and
+   therefore the Calendar page's visible height) accurate from the very first frame,
+   and keeps it correct as the browser chrome changes size. */
+function setAppViewportHeight(){
+  document.documentElement.style.setProperty('--app-vh', (window.innerHeight * 0.01) + 'px');
+}
+setAppViewportHeight();
+window.addEventListener('resize', setAppViewportHeight);
+window.addEventListener('orientationchange', () => setTimeout(setAppViewportHeight, 150));
+
+if('scrollRestoration' in history){ history.scrollRestoration = 'manual'; }
+window.scrollTo(0, 0);
+
+const STORAGE_KEY = 'tpas2:tasks';
+let data = { list: [], calendar: {}, other: [], expenses: [], recurringEvents: [], spanEvents: [] };
+let undoStack = [];
+let lastSavedSnapshot = null;
+
+const status = document.getElementById('status');
+const saveBadge = document.getElementById('saveBadge');
+saveBadge.addEventListener('click', () => {
+  saveTasks();
+});
+const saveBadgeText = document.getElementById('saveBadgeText');
+const listEls = {
+  list: document.getElementById('list-list')
+};
+const tallyEls = {
+  list: document.getElementById('tally-list')
+};
+const otherContainer = document.getElementById('otherContainer');
+const otherTally = document.getElementById('tally-other');
+
+function showStatus(msg){
+  status.textContent = msg;
+  status.classList.add('show');
+  clearTimeout(showStatus._t);
+  showStatus._t = setTimeout(()=> status.classList.remove('show'), 1400);
+}
+
+function setSaveBadge(state, text){
+  const dot = saveBadge.querySelector('.dot');
+  saveBadge.classList.remove('saving', 'error');
+  if(state === 'saving') saveBadge.classList.add('saving');
+  if(state === 'error') saveBadge.classList.add('error');
+  saveBadgeText.textContent = text;
+
+  if(state === 'saved'){
+    dot.classList.remove('pop');
+    void dot.offsetWidth; // restart animation
+    dot.classList.add('pop');
+  }
+}
+
+async function loadTasks(){
+  let loaded = false;
+  try{
+    const result = await window.storage.get(STORAGE_KEY, false);
+    if(result){
+      data = JSON.parse(result.value);
+      loaded = true;
+    }
+  }catch(e){}
+  if(!loaded){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) data = JSON.parse(raw);
+    }catch(e){}
+  }
+  if(!data.list) data.list = [];
+  if(!data.other) data.other = [];
+  if(!data.expenses) data.expenses = [];
+  if(!data.recurringEvents) data.recurringEvents = [];
+  if(!data.spanEvents) data.spanEvents = [];
+  if(!data.ledger) data.ledger = [];
+  // one-time seed: the three recurring automation schedules + their known activity log entries
+  if(!data.automationsSeeded){
+    data.automationsSeeded = true;
+    const mk = (id) => id + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+    data.recurringEvents.push(
+      { id: mk('auto-panismo'), text: 'Panismo Invoice', time: null, repeat: 'monthly', startDate: '2026-09-01', doneDates: {}, skipDates: {}, note: 'Sends 1 invoice (.xlsx). Invoice number + date + rent period advance monthly.' },
+      { id: mk('auto-theomie'), text: 'Theomie Statements', time: null, repeat: 'monthly', startDate: '2026-09-10', doneDates: {}, skipDates: {}, note: 'Sends 7 rent statement PDFs (one per property). Statement number + dates advance monthly.' },
+      { id: mk('auto-tp2'), text: 'TP2 Mazda Invoice', time: null, repeat: 'monthly', startDate: '2026-09-14', doneDates: {}, skipDates: {}, note: 'Sends 1 invoice (.pdf). Invoice number + date + line-item month advance monthly.' }
+    );
+    data.ledger.push(
+      { id: mk('ledger'), date: '2026-09-06', automation: 'Panismo Invoice', description: 'Invoice No. 010, rent period Oct 2026 (test run)', amount: '€1,249.50', delivery: 'in-app + email', paid: false, paidAt: null },
+      { id: mk('ledger'), date: '2026-09-06', automation: 'Theomie Statements', description: 'Statement No. 6 for all 7 properties, dated 11/09/2026', amount: 'varies by property', delivery: 'in-app', paid: false, paidAt: null },
+      { id: mk('ledger'), date: '2026-09-06', automation: 'TP2 Mazda Invoice', description: 'Invoice #12, dated Sep 14 2026', amount: '€500.00', delivery: 'in-app', paid: false, paidAt: null }
+    );
+  }
+  // migrate any expenses saved before monthly scoping existed
+  if(data.expenses){
+    const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+    data.expenses.forEach(e => {
+      if(!e.month) e.month = currentMonth;
+      if(!e.createdAt) e.createdAt = 0;
+    });
+  }
+  if(!data.calendar) data.calendar = {};
+  // one-time migration: fold any items left over from the removed Today section into List
+  if(data.today && data.today.length){
+    data.list = data.today.concat(data.list);
+    delete data.today;
+  }
+  lastSavedSnapshot = JSON.stringify(data);
+  renderAll();
+}
+
+async function saveTasks(){
+  setSaveBadge('saving', 'Saving…');
+  const started = Date.now();
+
+  if(lastSavedSnapshot !== null){
+    undoStack.push(lastSavedSnapshot);
+    if(undoStack.length > 20) undoStack.shift();
+    updateUndoButtonState();
+  }
+
+  data.updatedAt = Date.now();
+  let localOk = true;
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){ localOk = false; }
+  lastSavedSnapshot = JSON.stringify(data);
+  pushToSync();
+
+  try{
+    await window.storage.set(STORAGE_KEY, JSON.stringify(data), false);
+  }catch(e){}
+
+  const elapsed = Date.now() - started;
+  const minSpin = 350;
+  if(elapsed < minSpin){
+    await new Promise(r => setTimeout(r, minSpin - elapsed));
+  }
+
+  if(localOk){
+    setSaveBadge('saved', 'Saved');
+  }else{
+    setSaveBadge('error', 'Not saved');
+  }
+}
+
+function renderAll(){
+  const steps = [
+    () => renderSection('list'),
+    () => renderCalendar(),
+    () => renderOther(),
+    () => renderExpenses()
+  ];
+  steps.forEach(step => {
+    try{ step(); }catch(e){ console.error('render step failed:', e); }
+  });
+}
+
+function renderSection(section){
+  const tasks = data[section];
+  const container = listEls[section];
+  container.innerHTML = '';
+  const open = tasks.filter(t => !t.done).length;
+  tallyEls[section].textContent = `${tasks.length} total`;
+
+  if(tasks.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'list is empty';
+    container.appendChild(empty);
+    return;
+  }
+
+  tasks.forEach((t) => {
+    const li = document.createElement('li');
+    li.className = 'item' + (t.done ? ' done' : '');
+    li.dataset.id = t.id;
+    li.dataset.section = section;
+
+    const handle = document.createElement('div');
+    handle.className = 'handle';
+    handle.textContent = '⠿';
+    handle.addEventListener('pointerdown', (e) => startDrag(e, t.id, section));
+
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.onclick = () => toggle(section, t.id);
+
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = t.text;
+    text.onclick = () => {
+      startInlineEdit(text, t.text, (newVal) => {
+        if(newVal !== null){ t.text = newVal; saveTasks(); }
+        renderSection(section);
+      });
+    };
+
+    const stampMark = document.createElement('div');
+    stampMark.className = 'stamp-mark';
+    stampMark.textContent = 'DONE';
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => remove(section, t.id);
+
+    li.appendChild(handle);
+    li.appendChild(box);
+    li.appendChild(text);
+    li.appendChild(stampMark);
+    li.appendChild(del);
+    container.appendChild(li);
+  });
+}
+
+/* shared inline-edit helper: replaces a text element with an input, commits on blur/Enter, cancels on Escape */
+/* shared drag-to-reorder for sub-items within a single card (restaurants/other) */
+let subDragState = null;
+
+function startSubItemDrag(e, items, itemId, rerender){
+  e.preventDefault();
+  const itemEl = e.target.closest('.sub-item');
+  const container = itemEl.parentElement;
+  const rect = itemEl.getBoundingClientRect();
+
+  const clone = document.createElement('div');
+  clone.className = 'drag-clone';
+  clone.textContent = itemEl.querySelector('.text').textContent;
+  clone.style.left = rect.left + 'px';
+  clone.style.top = rect.top + 'px';
+  clone.style.width = rect.width + 'px';
+  document.body.appendChild(clone);
+
+  const indicator = document.createElement('div');
+  indicator.className = 'drop-indicator';
+  indicator.style.display = 'none';
+  document.body.appendChild(indicator);
+
+  itemEl.classList.add('dragging');
+
+  subDragState = {
+    items, itemId, container, rerender, clone, indicator, itemEl,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top,
+    hoverIndex: null
+  };
+
+  document.body.style.overflow = 'hidden';
+  document.body.style.touchAction = 'none';
+  window.addEventListener('pointermove', onSubDragMove, { passive: false });
+  window.addEventListener('pointerup', onSubDragEnd);
+}
+
+function onSubDragMove(e){
+  if(!subDragState) return;
+  e.preventDefault();
+  subDragState.clone.style.left = (e.clientX - subDragState.offsetX) + 'px';
+  subDragState.clone.style.top = (e.clientY - subDragState.offsetY) + 'px';
+
+  const siblings = Array.from(subDragState.container.querySelectorAll('.sub-item')).filter(el => el !== subDragState.itemEl);
+  let insertBeforeEl = null;
+  let index = siblings.length;
+  for(let i = 0; i < siblings.length; i++){
+    const r = siblings[i].getBoundingClientRect();
+    const midpoint = r.top + r.height / 2;
+    if(e.clientY < midpoint){
+      insertBeforeEl = siblings[i];
+      index = i;
+      break;
+    }
+  }
+  subDragState.hoverIndex = index;
+
+  const rect = insertBeforeEl
+    ? insertBeforeEl.getBoundingClientRect()
+    : (siblings.length > 0 ? siblings[siblings.length - 1].getBoundingClientRect() : subDragState.container.getBoundingClientRect());
+  const y = insertBeforeEl ? rect.top : (siblings.length > 0 ? rect.bottom : rect.top);
+
+  subDragState.indicator.style.display = 'block';
+  subDragState.indicator.style.left = rect.left + 'px';
+  subDragState.indicator.style.width = rect.width + 'px';
+  subDragState.indicator.style.top = (y - 1) + 'px';
+}
+
+function onSubDragEnd(e){
+  if(!subDragState) return;
+  window.removeEventListener('pointermove', onSubDragMove);
+  window.removeEventListener('pointerup', onSubDragEnd);
+  document.body.style.overflow = '';
+  document.body.style.touchAction = '';
+
+  const { items, itemId, rerender, clone, indicator, itemEl, hoverIndex } = subDragState;
+  clone.remove();
+  indicator.remove();
+  itemEl.classList.remove('dragging');
+
+  const fromIdx = items.findIndex(i => i.id === itemId);
+  if(fromIdx !== -1 && hoverIndex !== null){
+    const [item] = items.splice(fromIdx, 1);
+    let insertAt = hoverIndex;
+    if(fromIdx < insertAt) insertAt--;
+    insertAt = Math.max(0, Math.min(insertAt, items.length));
+    items.splice(insertAt, 0, item);
+    rerender();
+    saveTasks();
+  }
+  subDragState = null;
+}
+
+function startInlineEdit(textEl, currentValue, onCommit){
+  if(textEl.isContentEditable) return; // already editing — let normal cursor placement happen
+
+  textEl.contentEditable = 'true';
+  textEl.classList.add('editing');
+  textEl.focus();
+
+  // select all existing text so typing replaces it, same as before
+  const range = document.createRange();
+  range.selectNodeContents(textEl);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+
+  let done = false;
+  function finish(commit){
+    if(done) return;
+    done = true;
+    textEl.contentEditable = 'false';
+    textEl.classList.remove('editing');
+    if(commit){
+      const val = textEl.textContent.trim();
+      if(val && val !== currentValue) onCommit(val);
+      else{ textEl.textContent = currentValue; onCommit(null); }
+    }else{
+      textEl.textContent = currentValue;
+      onCommit(null);
+    }
+  }
+  textEl.addEventListener('blur', () => finish(true), { once: true });
+  textEl.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); textEl.blur(); }
+    if(e.key === 'Escape'){ e.preventDefault(); textEl.textContent = currentValue; textEl.blur(); }
+  });
+}
+
+/* ---------- expenses ---------- */
+const expensesListEl = document.getElementById('list-expenses');
+const expenseDescInput = document.getElementById('expenseDesc');
+const expenseAmountInput = document.getElementById('expenseAmount');
+const expenseTypeToggle = document.getElementById('expenseTypeToggle');
+const expenseMonthLabel = document.getElementById('expenseMonthLabel');
+const carryRow = document.getElementById('carryRow');
+const sumCarry = document.getElementById('sumCarry');
+const sumIncome = document.getElementById('sumIncome');
+const sumExpense = document.getElementById('sumExpense');
+const sumBalance = document.getElementById('sumBalance');
+
+let expenseViewDate = new Date();
+
+function expenseMonthKey(date){
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`;
+}
+function nextMonthKey(key){
+  let [y, m] = key.split('-').map(Number);
+  m++; if(m > 12){ m = 1; y++; }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+function formatCurrency(n){
+  return '€' + (Math.round(Math.abs(n) * 100) / 100).toFixed(2);
+}
+function formatExpenseTimestamp(ts){
+  if(!ts) return '';
+  const d = new Date(ts);
+  const datePart = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  return `${datePart}, ${timePart}`;
+}
+
+function toDatetimeLocalValue(ts){
+  const d = ts ? new Date(ts) : new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function startTimestampEdit(el, exp, onCommit){
+  const input = document.createElement('input');
+  input.type = 'datetime-local';
+  input.className = 'expense-timestamp-input';
+  input.value = toDatetimeLocalValue(exp.createdAt);
+  el.replaceWith(input);
+  input.focus();
+  let done = false;
+  function commit(){
+    if(done) return;
+    done = true;
+    if(input.value){
+      const ts = new Date(input.value).getTime();
+      if(!isNaN(ts)){ exp.createdAt = ts; saveTasks(); }
+    }
+    onCommit();
+  }
+  input.addEventListener('change', commit);
+  input.addEventListener('blur', commit);
+}
+function formatSigned(n){
+  return (n < 0 ? '−' : '') + formatCurrency(n);
+}
+
+// Walks forward month-by-month from the earliest transaction (through any empty months)
+// so a positive balance keeps rolling into the next month, stopping at the target month.
+function computeMonthStats(targetKey){
+  const allKeys = [...new Set(data.expenses.map(e => e.month))].filter(Boolean).sort();
+  if(allKeys.length === 0 || targetKey < allKeys[0]){
+    const tx = data.expenses.filter(e => e.month === targetKey);
+    const income = tx.filter(e => e.type === 'income').reduce((s,e) => s + (Number(e.amount)||0), 0);
+    const expense = tx.filter(e => e.type === 'expense').reduce((s,e) => s + (Number(e.amount)||0), 0);
+    return { income, expense, carryIn: 0, balance: income - expense };
+  }
+  let cursor = allKeys[0];
+  let running = 0;
+  let result = null;
+  let guard = 0;
+  while(guard < 3000){
+    const tx = data.expenses.filter(e => e.month === cursor);
+    const income = tx.filter(e => e.type === 'income').reduce((s,e) => s + (Number(e.amount)||0), 0);
+    const expense = tx.filter(e => e.type === 'expense').reduce((s,e) => s + (Number(e.amount)||0), 0);
+    const carryIn = running > 0 ? running : 0;
+    const balance = carryIn + income - expense;
+    running = balance;
+    if(cursor === targetKey){ result = { income, expense, carryIn, balance }; break; }
+    cursor = nextMonthKey(cursor);
+    guard++;
+  }
+  return result || { income: 0, expense: 0, carryIn: 0, balance: 0 };
+}
+
+expenseTypeToggle.addEventListener('click', () => {
+  const isExpense = expenseTypeToggle.dataset.type === 'expense';
+  expenseTypeToggle.dataset.type = isExpense ? 'income' : 'expense';
+  expenseTypeToggle.textContent = isExpense ? '+' : '−';
+});
+
+document.getElementById('expensePrevBtn').addEventListener('click', () => {
+  expenseViewDate = new Date(expenseViewDate.getFullYear(), expenseViewDate.getMonth()-1, 1);
+  renderExpenses();
+});
+document.getElementById('expenseNextBtn').addEventListener('click', () => {
+  expenseViewDate = new Date(expenseViewDate.getFullYear(), expenseViewDate.getMonth()+1, 1);
+  renderExpenses();
+});
+
+function groupExpenses(entries){
+  const groups = [];
+  const byKey = {};
+  entries.forEach(e => {
+    const key = e.type + '|' + e.desc.trim().toLowerCase();
+    if(!byKey[key]){
+      const group = { desc: e.desc, type: e.type, total: 0, ids: [], latestAt: 0 };
+      byKey[key] = group;
+      groups.push(group);
+    }
+    byKey[key].total += Number(e.amount) || 0;
+    byKey[key].ids.push(e.id);
+    byKey[key].latestAt = Math.max(byKey[key].latestAt, e.createdAt || 0);
+  });
+  groups.sort((a, b) => b.latestAt - a.latestAt);
+  return groups;
+}
+
+function renderExpenses(){
+  const monthKey = expenseMonthKey(expenseViewDate);
+  expenseMonthLabel.textContent = `${MONTH_NAMES[expenseViewDate.getMonth()]} ${expenseViewDate.getFullYear()}`;
+
+  const monthExpenses = data.expenses.filter(e => e.month === monthKey);
+  const stats = computeMonthStats(monthKey);
+  if(stats.carryIn > 0){
+    carryRow.style.display = 'flex';
+    sumCarry.textContent = '+' + formatCurrency(stats.carryIn);
+  } else {
+    carryRow.style.display = 'none';
+  }
+  sumIncome.textContent = '+' + formatCurrency(stats.income);
+  sumExpense.textContent = '−' + formatCurrency(stats.expense);
+  sumBalance.textContent = formatSigned(stats.balance);
+  sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
+  renderExpenseItems();
+}
+
+function renderExpenseItems(){
+  const monthKey = expenseMonthKey(expenseViewDate);
+  const monthExpenses = data.expenses
+    .filter(e => e.month === monthKey)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+  expensesListEl.innerHTML = '';
+  if(monthExpenses.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'nothing this month';
+    expensesListEl.appendChild(empty);
+    return;
+  }
+
+  monthExpenses.forEach(exp => {
+    const li = document.createElement('li');
+    li.className = 'expense-item';
+
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = exp.desc;
+    text.onclick = () => {
+      startInlineEdit(text, exp.desc, (newVal) => {
+        if(newVal !== null){ exp.desc = newVal; saveTasks(); }
+        renderExpenses();
+      });
+    };
+    li.appendChild(text);
+
+    const ts = document.createElement('div');
+    ts.className = 'expense-timestamp';
+    ts.textContent = formatExpenseTimestamp(exp.createdAt);
+    ts.onclick = () => {
+      startTimestampEdit(ts, exp, () => renderExpenses());
+    };
+    li.appendChild(ts);
+
+    const isIncome = exp.type === 'income';
+    const amount = document.createElement('div');
+    amount.className = 'expense-amount' + (isIncome ? ' income' : '');
+    amount.textContent = (isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    amount.onclick = () => {
+      startInlineEdit(amount, String(exp.amount), (newVal) => {
+        if(newVal !== null){
+          const parsed = parseFloat(newVal.replace(/[^0-9.\-]/g, ''));
+          if(!isNaN(parsed)){ exp.amount = Math.abs(parsed); saveTasks(); }
+        }
+        renderExpenses();
+      });
+    };
+    li.appendChild(amount);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      data.expenses = data.expenses.filter(e => e.id !== exp.id);
+      renderExpenses(); saveTasks();
+      showStatus('removed');
+    };
+    li.appendChild(del);
+
+    expensesListEl.appendChild(li);
+  });
+}
+
+function formatLedgerDate(dateStr){
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function toggleLedgerPaid(id){
+  const entry = data.ledger.find(e => e.id === id);
+  if(!entry) return;
+  entry.paid = !entry.paid;
+  entry.paidAt = entry.paid ? Date.now() : null;
+  renderLedger(); saveTasks();
+}
+
+function renderLedger(){
+  const ledgerListEl = document.getElementById('ledgerList');
+  const tallyEl = document.getElementById('tally-ledger');
+  if(!ledgerListEl) return;
+
+  const entries = [...data.ledger].sort((a, b) => b.date.localeCompare(a.date));
+  const unpaidCount = entries.filter(e => !e.paid).length;
+  tallyEl.textContent = unpaidCount > 0 ? `${unpaidCount} unpaid` : `${entries.length}`;
+
+  ledgerListEl.innerHTML = '';
+  if(entries.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'no automation runs logged yet';
+    ledgerListEl.appendChild(empty);
+    return;
+  }
+
+  entries.forEach(entry => {
+    const li = document.createElement('li');
+    li.className = 'ledger-item';
+
+    const dateBadge = document.createElement('div');
+    dateBadge.className = 'time-badge';
+    dateBadge.textContent = formatDateShort(entry.date);
+    dateBadge.onclick = () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.className = 'cal-enddate-input';
+      input.value = entry.date;
+      dateBadge.replaceWith(input);
+      input.focus();
+      let done = false;
+      function commit(){
+        if(done) return;
+        done = true;
+        if(input.value) entry.date = input.value;
+        renderLedger(); saveTasks();
+      }
+      input.addEventListener('change', commit);
+      input.addEventListener('blur', commit);
+    };
+    li.appendChild(dateBadge);
+
+    const automationBadge = document.createElement('div');
+    automationBadge.className = 'ledger-automation-badge';
+    automationBadge.textContent = entry.automation || '+ automation';
+    automationBadge.onclick = () => {
+      startInlineEdit(automationBadge, entry.automation || '', (newVal) => {
+        if(newVal !== null){ entry.automation = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
+    li.appendChild(automationBadge);
+
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = entry.description;
+    text.onclick = () => {
+      startInlineEdit(text, entry.description, (newVal) => {
+        if(newVal !== null){ entry.description = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
+    li.appendChild(text);
+
+    const amount = document.createElement('div');
+    amount.className = 'ledger-amount';
+    amount.textContent = entry.amount || '—';
+    amount.onclick = () => {
+      startInlineEdit(amount, entry.amount || '', (newVal) => {
+        if(newVal !== null){ entry.amount = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
+    li.appendChild(amount);
+
+    const isFailed = entry.delivery === 'failed';
+    if(isFailed) li.classList.add('failed');
+
+    const deliveryBadge = document.createElement('div');
+    deliveryBadge.className = 'ledger-automation-badge' + (isFailed ? ' failed' : '');
+    deliveryBadge.textContent = entry.delivery || '+ delivery';
+    deliveryBadge.onclick = () => {
+      startInlineEdit(deliveryBadge, entry.delivery || '', (newVal) => {
+        if(newVal !== null){ entry.delivery = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
+    li.appendChild(deliveryBadge);
+
+    if(isFailed){
+      const failedIndicator = document.createElement('div');
+      failedIndicator.className = 'failed-indicator';
+      failedIndicator.textContent = '⚠ failed to send';
+      failedIndicator.title = 'This run did not deliver — nothing went out that month';
+      li.appendChild(failedIndicator);
+    } else {
+      const paidToggle = document.createElement('div');
+      paidToggle.className = 'paid-toggle' + (entry.paid ? ' paid' : '');
+      paidToggle.textContent = entry.paid ? '✓ paid' : 'unpaid';
+      paidToggle.onclick = () => toggleLedgerPaid(entry.id);
+      li.appendChild(paidToggle);
+    }
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      data.ledger = data.ledger.filter(e => e.id !== entry.id);
+      renderLedger(); saveTasks();
+      showStatus('removed');
+    };
+    li.appendChild(del);
+
+    ledgerListEl.appendChild(li);
+  });
+}
+
+function addLedgerEntry(){
+  const automation = document.getElementById('ledgerAutomation').value.trim();
+  const desc = document.getElementById('ledgerDesc').value.trim();
+  const amount = document.getElementById('ledgerAmount').value.trim();
+  if(!desc) return;
+  data.ledger.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    date: dateKey(new Date()),
+    automation, description: desc, amount, delivery: '',
+    paid: false, paidAt: null
+  });
+  document.getElementById('ledgerAutomation').value = '';
+  document.getElementById('ledgerDesc').value = '';
+  document.getElementById('ledgerAmount').value = '';
+  renderLedger(); saveTasks();
+}
+document.getElementById('ledgerForm').addEventListener('submit', (e) => e.preventDefault());
+document.querySelector('#ledgerForm button.add').addEventListener('click', addLedgerEntry);
+['ledgerAutomation','ledgerDesc','ledgerAmount'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
+  });
+});
+
+function addExpense(){
+  const desc = expenseDescInput.value.trim();
+  const amount = parseFloat(expenseAmountInput.value);
+  if(!desc || isNaN(amount)) return;
+  const type = expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
+  const monthKey = expenseMonthKey(expenseViewDate);
+
+  data.expenses.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    desc, amount: Math.abs(amount), type,
+    month: monthKey, createdAt: Date.now()
+  });
+  expenseDescInput.value = '';
+  expenseAmountInput.value = '';
+  renderExpenses(); saveTasks();
+}
+
+document.getElementById('expenseForm').addEventListener('submit', (e) => e.preventDefault());
+document.querySelector('#expenseForm button.add').addEventListener('click', addExpense);
+expenseDescInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); addExpense(); }
+});
+expenseAmountInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); addExpense(); }
+});
+
+
+function toggle(section, id){
+  const t = data[section].find(t => t.id === id);
+  if(t){ t.done = !t.done; renderSection(section); saveTasks(); }
+}
+
+function remove(section, id){
+  data[section] = data[section].filter(t => t.id !== id);
+  renderSection(section); saveTasks();
+  showStatus('removed');
+}
+
+document.querySelectorAll('form.add-row:not(.restaurant-add):not(.no-generic-add)').forEach(form => {
+  const inputEl = form.querySelector('input');
+  const btn = form.querySelector('button.add');
+  const section = form.dataset.section;
+
+  function doAdd(){
+    const val = inputEl.value.trim();
+    if(!val) return;
+    data[section].push({ id: Date.now() + Math.random().toString(36).slice(2), text: val, done: false });
+    inputEl.value = '';
+    renderSection(section); saveTasks();
+  }
+
+  btn.addEventListener('click', doAdd);
+  inputEl.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); doAdd(); }
+  });
+  form.addEventListener('submit', (e) => e.preventDefault());
+});
+
+/* ---------- calendar ---------- */
+let calViewDate = new Date();
+let calSelectedKey = dateKey(new Date());
+
+function dateKey(d){
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+const calGrid = document.getElementById('calGrid');
+const calMonthLabel = document.getElementById('calMonthLabel');
+const calDetail = document.getElementById('calDetail');
+const calTally = document.getElementById('tally-calendar');
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function occursOnDate(ev, key){
+  if(key < ev.startDate) return false;
+  if(ev.skipDates && ev.skipDates[key]) return false;
+  const [sy, sm, sd] = ev.startDate.split('-').map(Number);
+  const [y, m, d] = key.split('-').map(Number);
+  if(ev.repeat === 'daily') return true;
+  if(ev.repeat === 'weekly'){
+    const startDow = new Date(sy, sm-1, sd).getDay();
+    const curDow = new Date(y, m-1, d).getDay();
+    return startDow === curDow;
+  }
+  if(ev.repeat === 'biweekly'){
+    const startD = new Date(sy, sm-1, sd);
+    const curD = new Date(y, m-1, d);
+    const daysDiff = Math.round((curD - startD) / 86400000);
+    return daysDiff >= 0 && daysDiff % 14 === 0;
+  }
+  if(ev.repeat === 'monthly'){
+    const lastDayOfCurMonth = new Date(y, m, 0).getDate();
+    const targetDay = Math.min(sd, lastDayOfCurMonth);
+    return d === targetDay;
+  }
+  if(ev.repeat === 'yearly') return sm === m && sd === d;
+  return false;
+}
+
+function occurrencesOnDate(key){
+  return data.recurringEvents.filter(ev => occursOnDate(ev, key));
+}
+
+function occursInRange(ev, key){
+  return key >= ev.startDate && key <= ev.endDate;
+}
+function spansOnDate(key){
+  return data.spanEvents.filter(ev => occursInRange(ev, key));
+}
+function addSpanEvent(text, time, startDate, endDate){
+  data.spanEvents.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    text, time: time || null, startDate, endDate, doneDates: {}
+  });
+  renderCalendar(); saveTasks();
+}
+function toggleSpanOccurrence(evId, key){
+  const ev = data.spanEvents.find(e => e.id === evId);
+  if(!ev) return;
+  if(!ev.doneDates) ev.doneDates = {};
+  ev.doneDates[key] = !ev.doneDates[key];
+  renderCalendar(); saveTasks();
+}
+function removeSpanEvent(evId){
+  data.spanEvents = data.spanEvents.filter(e => e.id !== evId);
+  renderCalendar(); saveTasks();
+  showStatus('multi-day event removed');
+}
+function formatDateShort(key){
+  const [y,m,d] = key.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function renderCalendar(){
+  const year = calViewDate.getFullYear();
+  const month = calViewDate.getMonth();
+  calMonthLabel.textContent = `${MONTH_NAMES[month]} ${year}`;
+
+  const firstDay = new Date(year, month, 1);
+  const startOffset = (firstDay.getDay() + 6) % 7; // shift so Monday=0 ... Sunday=6
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const todayKey = dateKey(new Date());
+
+  calGrid.innerHTML = '';
+  for(let i=0; i<startOffset; i++){
+    const filler = document.createElement('div');
+    filler.className = 'cal-day empty';
+    calGrid.appendChild(filler);
+  }
+  let totalItems = 0;
+  for(let d=1; d<=daysInMonth; d++){
+    const cellDate = new Date(year, month, d);
+    const key = dateKey(cellDate);
+    const items = data.calendar[key] || [];
+    const recurring = occurrencesOnDate(key);
+    const spans = spansOnDate(key);
+    const count = items.length + recurring.length + spans.length;
+    totalItems += count;
+
+    const cell = document.createElement('div');
+    cell.className = 'cal-day';
+    if(key === todayKey) cell.classList.add('today');
+    if(key === calSelectedKey) cell.classList.add('selected');
+    cell.textContent = d;
+    if(count > 0){
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      cell.appendChild(dot);
+    }
+    cell.onclick = () => { calSelectedKey = (calSelectedKey === key) ? null : key; renderCalendar(); };
+    calGrid.appendChild(cell);
+  }
+
+  calTally.textContent = totalItems > 0 ? `${totalItems} this view` : '';
+  renderCalDetail();
+  renderOverdue();
+  renderTodayCalendar();
+  renderLedger();
+}
+
+const calDetailLabel = document.getElementById('calDetailLabel');
+const calHint = document.getElementById('calHint');
+const calAddForm = document.getElementById('calAddForm');
+const calItemInput = document.getElementById('calItemInput');
+const calItemTime = document.getElementById('calItemTime');
+const calRepeatSelect = document.getElementById('calRepeatSelect');
+const calEndDateToggle = document.getElementById('calEndDateToggle');
+const calEndDateInput = document.getElementById('calEndDateInput');
+calEndDateToggle.addEventListener('click', () => {
+  const showing = calEndDateInput.style.display !== 'none';
+  if(showing){
+    calEndDateInput.style.display = 'none';
+    calEndDateInput.value = '';
+    calEndDateToggle.classList.remove('active');
+    calEndDateToggle.textContent = '+ end date';
+    calRepeatSelect.disabled = false;
+  } else {
+    calEndDateInput.style.display = 'block';
+    calEndDateToggle.classList.add('active');
+    calEndDateToggle.textContent = '✕ end date';
+    calRepeatSelect.value = '';
+    calRepeatSelect.disabled = true;
+    calEndDateInput.focus();
+  }
+});
+const calItemsWrap = document.getElementById('calItemsWrap');
+
+function formatTime12h(t){
+  if(!t) return '';
+  const [h, m] = t.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${period}`;
+}
+
+const REPEAT_LABELS = { daily: 'Daily', weekly: 'Weekly', biweekly: 'Every 2wk', monthly: 'Monthly', yearly: 'Yearly' };
+const REPEAT_OPTIONS = [
+  ['daily', 'Daily'], ['weekly', 'Weekly'], ['biweekly', 'Every 2 weeks'],
+  ['monthly', 'Monthly'], ['yearly', 'Yearly']
+];
+
+function buildRepeatSelect(currentValue){
+  const select = document.createElement('select');
+  select.className = 'cal-repeat-select';
+  if(!currentValue){
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choose…';
+    placeholder.disabled = true;
+    placeholder.selected = true;
+    select.appendChild(placeholder);
+  }
+  REPEAT_OPTIONS.forEach(([val, label]) => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = label;
+    if(val === currentValue) opt.selected = true;
+    select.appendChild(opt);
+  });
+  return select;
+}
+
+function sortCalendarItems(items){
+  return [...items].sort((a, b) => {
+    if(a.time && b.time) return a.time.localeCompare(b.time);
+    if(a.time && !b.time) return -1;
+    if(!a.time && b.time) return 1;
+    return 0;
+  });
+}
+
+function renderCalDetail(){
+  if(!calSelectedKey){
+    calDetailLabel.style.display = 'none';
+    calAddForm.style.display = 'none';
+    calItemsWrap.style.display = 'none';
+    calHint.style.display = 'block';
+    return;
+  }
+  calHint.style.display = 'none';
+  calDetailLabel.style.display = 'block';
+  calAddForm.style.display = 'flex';
+  calItemsWrap.style.display = 'block';
+
+  const [y,m,d] = calSelectedKey.split('-').map(Number);
+  calDetailLabel.textContent = new Date(y, m-1, d).toDateString();
+
+  const normalItems = (data.calendar[calSelectedKey] || []).map(item => ({
+    kind: 'normal', id: item.id, text: item.text, time: item.time, done: item.done, ref: item
+  }));
+  const recurringItems = occurrencesOnDate(calSelectedKey).map(ev => ({
+    kind: 'recurring', id: ev.id, text: ev.text, time: ev.time,
+    done: !!(ev.doneDates && ev.doneDates[calSelectedKey]), ref: ev
+  }));
+  const spanItems = spansOnDate(calSelectedKey).map(ev => ({
+    kind: 'span', id: ev.id, text: ev.text, time: ev.time,
+    done: !!(ev.doneDates && ev.doneDates[calSelectedKey]), ref: ev
+  }));
+  const items = sortCalendarItems([...normalItems, ...recurringItems, ...spanItems]);
+
+  calItemsWrap.innerHTML = '';
+  if(items.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-sub';
+    empty.textContent = 'nothing added yet';
+    calItemsWrap.appendChild(empty);
+    return;
+  }
+  const list = document.createElement('ul');
+  list.className = 'sub-list';
+  items.forEach(entry => {
+    const li = document.createElement('li');
+    li.className = 'sub-item' + (entry.done ? ' done' : '');
+
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.onclick = () => {
+      if(entry.kind === 'normal') toggleCalendarItem(calSelectedKey, entry.id);
+      else if(entry.kind === 'span') toggleSpanOccurrence(entry.id, calSelectedKey);
+      else toggleRecurringOccurrence(entry.id, calSelectedKey);
+    };
+    li.appendChild(box);
+
+    if(entry.time){
+      const timeBadge = document.createElement('div');
+      timeBadge.className = 'time-badge';
+      timeBadge.style.display = 'flex';
+      timeBadge.style.alignItems = 'center';
+      timeBadge.style.gap = '4px';
+
+      const timeText = document.createElement('span');
+      timeText.textContent = formatTime12h(entry.time);
+      timeText.onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'time';
+        input.className = 'cal-time-input';
+        input.value = entry.time;
+        timeBadge.replaceWith(input);
+        input.focus();
+        let done = false;
+        function commit(){
+          if(done) return;
+          done = true;
+          entry.ref.time = input.value || null;
+          saveTasks();
+          renderCalDetail();
+        }
+        input.addEventListener('change', commit);
+        input.addEventListener('blur', commit);
+      };
+      timeBadge.appendChild(timeText);
+
+      const clearTimeBtn = document.createElement('span');
+      clearTimeBtn.textContent = '✕';
+      clearTimeBtn.style.opacity = '0.7';
+      clearTimeBtn.style.cursor = 'pointer';
+      clearTimeBtn.onclick = (e) => {
+        e.stopPropagation();
+        entry.ref.time = null;
+        saveTasks();
+        renderCalDetail();
+      };
+      timeBadge.appendChild(clearTimeBtn);
+
+      li.appendChild(timeBadge);
+    } else {
+      const addTimeBtn = document.createElement('button');
+      addTimeBtn.className = 'time-badge';
+      addTimeBtn.style.opacity = '0.5';
+      addTimeBtn.textContent = '+ time';
+      addTimeBtn.onclick = () => {
+        const input = document.createElement('input');
+        input.type = 'time';
+        input.className = 'cal-time-input';
+        addTimeBtn.replaceWith(input);
+        input.focus();
+        let done = false;
+        function commit(){
+          if(done) return;
+          done = true;
+          if(input.value){ entry.ref.time = input.value; saveTasks(); }
+          renderCalDetail();
+        }
+        input.addEventListener('change', commit);
+        input.addEventListener('blur', commit);
+      };
+      li.appendChild(addTimeBtn);
+    }
+
+    if(entry.kind === 'recurring'){
+      const badge = document.createElement('div');
+      badge.className = 'repeat-badge';
+      badge.textContent = '↻ ' + (REPEAT_LABELS[entry.ref.repeat] || 'Repeats');
+      badge.onclick = () => {
+        const select = buildRepeatSelect(entry.ref.repeat);
+        badge.replaceWith(select);
+        select.focus();
+        function commit(){
+          entry.ref.repeat = select.value;
+          saveTasks();
+          renderCalendar();
+        }
+        select.addEventListener('change', commit);
+        select.addEventListener('blur', () => renderCalDetail());
+      };
+      li.appendChild(badge);
+    }
+    if(entry.kind === 'span'){
+      const badge = document.createElement('div');
+      badge.className = 'span-badge';
+      badge.textContent = `↔ ${formatDateShort(entry.ref.startDate)}–${formatDateShort(entry.ref.endDate)}`;
+      badge.onclick = () => {
+        const newStart = prompt('Start date (YYYY-MM-DD):', entry.ref.startDate);
+        if(newStart === null) return;
+        const newEnd = prompt('End date (YYYY-MM-DD):', entry.ref.endDate);
+        if(newEnd === null) return;
+        if(/^\d{4}-\d{2}-\d{2}$/.test(newStart) && /^\d{4}-\d{2}-\d{2}$/.test(newEnd) && newStart <= newEnd){
+          entry.ref.startDate = newStart;
+          entry.ref.endDate = newEnd;
+          saveTasks();
+          renderCalendar();
+        } else {
+          showStatus('invalid date range');
+        }
+      };
+      li.appendChild(badge);
+    }
+    if(entry.kind === 'normal'){
+      const addRepeatBtn = document.createElement('button');
+      addRepeatBtn.className = 'repeat-badge add-repeat';
+      addRepeatBtn.textContent = '+ repeat';
+      addRepeatBtn.onclick = () => {
+        const select = buildRepeatSelect('');
+        addRepeatBtn.replaceWith(select);
+        select.focus();
+        select.addEventListener('change', () => {
+          if(select.value) convertToRecurring(entry.ref, calSelectedKey, select.value);
+        });
+        select.addEventListener('blur', () => renderCalDetail());
+      };
+      li.appendChild(addRepeatBtn);
+
+      const dateBadge = document.createElement('div');
+      dateBadge.className = 'span-badge';
+      dateBadge.textContent = '📅 ' + formatDateShort(calSelectedKey);
+      dateBadge.onclick = () => {
+        const dateInput = document.createElement('input');
+        dateInput.type = 'date';
+        dateInput.className = 'cal-enddate-input';
+        dateInput.value = calSelectedKey;
+        dateBadge.replaceWith(dateInput);
+        dateInput.focus();
+        let done = false;
+        function commit(){
+          if(done) return;
+          done = true;
+          const newDate = dateInput.value;
+          if(newDate && newDate !== calSelectedKey){
+            moveCalendarItem(entry.id, calSelectedKey, newDate);
+          } else {
+            renderCalDetail();
+          }
+        }
+        dateInput.addEventListener('change', commit);
+        dateInput.addEventListener('blur', commit);
+      };
+      li.appendChild(dateBadge);
+    }
+
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = entry.text;
+    text.onclick = () => {
+      startInlineEdit(text, entry.text, (newVal) => {
+        if(newVal !== null){ entry.ref.text = newVal; saveTasks(); }
+        renderCalDetail();
+      });
+    };
+    li.appendChild(text);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      if(entry.kind === 'normal'){
+        removeCalendarItem(calSelectedKey, entry.id);
+      } else if(entry.kind === 'span'){
+        const ok = confirm(`Delete this whole multi-day event (${formatDateShort(entry.ref.startDate)}–${formatDateShort(entry.ref.endDate)})?`);
+        if(ok) removeSpanEvent(entry.id);
+      } else {
+        const deleteAll = confirm('This is a recurring event.\n\nPress OK to delete the ENTIRE series (all occurrences).\nPress Cancel to choose deleting just this one date instead.');
+        if(deleteAll){
+          removeRecurringEvent(entry.id);
+        } else {
+          const deleteThis = confirm(`Delete just this occurrence (${formatDateShort(calSelectedKey)})? The rest of the series stays.`);
+          if(deleteThis) skipRecurringOccurrence(entry.id, calSelectedKey);
+        }
+      }
+    };
+    li.appendChild(del);
+
+    const noteEl = document.createElement('div');
+    const hasNote = entry.ref.note && entry.ref.note.trim();
+    noteEl.className = 'cal-note' + (hasNote ? '' : ' empty');
+    if(hasNote){
+      const hl = document.createElement('span');
+      hl.className = 'highlight';
+      hl.textContent = entry.ref.note;
+      noteEl.appendChild(hl);
+    } else {
+      noteEl.textContent = '+ add note';
+    }
+    noteEl.onclick = () => {
+      const currentNote = entry.ref.note || '';
+      noteEl.contentEditable = 'true';
+      noteEl.classList.add('editing');
+      noteEl.classList.remove('empty');
+      noteEl.textContent = currentNote;
+      noteEl.focus();
+      const range = document.createRange();
+      range.selectNodeContents(noteEl);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+
+      let done = false;
+      function finish(){
+        if(done) return;
+        done = true;
+        const val = noteEl.textContent.trim();
+        entry.ref.note = val;
+        saveTasks();
+        renderCalDetail();
+      }
+      noteEl.addEventListener('blur', finish, { once: true });
+      noteEl.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); noteEl.blur(); }
+        if(e.key === 'Escape'){ e.preventDefault(); noteEl.textContent = currentNote; noteEl.blur(); }
+      });
+    };
+    li.appendChild(noteEl);
+
+    list.appendChild(li);
+  });
+  calItemsWrap.appendChild(list);
+}
+
+function doCalAdd(){
+  if(!calSelectedKey) return;
+  const val = calItemInput.value.trim();
+  if(!val) return;
+  const time = calItemTime.value || null;
+  const repeat = calRepeatSelect.value;
+  const endDate = calEndDateInput.style.display !== 'none' ? calEndDateInput.value : '';
+
+  if(endDate && endDate >= calSelectedKey){
+    addSpanEvent(val, time, calSelectedKey, endDate);
+  } else if(repeat){
+    addRecurringEvent(val, time, repeat, calSelectedKey);
+  } else {
+    addCalendarItem(calSelectedKey, val, time);
+  }
+  calItemInput.value = '';
+  calItemTime.value = '';
+  calRepeatSelect.value = '';
+  calEndDateInput.value = '';
+  calEndDateInput.style.display = 'none';
+  calEndDateToggle.classList.remove('active');
+  calEndDateToggle.textContent = '+ end date';
+  calRepeatSelect.disabled = false;
+}
+calAddForm.addEventListener('submit', (e) => e.preventDefault());
+document.querySelector('#calAddForm button.add').addEventListener('click', doCalAdd);
+calItemInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); doCalAdd(); }
+});
+calItemTime.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); doCalAdd(); }
+});
+calRepeatSelect.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); doCalAdd(); }
+});
+
+function addCalendarItem(key, text, time){
+  if(!data.calendar[key]) data.calendar[key] = [];
+  data.calendar[key].push({ id: Date.now() + Math.random().toString(36).slice(2), text, done: false, time: time || null });
+  renderCalendar(); saveTasks();
+}
+
+function toggleCalendarItem(key, id){
+  const items = data.calendar[key];
+  if(!items) return;
+  const item = items.find(i => i.id === id);
+  if(item){ item.done = !item.done; renderCalendar(); saveTasks(); }
+}
+
+function renderTodayCalendar(){
+  const listEl = document.getElementById('todayCalList');
+  const tallyEl = document.getElementById('tally-today-cal');
+  if(!listEl) return;
+
+  const todayKey = dateKey(new Date());
+  const items = [];
+
+  (data.calendar[todayKey] || []).forEach(item => {
+    items.push({ key: todayKey, kind: 'normal', ref: item, text: item.text, time: item.time, done: item.done });
+  });
+  data.recurringEvents.forEach(ev => {
+    if(occursOnDate(ev, todayKey)){
+      items.push({ key: todayKey, kind: 'recurring', ref: ev, text: ev.text, time: ev.time, done: !!(ev.doneDates && ev.doneDates[todayKey]) });
+    }
+  });
+  data.spanEvents.forEach(ev => {
+    if(occursInRange(ev, todayKey)){
+      items.push({ key: todayKey, kind: 'span', ref: ev, text: ev.text, time: ev.time, done: !!(ev.doneDates && ev.doneDates[todayKey]) });
+    }
+  });
+
+  const visibleItems = items.filter(i => !i.done);
+  visibleItems.sort((a, b) => {
+    if(a.time && b.time) return a.time.localeCompare(b.time);
+    if(a.time && !b.time) return -1;
+    if(!a.time && b.time) return 1;
+    return 0;
+  });
+
+  tallyEl.textContent = visibleItems.length > 0 ? `${visibleItems.length}` : '';
+  listEl.innerHTML = '';
+  if(visibleItems.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'nothing on the calendar today';
+    listEl.appendChild(empty);
+    return;
+  }
+
+  visibleItems.forEach(({ key, kind, ref, text, time, done }) => {
+    const li = document.createElement('li');
+    li.className = 'item' + (done ? ' done' : '');
+
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.onclick = () => {
+      if(kind === 'normal') toggleCalendarItem(key, ref.id);
+      else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
+      else toggleSpanOccurrence(ref.id, key);
+    };
+    li.appendChild(box);
+
+    if(time){
+      const timeBadge = document.createElement('div');
+      timeBadge.className = 'time-badge';
+      timeBadge.textContent = formatTime12h(time);
+      li.appendChild(timeBadge);
+    }
+    if(kind !== 'normal'){
+      const kindBadge = document.createElement('div');
+      kindBadge.className = kind === 'recurring' ? 'repeat-badge' : 'span-badge';
+      kindBadge.textContent = kind === 'recurring' ? '↻' : '↔';
+      li.appendChild(kindBadge);
+    }
+
+    const textEl = document.createElement('div');
+    textEl.className = 'text';
+    textEl.textContent = text;
+    textEl.onclick = () => {
+      calSelectedKey = key;
+      calViewDate = new Date();
+      renderCalendar();
+      pageColumnsEl.scrollTo({ left: 1 * pageColumnsEl.clientWidth, behavior: 'smooth' });
+    };
+    li.appendChild(textEl);
+
+    listEl.appendChild(li);
+  });
+}
+
+function renderOverdue(){
+  const todayKey = dateKey(new Date());
+  const overdue = [];
+
+  // one-off items
+  Object.keys(data.calendar).forEach(key => {
+    if(key >= todayKey) return;
+    (data.calendar[key] || []).forEach(item => {
+      if(!item.done) overdue.push({ key, kind: 'normal', ref: item, text: item.text });
+    });
+  });
+
+  // recurring + multi-day span events: bounded lookback so this can't explode into
+  // an endless list for a daily/weekly event that's been running for years
+  const LOOKBACK_DAYS = 90;
+  const cursor = new Date();
+  cursor.setDate(cursor.getDate() - 1); // start from yesterday, walking backward
+  for(let i = 0; i < LOOKBACK_DAYS; i++){
+    const key = dateKey(cursor);
+    data.recurringEvents.forEach(ev => {
+      if(occursOnDate(ev, key) && !(ev.doneDates && ev.doneDates[key])){
+        overdue.push({ key, kind: 'recurring', ref: ev, text: ev.text });
+      }
+    });
+    data.spanEvents.forEach(ev => {
+      if(occursInRange(ev, key) && !(ev.doneDates && ev.doneDates[key])){
+        overdue.push({ key, kind: 'span', ref: ev, text: ev.text });
+      }
+    });
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  overdue.sort((a, b) => a.key.localeCompare(b.key));
+  renderOverdueInto('overdueList2', 'tally-overdue2', overdue);
+}
+
+function renderOverdueInto(listId, tallyId, overdue){
+  const overdueListEl = document.getElementById(listId);
+  const overdueTally = document.getElementById(tallyId);
+  if(!overdueListEl) return;
+
+  overdueTally.textContent = overdue.length;
+  overdueListEl.innerHTML = '';
+  if(overdue.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'nothing overdue';
+    overdueListEl.appendChild(empty);
+    return;
+  }
+
+  overdue.forEach(({ key, kind, ref, text }) => {
+    const li = document.createElement('li');
+    li.className = 'item';
+
+    const box = document.createElement('div');
+    box.className = 'box';
+    box.onclick = () => {
+      if(kind === 'normal') toggleCalendarItem(key, ref.id);
+      else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
+      else toggleSpanOccurrence(ref.id, key);
+    };
+    li.appendChild(box);
+
+    const dateBadge = document.createElement('div');
+    dateBadge.className = 'time-badge';
+    dateBadge.style.color = 'var(--danger)';
+    dateBadge.style.borderColor = 'rgba(255,79,121,0.4)';
+    dateBadge.style.background = 'rgba(255,79,121,0.08)';
+    dateBadge.textContent = formatDateShort(key);
+    dateBadge.onclick = () => {
+      calSelectedKey = key;
+      calViewDate = new Date(key.split('-')[0], key.split('-')[1]-1, 1);
+      renderCalendar();
+      pageColumnsEl.scrollTo({ left: 1 * pageColumnsEl.clientWidth, behavior: 'smooth' });
+    };
+    li.appendChild(dateBadge);
+
+    if(kind !== 'normal'){
+      const kindBadge = document.createElement('div');
+      kindBadge.className = kind === 'recurring' ? 'repeat-badge' : 'span-badge';
+      kindBadge.textContent = kind === 'recurring' ? '↻' : '↔';
+      li.appendChild(kindBadge);
+    }
+
+    const textEl = document.createElement('div');
+    textEl.className = 'text';
+    textEl.textContent = text;
+    textEl.onclick = () => {
+      startInlineEdit(textEl, text, (newVal) => {
+        if(newVal !== null){ ref.text = newVal; saveTasks(); }
+        renderOverdue();
+      });
+    };
+    li.appendChild(textEl);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      if(kind === 'normal') removeCalendarItem(key, ref.id);
+      else if(kind === 'recurring') skipRecurringOccurrence(ref.id, key);
+      else { /* span events don't support single-day skip; nudge to full delete */ removeSpanEvent(ref.id); }
+    };
+    li.appendChild(del);
+
+    overdueListEl.appendChild(li);
+  });
+}
+
+function removeCalendarItem(key, id){
+  if(!data.calendar[key]) return;
+  data.calendar[key] = data.calendar[key].filter(i => i.id !== id);
+  renderCalendar(); saveTasks();
+}
+
+function moveCalendarItem(id, fromKey, toKey){
+  if(!data.calendar[fromKey]) return;
+  const idx = data.calendar[fromKey].findIndex(i => i.id === id);
+  if(idx === -1) return;
+  const [item] = data.calendar[fromKey].splice(idx, 1);
+  if(!data.calendar[toKey]) data.calendar[toKey] = [];
+  data.calendar[toKey].push(item);
+  calSelectedKey = toKey;
+  renderCalendar();
+  saveTasks();
+  showStatus('moved to ' + formatDateShort(toKey));
+}
+
+function addRecurringEvent(text, time, repeat, startDate){
+  data.recurringEvents.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    text, time: time || null, repeat, startDate, doneDates: {}, skipDates: {}
+  });
+  renderCalendar(); saveTasks();
+}
+
+function convertToRecurring(item, dateKeyStr, repeat){
+  // remove the one-off item from its original date
+  if(data.calendar[dateKeyStr]){
+    data.calendar[dateKeyStr] = data.calendar[dateKeyStr].filter(i => i.id !== item.id);
+  }
+  data.recurringEvents.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    text: item.text, time: item.time || null, note: item.note || '',
+    repeat, startDate: dateKeyStr, doneDates: item.done ? { [dateKeyStr]: true } : {}, skipDates: {}
+  });
+  renderCalendar(); saveTasks();
+  showStatus('now repeats ' + (REPEAT_LABELS[repeat] || repeat).toLowerCase());
+}
+
+function toggleRecurringOccurrence(evId, dateKeyStr){
+  const ev = data.recurringEvents.find(e => e.id === evId);
+  if(!ev) return;
+  if(!ev.doneDates) ev.doneDates = {};
+  ev.doneDates[dateKeyStr] = !ev.doneDates[dateKeyStr];
+  renderCalendar(); saveTasks();
+}
+
+function removeRecurringEvent(evId){
+  data.recurringEvents = data.recurringEvents.filter(e => e.id !== evId);
+  renderCalendar(); saveTasks();
+  showStatus('recurring event removed');
+}
+
+function skipRecurringOccurrence(evId, key){
+  const ev = data.recurringEvents.find(e => e.id === evId);
+  if(!ev) return;
+  if(!ev.skipDates) ev.skipDates = {};
+  ev.skipDates[key] = true;
+  if(ev.doneDates) delete ev.doneDates[key];
+  renderCalendar(); saveTasks();
+  showStatus('this occurrence removed');
+}
+
+document.getElementById('calPrev').addEventListener('click', () => {
+  calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth()-1, 1);
+  renderCalendar();
+});
+document.getElementById('calNext').addEventListener('click', () => {
+  calViewDate = new Date(calViewDate.getFullYear(), calViewDate.getMonth()+1, 1);
+  renderCalendar();
+});
+document.getElementById('calTodayBtn').addEventListener('click', () => {
+  const now = new Date();
+  calViewDate = new Date(now.getFullYear(), now.getMonth(), 1);
+  calSelectedKey = dateKey(now);
+  renderCalendar();
+});
+
+/* ---------- other: nested sub-lists ---------- */
+function renderOther(){
+  const others = data.other;
+  otherTally.textContent = `${others.length} item${others.length === 1 ? '' : 's'}`;
+  otherContainer.innerHTML = '';
+
+  if(others.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'nothing here yet';
+    otherContainer.appendChild(empty);
+    return;
+  }
+
+  others.forEach(r => {
+    const card = document.createElement('div');
+    card.className = 'resto-card';
+
+    const head = document.createElement('div');
+    head.className = 'resto-card-head';
+
+    const name = document.createElement('span');
+    name.className = 'rname';
+    name.textContent = r.name;
+    name.onclick = () => {
+      startInlineEdit(name, r.name, (newVal) => {
+        if(newVal !== null){ r.name = newVal; saveTasks(); }
+        renderOther();
+      });
+    };
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => removeOther(r.id);
+
+    head.appendChild(name);
+    head.appendChild(del);
+    card.appendChild(head);
+
+    const subForm = document.createElement('form');
+    subForm.className = 'sub-add-row';
+    const subInput = document.createElement('input');
+    subInput.type = 'text';
+    subInput.placeholder = 'Add item…';
+    subInput.autocomplete = 'off';
+    const subBtn = document.createElement('button');
+    subBtn.type = 'button';
+    subBtn.className = 'add';
+    subBtn.textContent = 'Add';
+    subForm.appendChild(subInput);
+    subForm.appendChild(subBtn);
+    function doSubAdd(){
+      const val = subInput.value.trim();
+      if(!val) return;
+      addOtherItem(r.id, val);
+    }
+    subBtn.addEventListener('click', doSubAdd);
+    subInput.addEventListener('keydown', (e) => {
+      if(e.key === 'Enter'){ e.preventDefault(); doSubAdd(); }
+    });
+    subForm.addEventListener('submit', (e) => e.preventDefault());
+    card.appendChild(subForm);
+
+    if(r.items.length === 0){
+      const emptySub = document.createElement('div');
+      emptySub.className = 'empty-sub';
+      emptySub.textContent = 'nothing added yet';
+      card.appendChild(emptySub);
+    } else {
+      const subList = document.createElement('ul');
+      subList.className = 'sub-list';
+      r.items.forEach(item => {
+        const li = document.createElement('li');
+        li.className = 'sub-item' + (item.done ? ' done' : '');
+
+        const handle = document.createElement('div');
+        handle.className = 'sub-handle';
+        handle.textContent = '⠿';
+        handle.addEventListener('pointerdown', (e) => startSubItemDrag(e, r.items, item.id, renderOther));
+
+        const box = document.createElement('div');
+        box.className = 'box';
+        box.onclick = () => toggleOtherItem(r.id, item.id);
+
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = item.text;
+        text.onclick = () => {
+          startInlineEdit(text, item.text, (newVal) => {
+            if(newVal !== null){ item.text = newVal; saveTasks(); }
+            renderOther();
+          });
+        };
+
+        const delItem = document.createElement('button');
+        delItem.className = 'del';
+        delItem.textContent = '✕';
+        delItem.onclick = () => removeOtherItem(r.id, item.id);
+
+        li.appendChild(handle);
+        li.appendChild(box);
+        li.appendChild(text);
+        li.appendChild(delItem);
+        subList.appendChild(li);
+      });
+      card.appendChild(subList);
+    }
+
+    otherContainer.appendChild(card);
+  });
+}
+
+function removeOther(id){
+  data.other = data.other.filter(r => r.id !== id);
+  renderOther(); saveTasks();
+  showStatus('removed');
+}
+
+function addOtherItem(otherId, text){
+  const r = data.other.find(r => r.id === otherId);
+  if(!r) return;
+  r.items.push({ id: Date.now() + Math.random().toString(36).slice(2), text, done: false });
+  renderOther(); saveTasks();
+}
+
+function toggleOtherItem(otherId, itemId){
+  const r = data.other.find(r => r.id === otherId);
+  if(!r) return;
+  const item = r.items.find(i => i.id === itemId);
+  if(item){ item.done = !item.done; renderOther(); saveTasks(); }
+}
+
+function removeOtherItem(otherId, itemId){
+  const r = data.other.find(r => r.id === otherId);
+  if(!r) return;
+  r.items = r.items.filter(i => i.id !== itemId);
+  renderOther(); saveTasks();
+}
+
+function addOther(){
+  const inputEl = document.getElementById('otherInput');
+  const val = inputEl.value.trim();
+  if(!val) return;
+  data.other.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    name: val,
+    items: []
+  });
+  inputEl.value = '';
+  renderOther(); saveTasks();
+}
+document.getElementById('addOtherForm').addEventListener('submit', (e) => e.preventDefault());
+document.querySelector('#addOtherForm button.add').addEventListener('click', addOther);
+document.getElementById('otherInput').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); addOther(); }
+});
+
+document.querySelectorAll('.clear-btn[data-section]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const section = btn.dataset.section;
+    const before = data[section].length;
+    data[section] = data[section].filter(t => !t.done);
+    if(data[section].length !== before){ renderSection(section); saveTasks(); showStatus('completed cleared'); }
+  });
+});
+
+/* ---------- drag & drop between sections ---------- */
+let dragState = null;
+
+function startDrag(e, taskId, fromSection){
+  e.preventDefault();
+  const item = e.target.closest('.item');
+  const rect = item.getBoundingClientRect();
+  const task = data[fromSection].find(t => t.id === taskId);
+  if(!task) return;
+
+  const clone = document.createElement('div');
+  clone.className = 'drag-clone';
+  clone.textContent = task.text;
+  clone.style.left = rect.left + 'px';
+  clone.style.top = rect.top + 'px';
+  clone.style.width = rect.width + 'px';
+  document.body.appendChild(clone);
+
+  item.classList.add('dragging');
+
+  const indicator = document.createElement('div');
+  indicator.className = 'drop-indicator';
+  indicator.style.display = 'none';
+  document.body.appendChild(indicator);
+
+  dragState = {
+    taskId, fromSection, clone, indicator,
+    offsetX: e.clientX - rect.left,
+    offsetY: e.clientY - rect.top,
+    hoverSection: fromSection,
+    hoverIndex: null,
+    itemEl: item
+  };
+
+  document.body.style.overflow = 'hidden';
+  document.body.style.touchAction = 'none';
+
+  window.addEventListener('pointermove', onDragMove, { passive: false });
+  window.addEventListener('pointerup', onDragEnd);
+}
+
+function onDragMove(e){
+  if(!dragState) return;
+  e.preventDefault();
+  dragState.clone.style.left = (e.clientX - dragState.offsetX) + 'px';
+  dragState.clone.style.top = (e.clientY - dragState.offsetY) + 'px';
+
+  let hovered = null;
+  for(const sec of ['list']){
+    const r = listEls[sec].getBoundingClientRect();
+    const padded = { top: r.top - 20, bottom: r.bottom + 20, left: r.left - 20, right: r.right + 20 };
+    if(e.clientX >= padded.left && e.clientX <= padded.right && e.clientY >= padded.top && e.clientY <= padded.bottom){
+      hovered = sec;
+    }
+  }
+  if(hovered !== dragState.hoverSection){
+    Object.values(listEls).forEach(el => el.classList.remove('drop-hover'));
+    if(hovered) listEls[hovered].classList.add('drop-hover');
+    dragState.hoverSection = hovered;
+  }
+
+  if(hovered){
+    const container = listEls[hovered];
+    const items = Array.from(container.querySelectorAll('.item')).filter(el => el !== dragState.itemEl);
+    let insertBeforeEl = null;
+    let index = items.length;
+    for(let i = 0; i < items.length; i++){
+      const r = items[i].getBoundingClientRect();
+      const midpoint = r.top + r.height / 2;
+      if(e.clientY < midpoint){
+        insertBeforeEl = items[i];
+        index = i;
+        break;
+      }
+    }
+    dragState.hoverIndex = index;
+
+    const indicatorRect = insertBeforeEl
+      ? insertBeforeEl.getBoundingClientRect()
+      : (items.length > 0 ? items[items.length - 1].getBoundingClientRect() : container.getBoundingClientRect());
+    const y = insertBeforeEl ? indicatorRect.top : (items.length > 0 ? indicatorRect.bottom : indicatorRect.top);
+
+    dragState.indicator.style.display = 'block';
+    dragState.indicator.style.left = indicatorRect.left + 'px';
+    dragState.indicator.style.width = indicatorRect.width + 'px';
+    dragState.indicator.style.top = (y - 1) + 'px';
+  } else {
+    dragState.hoverIndex = null;
+    dragState.indicator.style.display = 'none';
+  }
+}
+
+function onDragEnd(e){
+  if(!dragState) return;
+  window.removeEventListener('pointermove', onDragMove);
+  window.removeEventListener('pointerup', onDragEnd);
+  document.body.style.overflow = '';
+  document.body.style.touchAction = '';
+
+  const { taskId, fromSection, hoverSection, hoverIndex, clone, indicator, itemEl } = dragState;
+  clone.remove();
+  indicator.remove();
+  itemEl.classList.remove('dragging');
+  Object.values(listEls).forEach(el => el.classList.remove('drop-hover'));
+
+  if(hoverSection){
+    const fromIdx = data[fromSection].findIndex(t => t.id === taskId);
+    if(fromIdx !== -1){
+      const [task] = data[fromSection].splice(fromIdx, 1);
+      let insertAt = hoverIndex === null ? data[hoverSection].length : hoverIndex;
+      // if reordering within the same list, account for the removed item shifting later indices down
+      if(hoverSection === fromSection && fromIdx < insertAt) insertAt--;
+      insertAt = Math.max(0, Math.min(insertAt, data[hoverSection].length));
+      data[hoverSection].splice(insertAt, 0, task);
+
+      renderSection(fromSection);
+      if(hoverSection !== fromSection) renderSection(hoverSection);
+      saveTasks();
+    }
+  }
+  dragState = null;
+}
+
+/* ---------- dedicated full-page views (Other) ---------- */
+const otherPageEl = document.getElementById('otherPage');
+const allPages = [otherPageEl];
+
+function showPage(pageEl){
+  allPages.forEach(p => p.classList.remove('active'));
+  pageColumnsEl.style.display = 'none';
+  document.getElementById('pageDots').style.display = 'none';
+  pageEl.classList.add('active');
+  window.scrollTo(0, 0);
+}
+function hideAllPages(){
+  allPages.forEach(p => p.classList.remove('active'));
+  pageColumnsEl.style.display = '';
+  document.getElementById('pageDots').style.display = '';
+  window.scrollTo(0, 0);
+}
+document.getElementById('otherNavBtn').addEventListener('click', () => showPage(otherPageEl));
+document.getElementById('otherBackBtn').addEventListener('click', hideAllPages);
+
+/* ---------- cross-device sync via jsonbin.io ---------- */
+const SYNC_KEY_KEY = 'tpas2:sync:masterkey';
+const SYNC_BIN_KEY = 'tpas2:sync:binid';
+const syncBtn = document.getElementById('syncBtn');
+
+function getSyncConfig(){
+  return {
+    key: localStorage.getItem(SYNC_KEY_KEY) || '',
+    bin: localStorage.getItem(SYNC_BIN_KEY) || ''
+  };
+}
+
+function setSyncBtnState(state){
+  syncBtn.classList.remove('synced');
+  if(state === 'synced'){
+    syncBtn.classList.add('synced');
+    syncBtn.textContent = '🔄 Synced';
+  } else if(state === 'syncing'){
+    syncBtn.textContent = '🔄 Syncing…';
+  } else if(state === 'failed'){
+    syncBtn.textContent = '🔄 Sync failed';
+  } else {
+    syncBtn.textContent = '🔄 Sync';
+  }
+}
+
+async function pushToSync(){
+  const { key, bin } = getSyncConfig();
+  if(!key || !bin) return;
+  try{
+    const payload = { ...data, updatedAt: Date.now() };
+    await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
+      body: JSON.stringify(payload)
+    });
+    setSyncBtnState('synced');
+  }catch(e){
+    setSyncBtnState('failed');
+  }
+}
+
+async function pullFromSync(){
+  const { key, bin } = getSyncConfig();
+  if(!key || !bin) return;
+  setSyncBtnState('syncing');
+  try{
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}/latest`, {
+      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' }
+    });
+    if(!res.ok) throw new Error('bad response');
+    const remote = await res.json();
+    const localTs = data.updatedAt || 0;
+    const remoteTs = remote.updatedAt || 0;
+    if(remoteTs > localTs){
+      // preserve scroll position — re-rendering can change page height and jerk the view otherwise
+      const scrollY = window.scrollY;
+      data = {
+        list: remote.list || [],
+        calendar: remote.calendar || {},
+        other: remote.other || [],
+        expenses: remote.expenses || [],
+        recurringEvents: remote.recurringEvents || [],
+        updatedAt: remoteTs
+      };
+      renderAll();
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+      window.scrollTo(0, scrollY);
+      showStatus('updated from sync');
+    }
+    setSyncBtnState('synced');
+  }catch(e){
+    setSyncBtnState('failed');
+  }
+}
+
+async function createSharedBin(){
+  const { key } = getSyncConfig();
+  const payload = { ...data, updatedAt: Date.now() };
+  const res = await fetch('https://api.jsonbin.io/v3/b', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
+    body: JSON.stringify(payload)
+  });
+  if(!res.ok) throw new Error('create failed');
+  const result = await res.json();
+  return result.metadata ? result.metadata.id : result.id;
+}
+
+const syncRefreshBtn = document.getElementById('syncRefreshBtn');
+syncRefreshBtn.addEventListener('click', async () => {
+  const { bin } = getSyncConfig();
+  if(!bin){
+    showStatus('sync not set up yet — tap Sync first');
+    return;
+  }
+  syncRefreshBtn.classList.add('spinning');
+  await pullFromSync();
+  syncRefreshBtn.classList.remove('spinning');
+});
+
+syncBtn.addEventListener('click', async () => {
+  const current = getSyncConfig();
+  const key = prompt('Paste your JSONBin.io Master Key:', current.key || '');
+  if(key === null) return;
+  if(!key.trim()){ setSyncBtnState('idle'); return; }
+  localStorage.setItem(SYNC_KEY_KEY, key.trim());
+
+  const binInput = prompt('Paste an existing shared list ID to connect to it, or leave blank to create a new shared list on this device:', current.bin || '');
+  if(binInput === null) return;
+
+  if(binInput.trim()){
+    localStorage.setItem(SYNC_BIN_KEY, binInput.trim());
+    await pullFromSync();
+    showStatus('connected to sync');
+  } else {
+    try{
+      setSyncBtnState('syncing');
+      const newBinId = await createSharedBin();
+      localStorage.setItem(SYNC_BIN_KEY, newBinId);
+      setSyncBtnState('synced');
+      alert(`Shared list created. On your other device, tap "Sync", paste the same Master Key, then paste this ID:\n\n${newBinId}`);
+    }catch(e){
+      setSyncBtnState('failed');
+    }
+  }
+});
+
+/* pull latest on open/return, push after every save */
+window.addEventListener('load', () => {
+  window.scrollTo(0, 0);
+  pullFromSync();
+});
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible') pullFromSync();
+});
+if(getSyncConfig().bin) setSyncBtnState('idle');
+
+document.getElementById('titleRefresh').addEventListener('click', () => {
+  window.location.reload();
+});
+
+/* ---------- undo ---------- */
+const undoBtn = document.getElementById('undoBtn');
+function updateUndoButtonState(){
+  undoBtn.disabled = undoStack.length === 0;
+}
+async function undoLastChange(){
+  if(undoStack.length === 0) return;
+  const prev = undoStack.pop();
+  data = JSON.parse(prev);
+  lastSavedSnapshot = prev;
+  renderAll();
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  pushToSync();
+  updateUndoButtonState();
+  showStatus('undone');
+}
+undoBtn.addEventListener('click', undoLastChange);
+
+/* ---------- mobile swipe page-dot indicator ---------- */
+const pageColumnsEl = document.getElementById('pageColumns');
+const pageDots = document.querySelectorAll('.page-dot');
+
+function updatePageDots(){
+  const w = pageColumnsEl.clientWidth;
+  if(w === 0) return;
+  const idx = Math.round(pageColumnsEl.scrollLeft / w);
+  pageDots.forEach((dot, i) => dot.classList.toggle('active', i === idx));
+}
+pageColumnsEl.addEventListener('scroll', () => {
+  clearTimeout(updatePageDots._t);
+  updatePageDots._t = setTimeout(updatePageDots, 60);
+}, { passive: true });
+
+pageDots.forEach(dot => {
+  dot.addEventListener('click', () => {
+    const idx = Number(dot.dataset.page);
+    pageColumnsEl.scrollTo({ left: idx * pageColumnsEl.clientWidth, behavior: 'smooth' });
+  });
+});
+
+/* Prevent the horizontal swipe-snap from fighting with the browser's own
+   "scroll this focused input into view" behavior — without this, opening a
+   native time/date picker can cause the swipe pager to jump to a different
+   page mid-edit, which feels like getting "thrown out" of what you were doing. */
+document.addEventListener('focusin', (e) => {
+  if(e.target.matches && e.target.matches('input[type="time"], input[type="date"], input[type="datetime-local"]')){
+    pageColumnsEl.style.scrollSnapType = 'none';
+  }
+});
+document.addEventListener('focusout', (e) => {
+  if(e.target.matches && e.target.matches('input[type="time"], input[type="date"], input[type="datetime-local"]')){
+    setTimeout(() => { pageColumnsEl.style.scrollSnapType = ''; }, 80);
+  }
+});
+
+loadTasks().catch(() => {
+  // if anything went wrong on first render (bad/legacy data, a timing hiccup, etc.),
+  // give it one more try after a beat rather than leaving the page blank
+  setTimeout(() => { try{ renderAll(); }catch(e){} }, 200);
+});
+
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'hidden'){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  }
+});
+window.addEventListener('pagehide', () => {
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+});
+
+/* fully disable pinch/gesture zoom on iOS Safari */
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('gesturechange', (e) => e.preventDefault());
+document.addEventListener('gestureend', (e) => e.preventDefault());
+document.addEventListener('touchmove', (e) => {
+  if(e.touches && e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+let lastTouchEnd = 0;
+let lastTouchX = 0;
+let lastTouchY = 0;
+document.addEventListener('touchend', (e) => {
+  const now = Date.now();
+  const touch = e.changedTouches && e.changedTouches[0];
+  if(touch){
+    const dx = Math.abs(touch.clientX - lastTouchX);
+    const dy = Math.abs(touch.clientY - lastTouchY);
+    if(now - lastTouchEnd <= 300 && dx < 25 && dy < 25){
+      e.preventDefault();
+    }
+    lastTouchX = touch.clientX;
+    lastTouchY = touch.clientY;
+  }
+  lastTouchEnd = now;
+}, { passive: false });
+</script>
+</body>
+</html>

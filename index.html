@@ -673,7 +673,6 @@
     font-size: 16px;
     font-weight: 600;
     color: var(--text);
-    cursor: pointer;
     flex: 1;
     min-width: 0;
   }
@@ -683,7 +682,6 @@
     font-weight: 600;
     color: var(--text-dim);
     flex-shrink: 0;
-    cursor: pointer;
     white-space: nowrap;
   }
   .ledger-status{
@@ -715,29 +713,20 @@
   .ledger-bottom-row{
     display:flex;
     align-items:baseline;
-    gap: 8px;
-    padding-right: 24px;
+    gap: 10px;
   }
   .ledger-date{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
-    font-size: 0.68rem;
-    color: var(--text-faint);
-    flex-shrink: 0;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .ledger-desc{
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-dim);
-    cursor: pointer;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    flex-shrink: 0;
     white-space: nowrap;
   }
-  .ledger-del{
-    position: absolute;
-    top: 12px;
-    right: 4px;
+  .ledger-bottom-row .ledger-amount{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.72rem;
+    color: var(--text-faint);
+    white-space: nowrap;
   }
   .expense-row input#expenseAmount{
     flex: 0 0 90px;
@@ -1613,9 +1602,9 @@ async function loadTasks(){
     data.automationsSeeded = true;
     const mk = (id) => id + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
     data.ledger.push(
-      { id: mk('ledger'), date: '2026-09-06', automation: 'Panismo Invoice', description: 'Invoice No. 010, rent period Oct 2026', amount: '€1,249.50', delivery: 'email', paid: false, paidAt: null },
-      { id: mk('ledger'), date: '2026-09-06', automation: 'Theomie Statements', description: 'Statement No. 6 for all 7 properties, dated 11/09/2026', amount: 'varies by property', delivery: 'email', paid: false, paidAt: null },
-      { id: mk('ledger'), date: '2026-09-06', automation: 'TP2 Mazda Invoice', description: 'Invoice #12, dated Sep 14 2026', amount: '€500.00', delivery: 'email', paid: false, paidAt: null }
+      { id: mk('ledger'), date: '2026-10-01', automation: 'Panismo Invoice', description: 'Invoice No. 010, rent period Oct 2026', amount: '€1,249.50', delivery: 'email', paid: false, paidAt: null },
+      { id: mk('ledger'), date: '2026-09-10', automation: 'Theomie Statements', description: 'Statement No. 6 for all 7 properties, dated 11/09/2026', amount: 'varies by property', delivery: 'email', paid: false, paidAt: null },
+      { id: mk('ledger'), date: '2026-09-14', automation: 'TP2 Mazda Invoice', description: 'Invoice #12, dated Sep 14 2026', amount: '€500.00', delivery: 'email', paid: false, paidAt: null }
     );
   }
   // one-time correction for anyone who already had the automations seeded before this fix
@@ -1624,6 +1613,16 @@ async function loadTasks(){
     data.ledger.forEach(e => {
       if(e.description) e.description = e.description.replace(/\s*\(test run\)/i, '');
       if(e.delivery === 'in-app' || e.delivery === 'in-app + email') e.delivery = 'email';
+    });
+  }
+  // one-time correction: the seeded dates were the day these were reported, not the
+  // automation's actual scheduled fire date — fix so status (sent/pending) is accurate
+  if(!data.ledgerDatesFixed){
+    data.ledgerDatesFixed = true;
+    data.ledger.forEach(e => {
+      if(e.automation === 'Panismo Invoice' && e.date === '2026-09-06') e.date = '2026-10-01';
+      if(e.automation === 'Theomie Statements' && e.date === '2026-09-06') e.date = '2026-09-10';
+      if(e.automation === 'TP2 Mazda Invoice' && e.date === '2026-09-06') e.date = '2026-09-14';
     });
   }
   // one-time cleanup: the three automations used to also show as recurring Calendar events —
@@ -2214,26 +2213,7 @@ function renderLedger(){
     const name = document.createElement('div');
     name.className = 'ledger-name';
     name.textContent = entry.automation || entry.description;
-    name.onclick = () => {
-      startInlineEdit(name, entry.automation || '', (newVal) => {
-        if(newVal !== null){ entry.automation = newVal; saveTasks(); }
-        renderLedger();
-      });
-    };
     topRow.appendChild(name);
-
-    if(entry.amount){
-      const amount = document.createElement('div');
-      amount.className = 'ledger-amount';
-      amount.textContent = entry.amount;
-      amount.onclick = () => {
-        startInlineEdit(amount, entry.amount || '', (newVal) => {
-          if(newVal !== null){ entry.amount = newVal; saveTasks(); }
-          renderLedger();
-        });
-      };
-      topRow.appendChild(amount);
-    }
 
     const status = ledgerStatus(entry);
     const statusBox = document.createElement('div');
@@ -2249,47 +2229,16 @@ function renderLedger(){
     const dateBadge = document.createElement('span');
     dateBadge.className = 'ledger-date';
     dateBadge.textContent = formatDateShort(entry.date);
-    dateBadge.onclick = () => {
-      const input = document.createElement('input');
-      input.type = 'date';
-      input.className = 'cal-enddate-input';
-      input.value = entry.date;
-      dateBadge.replaceWith(input);
-      input.focus();
-      let done = false;
-      function commit(){
-        if(done) return;
-        done = true;
-        if(input.value) entry.date = input.value;
-        renderLedger(); saveTasks();
-      }
-      input.addEventListener('change', commit);
-      input.addEventListener('blur', commit);
-    };
     bottomRow.appendChild(dateBadge);
 
-    const desc = document.createElement('span');
-    desc.className = 'ledger-desc';
-    desc.textContent = entry.description;
-    desc.onclick = () => {
-      startInlineEdit(desc, entry.description, (newVal) => {
-        if(newVal !== null){ entry.description = newVal; saveTasks(); }
-        renderLedger();
-      });
-    };
-    bottomRow.appendChild(desc);
+    if(entry.amount){
+      const amount = document.createElement('span');
+      amount.className = 'ledger-amount';
+      amount.textContent = entry.amount;
+      bottomRow.appendChild(amount);
+    }
 
     li.appendChild(bottomRow);
-
-    const del = document.createElement('button');
-    del.className = 'del ledger-del';
-    del.textContent = '✕';
-    del.onclick = () => {
-      data.ledger = data.ledger.filter(e => e.id !== entry.id);
-      renderLedger(); saveTasks();
-      showStatus('removed');
-    };
-    li.appendChild(del);
 
     ledgerListEl.appendChild(li);
   });

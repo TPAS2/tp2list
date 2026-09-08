@@ -248,8 +248,8 @@
     display:flex;
     justify-content: center;
     gap: 10px;
-    margin-top: 6px;
-    margin-bottom: 28px;
+    margin-top: 14px;
+    margin-bottom: 14px;
   }
   .nav-btn{
     display:flex;
@@ -655,91 +655,89 @@
     flex: 1 1 140px;
     min-width: 0;
   }
-  .ledger-row{
-    flex-wrap: wrap;
-  }
-  .ledger-row input{
-    flex: 1 1 110px;
-    min-width: 0;
-    font-size: 16px;
-    padding: 11px 13px;
-  }
   .ledger-item{
     display:flex;
-    align-items:flex-start;
-    flex-wrap: wrap;
-    gap:8px 10px;
-    padding: 13px 6px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 4px;
     border-bottom: 1px solid var(--line);
-    border-radius: 4px;
+    position: relative;
   }
   .ledger-item:last-child{ border-bottom: none; }
-  .ledger-item .text{ flex: 1 1 160px; font-size: 16px; }
-  .ledger-automation-badge{
-    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
-    font-size: 0.64rem;
-    letter-spacing: 0.02em;
-    padding: 3px 7px;
-    border-radius: 4px;
-    flex-shrink: 0;
-    white-space: nowrap;
-    cursor: pointer;
-    border: 1px solid var(--line);
-    background: var(--panel);
-    color: var(--text-dim);
+  .ledger-top-row{
+    display:flex;
+    align-items:center;
+    gap: 10px;
   }
-  .ledger-amount{
-    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+  .ledger-name{
     font-size: 16px;
     font-weight: 600;
     color: var(--text);
+    cursor: pointer;
+    flex: 1;
+    min-width: 0;
+  }
+  .ledger-amount{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-dim);
     flex-shrink: 0;
     cursor: pointer;
     white-space: nowrap;
   }
-  .paid-toggle{
+  .ledger-status{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
-    font-size: 0.64rem;
-    letter-spacing: 0.04em;
+    font-size: 0.62rem;
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    padding: 4px 9px;
+    font-weight: 700;
+    padding: 3px 9px;
     border-radius: 20px;
     flex-shrink: 0;
-    cursor: pointer;
     white-space: nowrap;
-    border: 1px solid rgba(255,79,121,0.4);
-    background: rgba(255,79,121,0.08);
-    color: var(--danger);
   }
-  .paid-toggle.paid{
-    border-color: rgba(42,245,176,0.4);
-    background: rgba(42,245,176,0.08);
+  .ledger-status.sent{
+    border: 1px solid rgba(42,245,176,0.4);
+    background: rgba(42,245,176,0.1);
     color: var(--success);
   }
-  .failed-indicator{
-    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
-    font-size: 0.64rem;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    padding: 4px 9px;
-    border-radius: 20px;
-    flex-shrink: 0;
-    white-space: nowrap;
-    border: 1px solid rgba(255,79,121,0.6);
-    background: rgba(255,79,121,0.16);
-    color: #ff8fa8;
-    font-weight: 700;
-  }
-  .ledger-automation-badge.failed{
-    border-color: rgba(255,79,121,0.5);
+  .ledger-status.pending{
+    border: 1px solid rgba(255,79,121,0.4);
     background: rgba(255,79,121,0.1);
     color: var(--danger);
-    font-weight: 600;
   }
-  .ledger-item.failed{
-    border-left: 2px solid var(--danger);
-    background: rgba(255,79,121,0.04);
-    padding-left: 8px;
+  .ledger-status.failed{
+    border: 1px solid rgba(255,79,121,0.6);
+    background: rgba(255,79,121,0.18);
+    color: #ff8fa8;
+  }
+  .ledger-bottom-row{
+    display:flex;
+    align-items:baseline;
+    gap: 8px;
+    padding-right: 24px;
+  }
+  .ledger-date{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem;
+    color: var(--text-faint);
+    flex-shrink: 0;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ledger-desc{
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .ledger-del{
+    position: absolute;
+    top: 12px;
+    right: 4px;
   }
   .expense-row input#expenseAmount{
     flex: 0 0 90px;
@@ -779,6 +777,11 @@
   }
   .expense-head-btn:hover{ box-shadow: 0 0 10px -2px rgba(34,224,255,0.7); }
   .expense-head-btn:active{ opacity: 0.7; }
+  .expense-head-btn.active{
+    background: var(--accent2);
+    color: #04050c;
+    font-weight: 700;
+  }
   .expense-head-btn.danger{
     color: var(--danger);
     background: rgba(255,79,121,0.08);
@@ -853,9 +856,9 @@
     flex-shrink: 0;
     color-scheme: dark;
   }
-  }
   .expense-summary{
     margin-top: 26px;
+    margin-bottom: 22px;
     padding-top: 18px;
     border-top: 1px dashed var(--line);
     display: flex;
@@ -1426,6 +1429,7 @@
     <div class="section" id="section-expenses">
       <div class="section-head">
         <div class="section-title">Expenses</div>
+        <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
       </div>
       <div class="cal-nav expense-nav">
         <button type="button" id="expensePrevBtn" class="cal-nav-btn">‹</button>
@@ -1503,12 +1507,6 @@
       <div class="section-head">
         <div class="section-title">Ledger <span class="count" id="tally-ledger">0</span></div>
       </div>
-      <form class="add-row ledger-row no-generic-add" id="ledgerForm">
-        <input type="text" id="ledgerAutomation" placeholder="Automation…" autocomplete="off">
-        <input type="text" id="ledgerDesc" placeholder="Description…" autocomplete="off">
-        <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off">
-        <button type="button" class="add">Add</button>
-      </form>
       <ul class="list" id="ledgerList"></ul>
     </div>
   </div>
@@ -1614,15 +1612,26 @@ async function loadTasks(){
   if(!data.automationsSeeded){
     data.automationsSeeded = true;
     const mk = (id) => id + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-    data.recurringEvents.push(
-      { id: mk('auto-panismo'), text: 'Panismo Invoice', time: null, repeat: 'monthly', startDate: '2026-09-01', doneDates: {}, skipDates: {}, note: 'Sends 1 invoice (.xlsx). Invoice number + date + rent period advance monthly.' },
-      { id: mk('auto-theomie'), text: 'Theomie Statements', time: null, repeat: 'monthly', startDate: '2026-09-10', doneDates: {}, skipDates: {}, note: 'Sends 7 rent statement PDFs (one per property). Statement number + dates advance monthly.' },
-      { id: mk('auto-tp2'), text: 'TP2 Mazda Invoice', time: null, repeat: 'monthly', startDate: '2026-09-14', doneDates: {}, skipDates: {}, note: 'Sends 1 invoice (.pdf). Invoice number + date + line-item month advance monthly.' }
-    );
     data.ledger.push(
-      { id: mk('ledger'), date: '2026-09-06', automation: 'Panismo Invoice', description: 'Invoice No. 010, rent period Oct 2026 (test run)', amount: '€1,249.50', delivery: 'in-app + email', paid: false, paidAt: null },
-      { id: mk('ledger'), date: '2026-09-06', automation: 'Theomie Statements', description: 'Statement No. 6 for all 7 properties, dated 11/09/2026', amount: 'varies by property', delivery: 'in-app', paid: false, paidAt: null },
-      { id: mk('ledger'), date: '2026-09-06', automation: 'TP2 Mazda Invoice', description: 'Invoice #12, dated Sep 14 2026', amount: '€500.00', delivery: 'in-app', paid: false, paidAt: null }
+      { id: mk('ledger'), date: '2026-09-06', automation: 'Panismo Invoice', description: 'Invoice No. 010, rent period Oct 2026', amount: '€1,249.50', delivery: 'email', paid: false, paidAt: null },
+      { id: mk('ledger'), date: '2026-09-06', automation: 'Theomie Statements', description: 'Statement No. 6 for all 7 properties, dated 11/09/2026', amount: 'varies by property', delivery: 'email', paid: false, paidAt: null },
+      { id: mk('ledger'), date: '2026-09-06', automation: 'TP2 Mazda Invoice', description: 'Invoice #12, dated Sep 14 2026', amount: '€500.00', delivery: 'email', paid: false, paidAt: null }
+    );
+  }
+  // one-time correction for anyone who already had the automations seeded before this fix
+  if(!data.ledgerFixApplied){
+    data.ledgerFixApplied = true;
+    data.ledger.forEach(e => {
+      if(e.description) e.description = e.description.replace(/\s*\(test run\)/i, '');
+      if(e.delivery === 'in-app' || e.delivery === 'in-app + email') e.delivery = 'email';
+    });
+  }
+  // one-time cleanup: the three automations used to also show as recurring Calendar events —
+  // now they only live in the Ledger, so remove any that were already seeded onto the calendar
+  if(!data.automationCalendarEventsRemoved){
+    data.automationCalendarEventsRemoved = true;
+    data.recurringEvents = data.recurringEvents.filter(ev =>
+      !/^auto-(panismo|theomie|tp2)/.test(ev.id)
     );
   }
   // migrate any expenses saved before monthly scoping existed
@@ -2020,7 +2029,83 @@ function renderExpenses(){
   renderExpenseItems();
 }
 
+let expenseShowAllDetails = false;
+const expenseDetailsToggle = document.getElementById('expenseDetailsToggle');
+expenseDetailsToggle.addEventListener('click', () => {
+  expenseShowAllDetails = !expenseShowAllDetails;
+  expenseDetailsToggle.classList.toggle('active', expenseShowAllDetails);
+  renderExpenseItems();
+});
+
 function renderExpenseItems(){
+  if(expenseShowAllDetails) renderExpenseItemsDetailed();
+  else renderExpenseItemsCompact();
+}
+
+function renderExpenseItemsCompact(){
+  const monthKey = expenseMonthKey(expenseViewDate);
+  const monthExpenses = data.expenses.filter(e => e.month === monthKey);
+  const groups = groupExpenses(monthExpenses).sort((a, b) => b.total - a.total);
+
+  expensesListEl.innerHTML = '';
+  if(groups.length === 0){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'nothing this month';
+    expensesListEl.appendChild(empty);
+    return;
+  }
+
+  groups.forEach(group => {
+    const li = document.createElement('li');
+    li.className = 'expense-item compact';
+
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = group.desc;
+    text.onclick = () => {
+      startInlineEdit(text, group.desc, (newVal) => {
+        if(newVal !== null){
+          data.expenses.forEach(e => { if(group.ids.includes(e.id)) e.desc = newVal; });
+          saveTasks();
+        }
+        renderExpenses();
+      });
+    };
+    li.appendChild(text);
+
+    if(group.ids.length > 1){
+      const countBadge = document.createElement('span');
+      countBadge.className = 'expense-count-badge';
+      countBadge.textContent = `×${group.ids.length}`;
+      li.appendChild(countBadge);
+    }
+
+    const isIncome = group.type === 'income';
+    const amount = document.createElement('div');
+    amount.className = 'expense-amount' + (isIncome ? ' income' : '');
+    amount.textContent = (isIncome ? '+' : '−') + formatCurrency(group.total);
+    li.appendChild(amount);
+
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      if(group.ids.length > 1){
+        const ok = confirm(`Remove all ${group.ids.length} entries for "${group.desc}"?`);
+        if(!ok) return;
+      }
+      data.expenses = data.expenses.filter(e => !group.ids.includes(e.id));
+      renderExpenses(); saveTasks();
+      showStatus('removed');
+    };
+    li.appendChild(del);
+
+    expensesListEl.appendChild(li);
+  });
+}
+
+function renderExpenseItemsDetailed(){
   const monthKey = expenseMonthKey(expenseViewDate);
   const monthExpenses = data.expenses
     .filter(e => e.month === monthKey)
@@ -2092,12 +2177,11 @@ function formatLedgerDate(dateStr){
   return new Date(y, m-1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function toggleLedgerPaid(id){
-  const entry = data.ledger.find(e => e.id === id);
-  if(!entry) return;
-  entry.paid = !entry.paid;
-  entry.paidAt = entry.paid ? Date.now() : null;
-  renderLedger(); saveTasks();
+
+function ledgerStatus(entry){
+  if(entry.delivery === 'failed') return 'failed';
+  const todayKey = dateKey(new Date());
+  return entry.date <= todayKey ? 'sent' : 'pending';
 }
 
 function renderLedger(){
@@ -2106,8 +2190,7 @@ function renderLedger(){
   if(!ledgerListEl) return;
 
   const entries = [...data.ledger].sort((a, b) => b.date.localeCompare(a.date));
-  const unpaidCount = entries.filter(e => !e.paid).length;
-  tallyEl.textContent = unpaidCount > 0 ? `${unpaidCount} unpaid` : `${entries.length}`;
+  tallyEl.textContent = `${entries.length}`;
 
   ledgerListEl.innerHTML = '';
   if(entries.length === 0){
@@ -2122,8 +2205,46 @@ function renderLedger(){
     const li = document.createElement('li');
     li.className = 'ledger-item';
 
-    const dateBadge = document.createElement('div');
-    dateBadge.className = 'time-badge';
+    const topRow = document.createElement('div');
+    topRow.className = 'ledger-top-row';
+
+    const name = document.createElement('div');
+    name.className = 'ledger-name';
+    name.textContent = entry.automation || entry.description;
+    name.onclick = () => {
+      startInlineEdit(name, entry.automation || '', (newVal) => {
+        if(newVal !== null){ entry.automation = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
+    topRow.appendChild(name);
+
+    if(entry.amount){
+      const amount = document.createElement('div');
+      amount.className = 'ledger-amount';
+      amount.textContent = entry.amount;
+      amount.onclick = () => {
+        startInlineEdit(amount, entry.amount || '', (newVal) => {
+          if(newVal !== null){ entry.amount = newVal; saveTasks(); }
+          renderLedger();
+        });
+      };
+      topRow.appendChild(amount);
+    }
+
+    const status = ledgerStatus(entry);
+    const statusBox = document.createElement('div');
+    statusBox.className = 'ledger-status ' + status;
+    statusBox.textContent = status;
+    topRow.appendChild(statusBox);
+
+    li.appendChild(topRow);
+
+    const bottomRow = document.createElement('div');
+    bottomRow.className = 'ledger-bottom-row';
+
+    const dateBadge = document.createElement('span');
+    dateBadge.className = 'ledger-date';
     dateBadge.textContent = formatDateShort(entry.date);
     dateBadge.onclick = () => {
       const input = document.createElement('input');
@@ -2142,71 +2263,23 @@ function renderLedger(){
       input.addEventListener('change', commit);
       input.addEventListener('blur', commit);
     };
-    li.appendChild(dateBadge);
+    bottomRow.appendChild(dateBadge);
 
-    const automationBadge = document.createElement('div');
-    automationBadge.className = 'ledger-automation-badge';
-    automationBadge.textContent = entry.automation || '+ automation';
-    automationBadge.onclick = () => {
-      startInlineEdit(automationBadge, entry.automation || '', (newVal) => {
-        if(newVal !== null){ entry.automation = newVal; saveTasks(); }
-        renderLedger();
-      });
-    };
-    li.appendChild(automationBadge);
-
-    const text = document.createElement('div');
-    text.className = 'text';
-    text.textContent = entry.description;
-    text.onclick = () => {
-      startInlineEdit(text, entry.description, (newVal) => {
+    const desc = document.createElement('span');
+    desc.className = 'ledger-desc';
+    desc.textContent = entry.description;
+    desc.onclick = () => {
+      startInlineEdit(desc, entry.description, (newVal) => {
         if(newVal !== null){ entry.description = newVal; saveTasks(); }
         renderLedger();
       });
     };
-    li.appendChild(text);
+    bottomRow.appendChild(desc);
 
-    const amount = document.createElement('div');
-    amount.className = 'ledger-amount';
-    amount.textContent = entry.amount || '—';
-    amount.onclick = () => {
-      startInlineEdit(amount, entry.amount || '', (newVal) => {
-        if(newVal !== null){ entry.amount = newVal; saveTasks(); }
-        renderLedger();
-      });
-    };
-    li.appendChild(amount);
-
-    const isFailed = entry.delivery === 'failed';
-    if(isFailed) li.classList.add('failed');
-
-    const deliveryBadge = document.createElement('div');
-    deliveryBadge.className = 'ledger-automation-badge' + (isFailed ? ' failed' : '');
-    deliveryBadge.textContent = entry.delivery || '+ delivery';
-    deliveryBadge.onclick = () => {
-      startInlineEdit(deliveryBadge, entry.delivery || '', (newVal) => {
-        if(newVal !== null){ entry.delivery = newVal; saveTasks(); }
-        renderLedger();
-      });
-    };
-    li.appendChild(deliveryBadge);
-
-    if(isFailed){
-      const failedIndicator = document.createElement('div');
-      failedIndicator.className = 'failed-indicator';
-      failedIndicator.textContent = '⚠ failed to send';
-      failedIndicator.title = 'This run did not deliver — nothing went out that month';
-      li.appendChild(failedIndicator);
-    } else {
-      const paidToggle = document.createElement('div');
-      paidToggle.className = 'paid-toggle' + (entry.paid ? ' paid' : '');
-      paidToggle.textContent = entry.paid ? '✓ paid' : 'unpaid';
-      paidToggle.onclick = () => toggleLedgerPaid(entry.id);
-      li.appendChild(paidToggle);
-    }
+    li.appendChild(bottomRow);
 
     const del = document.createElement('button');
-    del.className = 'del';
+    del.className = 'del ledger-del';
     del.textContent = '✕';
     del.onclick = () => {
       data.ledger = data.ledger.filter(e => e.id !== entry.id);
@@ -2218,30 +2291,6 @@ function renderLedger(){
     ledgerListEl.appendChild(li);
   });
 }
-
-function addLedgerEntry(){
-  const automation = document.getElementById('ledgerAutomation').value.trim();
-  const desc = document.getElementById('ledgerDesc').value.trim();
-  const amount = document.getElementById('ledgerAmount').value.trim();
-  if(!desc) return;
-  data.ledger.push({
-    id: Date.now() + Math.random().toString(36).slice(2),
-    date: dateKey(new Date()),
-    automation, description: desc, amount, delivery: '',
-    paid: false, paidAt: null
-  });
-  document.getElementById('ledgerAutomation').value = '';
-  document.getElementById('ledgerDesc').value = '';
-  document.getElementById('ledgerAmount').value = '';
-  renderLedger(); saveTasks();
-}
-document.getElementById('ledgerForm').addEventListener('submit', (e) => e.preventDefault());
-document.querySelector('#ledgerForm button.add').addEventListener('click', addLedgerEntry);
-['ledgerAutomation','ledgerDesc','ledgerAmount'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', (e) => {
-    if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
-  });
-});
 
 function addExpense(){
   const desc = expenseDescInput.value.trim();

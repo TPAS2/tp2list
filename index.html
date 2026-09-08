@@ -2045,7 +2045,10 @@ function renderExpenseItems(){
 function renderExpenseItemsCompact(){
   const monthKey = expenseMonthKey(expenseViewDate);
   const monthExpenses = data.expenses.filter(e => e.month === monthKey);
-  const groups = groupExpenses(monthExpenses).sort((a, b) => b.total - a.total);
+  const groups = groupExpenses(monthExpenses).sort((a, b) => {
+    if(a.type !== b.type) return a.type === 'income' ? -1 : 1;
+    return b.total - a.total;
+  });
 
   expensesListEl.innerHTML = '';
   if(groups.length === 0){

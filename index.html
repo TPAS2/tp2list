@@ -2191,7 +2191,7 @@ function renderLedger(){
   const tallyEl = document.getElementById('tally-ledger');
   if(!ledgerListEl) return;
 
-  const entries = [...data.ledger].sort((a, b) => b.date.localeCompare(a.date));
+  const entries = [...data.ledger].sort((a, b) => a.date.localeCompare(b.date));
   tallyEl.textContent = `${entries.length}`;
 
   ledgerListEl.innerHTML = '';

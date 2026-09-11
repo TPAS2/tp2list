@@ -1605,15 +1605,11 @@ async function loadTasks(){
   if(!data.recurringEvents) data.recurringEvents = [];
   if(!data.spanEvents) data.spanEvents = [];
   if(!data.ledger) data.ledger = [];
-  // one-time seed: the three recurring automation schedules + their known activity log entries
+  // (the one-time ledger seed has been removed from source — it already ran once
+  // and your existing data carries it forward via the flag below, so there's no
+  // need to keep the real values sitting in a public file anymore)
   if(!data.automationsSeeded){
     data.automationsSeeded = true;
-    const mk = (id) => id + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-    data.ledger.push(
-      { id: mk('ledger'), date: '2026-10-01', automation: 'Panismo Invoice', description: 'Invoice No. 010, rent period Oct 2026', amount: '€1,249.50', delivery: 'email', paid: false, paidAt: null },
-      { id: mk('ledger'), date: '2026-09-10', automation: 'Theomie Statements', description: 'Statement No. 6 for all 7 properties, dated 11/09/2026', amount: 'varies by property', delivery: 'email', paid: false, paidAt: null },
-      { id: mk('ledger'), date: '2026-09-14', automation: 'TP2 Mazda Invoice', description: 'Invoice #12, dated Sep 14 2026', amount: '€500.00', delivery: 'email', paid: false, paidAt: null }
-    );
   }
   // one-time correction for anyone who already had the automations seeded before this fix
   if(!data.ledgerFixApplied){
@@ -1623,24 +1619,10 @@ async function loadTasks(){
       if(e.delivery === 'in-app' || e.delivery === 'in-app + email') e.delivery = 'email';
     });
   }
-  // one-time correction: the seeded dates were the day these were reported, not the
-  // automation's actual scheduled fire date — fix so status (sent/pending) is accurate
-  if(!data.ledgerDatesFixed){
-    data.ledgerDatesFixed = true;
-    data.ledger.forEach(e => {
-      if(e.automation === 'Panismo Invoice' && e.date === '2026-09-06') e.date = '2026-10-01';
-      if(e.automation === 'Theomie Statements' && e.date === '2026-09-06') e.date = '2026-09-10';
-      if(e.automation === 'TP2 Mazda Invoice' && e.date === '2026-09-06') e.date = '2026-09-14';
-    });
-  }
+  data.ledgerDatesFixed = true; // this one-time fix already applied — nothing more to do
   // one-time cleanup: the three automations used to also show as recurring Calendar events —
   // now they only live in the Ledger, so remove any that were already seeded onto the calendar
-  if(!data.automationCalendarEventsRemoved){
-    data.automationCalendarEventsRemoved = true;
-    data.recurringEvents = data.recurringEvents.filter(ev =>
-      !/^auto-(panismo|theomie|tp2)/.test(ev.id)
-    );
-  }
+  data.automationCalendarEventsRemoved = true; // this one-time cleanup already applied
   // migrate any expenses saved before monthly scoping existed
   if(data.expenses){
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;

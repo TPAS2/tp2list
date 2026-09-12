@@ -1544,7 +1544,7 @@ if('scrollRestoration' in history){ history.scrollRestoration = 'manual'; }
 window.scrollTo(0, 0);
 
 const STORAGE_KEY = 'tpas2:tasks';
-let data = { list: [], calendar: {}, other: [], expenses: [], recurringEvents: [], spanEvents: [] };
+let data = { list: [], calendar: {}, other: [], expenses: [], recurringEvents: [], spanEvents: [], ledger: [] };
 let undoStack = [];
 let lastSavedSnapshot = null;
 
@@ -3481,6 +3481,12 @@ async function pullFromSync(){
         other: remote.other || [],
         expenses: remote.expenses || [],
         recurringEvents: remote.recurringEvents || [],
+        spanEvents: remote.spanEvents || [],
+        ledger: remote.ledger || [],
+        automationsSeeded: remote.automationsSeeded,
+        ledgerFixApplied: remote.ledgerFixApplied,
+        ledgerDatesFixed: remote.ledgerDatesFixed,
+        automationCalendarEventsRemoved: remote.automationCalendarEventsRemoved,
         updatedAt: remoteTs
       };
       renderAll();

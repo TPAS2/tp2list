@@ -39,7 +39,6 @@
     overflow-x: hidden;
   }
   body{
-    background: var(--bg);
     color: var(--text);
     font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
     min-height: 100vh;
@@ -825,6 +824,8 @@
     border-color: var(--accent2);
     background: rgba(34,224,255,0.08);
     color: var(--accent2);
+    width: 43px;
+    height: 43px;
   }
   .expense-amount{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
@@ -925,6 +926,45 @@
     pointer-events:none;
     z-index: 50;
     box-shadow: 0 0 16px -2px rgba(34,224,255,0.6);
+  }
+  .floating-tag{
+    position: fixed;
+    top: 0;
+    left: 0;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: #ff2ea6;
+    text-shadow: 0 0 8px rgba(255,46,166,0.8), 0 0 2px rgba(255,46,166,1);
+    z-index: -1;
+    pointer-events: none;
+    opacity: 0.85;
+    animation: floatAround 22s ease-in-out infinite;
+  }
+  @keyframes floatAround{
+    0%   { transform: translate(6vw, 10vh); }
+    12%  { transform: translate(80vw, 18vh); }
+    25%  { transform: translate(88vw, 55vh); }
+    37%  { transform: translate(60vw, 85vh); }
+    50%  { transform: translate(15vw, 78vh); }
+    62%  { transform: translate(5vw, 45vh); }
+    75%  { transform: translate(45vw, 8vh); }
+    87%  { transform: translate(70vw, 65vh); }
+    100% { transform: translate(6vw, 10vh); }
+  }
+  .floating-tag-2{
+    animation: floatAround2 27s ease-in-out infinite;
+  }
+  @keyframes floatAround2{
+    0%   { transform: translate(75vw, 82vh); }
+    14%  { transform: translate(20vw, 70vh); }
+    28%  { transform: translate(8vw, 30vh); }
+    42%  { transform: translate(50vw, 12vh); }
+    56%  { transform: translate(85vw, 25vh); }
+    70%  { transform: translate(65vw, 60vh); }
+    84%  { transform: translate(30vw, 88vh); }
+    100% { transform: translate(75vw, 82vh); }
   }
   .status.show{ opacity: 1; }
 
@@ -1557,6 +1597,8 @@
 </div>
 
 <div class="status" id="status"></div>
+<div class="floating-tag">iis</div>
+<div class="floating-tag floating-tag-2">Kay Kays</div>
 
 <script>
 /* Sets a real, JS-measured viewport height as a CSS custom property. iOS Safari's

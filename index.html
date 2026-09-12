@@ -670,6 +670,23 @@
     display:flex;
     align-items:center;
     gap: 10px;
+    padding-right: 22px;
+  }
+  .ledger-row{
+    flex-wrap: wrap;
+  }
+  .ledger-row input{
+    flex: 1 1 100px;
+    min-width: 0;
+    font-size: 16px;
+  }
+  .ledger-row input#ledgerAmount{
+    flex: 1 1 80px;
+  }
+  .ledger-del{
+    position: absolute;
+    top: 12px;
+    right: 4px;
   }
   .ledger-name{
     font-size: 16px;
@@ -1421,6 +1438,19 @@
       </div>
       <ul class="list" id="overdueList2"></ul>
     </div>
+
+    <div class="section" id="section-ledger">
+      <div class="section-head">
+        <div class="section-title">Work <span class="count" id="tally-ledger">0</span></div>
+      </div>
+      <form class="add-row ledger-row no-generic-add" id="ledgerForm">
+        <input type="text" id="ledgerAutomation" placeholder="Automation…" autocomplete="off">
+        <input type="date" id="ledgerDate" class="cal-enddate-input">
+        <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off">
+        <button type="button" class="add">Add</button>
+      </form>
+      <ul class="list" id="ledgerList"></ul>
+    </div>
   </div>
   <div class="page" id="page-expenses">
     <div class="section" id="section-expenses">
@@ -1498,13 +1528,6 @@
         </form>
         <div id="calItemsWrap"></div>
       </div>
-    </div>
-
-    <div class="section" id="section-ledger">
-      <div class="section-head">
-        <div class="section-title">Ledger <span class="count" id="tally-ledger">0</span></div>
-      </div>
-      <ul class="list" id="ledgerList"></ul>
     </div>
   </div>
 
@@ -1677,6 +1700,7 @@ async function saveTasks(){
 function renderAll(){
   const steps = [
     () => renderSection('list'),
+    () => renderLedger(),
     () => renderCalendar(),
     () => renderOther(),
     () => renderExpenses()
@@ -2203,6 +2227,12 @@ function renderLedger(){
     const name = document.createElement('div');
     name.className = 'ledger-name';
     name.textContent = entry.automation || entry.description;
+    name.onclick = () => {
+      startInlineEdit(name, entry.automation || '', (newVal) => {
+        if(newVal !== null){ entry.automation = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
     topRow.appendChild(name);
 
     const status = ledgerStatus(entry);
@@ -2219,20 +2249,76 @@ function renderLedger(){
     const dateBadge = document.createElement('span');
     dateBadge.className = 'ledger-date';
     dateBadge.textContent = formatDateShort(entry.date);
+    dateBadge.onclick = () => {
+      const input = document.createElement('input');
+      input.type = 'date';
+      input.className = 'cal-enddate-input';
+      input.value = entry.date;
+      dateBadge.replaceWith(input);
+      requestAnimationFrame(() => input.focus());
+      let done = false;
+      function commit(){
+        if(done) return;
+        done = true;
+        if(input.value) entry.date = input.value;
+        renderLedger(); saveTasks();
+      }
+      input.addEventListener('change', commit);
+      input.addEventListener('blur', commit);
+    };
     bottomRow.appendChild(dateBadge);
 
-    if(entry.amount){
-      const amount = document.createElement('span');
-      amount.className = 'ledger-amount';
-      amount.textContent = entry.amount;
-      bottomRow.appendChild(amount);
-    }
+    const amount = document.createElement('span');
+    amount.className = 'ledger-amount';
+    amount.textContent = entry.amount || '—';
+    amount.onclick = () => {
+      startInlineEdit(amount, entry.amount || '', (newVal) => {
+        if(newVal !== null){ entry.amount = newVal; saveTasks(); }
+        renderLedger();
+      });
+    };
+    bottomRow.appendChild(amount);
 
     li.appendChild(bottomRow);
+
+    const del = document.createElement('button');
+    del.className = 'del ledger-del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      data.ledger = data.ledger.filter(e => e.id !== entry.id);
+      renderLedger(); saveTasks();
+      showStatus('removed');
+    };
+    li.appendChild(del);
 
     ledgerListEl.appendChild(li);
   });
 }
+
+function addLedgerEntry(){
+  const automation = document.getElementById('ledgerAutomation').value.trim();
+  const dateInput = document.getElementById('ledgerDate');
+  const amount = document.getElementById('ledgerAmount').value.trim();
+  if(!automation) return;
+  data.ledger.push({
+    id: Date.now() + Math.random().toString(36).slice(2),
+    date: dateInput.value || dateKey(new Date()),
+    automation, description: automation, amount,
+    delivery: 'email', paid: false, paidAt: null
+  });
+  document.getElementById('ledgerAutomation').value = '';
+  dateInput.value = '';
+  document.getElementById('ledgerAmount').value = '';
+  renderLedger(); saveTasks();
+}
+document.getElementById('ledgerForm').addEventListener('submit', (e) => e.preventDefault());
+document.querySelector('#ledgerForm button.add').addEventListener('click', addLedgerEntry);
+document.getElementById('ledgerAutomation').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
+});
+document.getElementById('ledgerAmount').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
+});
 
 function addExpense(){
   const desc = expenseDescInput.value.trim();
@@ -2413,7 +2499,6 @@ function renderCalendar(){
   renderCalDetail();
   renderOverdue();
   renderTodayCalendar();
-  renderLedger();
 }
 
 const calDetailLabel = document.getElementById('calDetailLabel');
@@ -2867,13 +2952,9 @@ function renderTodayCalendar(){
     return 0;
   });
 
-  tallyEl.textContent = visibleItems.length > 0 ? `${visibleItems.length}` : '';
+  tallyEl.textContent = `(${visibleItems.length})`;
   listEl.innerHTML = '';
   if(visibleItems.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'empty-row';
-    empty.textContent = 'nothing on the calendar today';
-    listEl.appendChild(empty);
     return;
   }
 
@@ -2959,13 +3040,9 @@ function renderOverdueInto(listId, tallyId, overdue){
   const overdueTally = document.getElementById(tallyId);
   if(!overdueListEl) return;
 
-  overdueTally.textContent = overdue.length;
+  overdueTally.textContent = `(${overdue.length})`;
   overdueListEl.innerHTML = '';
   if(overdue.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'empty-row';
-    empty.textContent = 'nothing overdue';
-    overdueListEl.appendChild(empty);
     return;
   }
 

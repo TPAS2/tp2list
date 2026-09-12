@@ -161,7 +161,13 @@
     html, body{ height: auto; }
     body{ display: block; overflow: visible; }
     .wrap{ max-width: 1040px; padding: 22px 18px 8px; }
-    .page-dots{ display: none; }
+    .page-dots{ justify-content: center; margin-top: 0; margin-bottom: 20px; }
+    .page-dots .page-dot[data-page]{ display: none; }
+    #otherNavBtn{
+      font-size: 0.8rem;
+      padding: 9px 18px;
+      border-radius: 24px;
+    }
     .page-columns{
       display: flex;
       align-items: flex-start;
@@ -936,10 +942,10 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     color: #ff2ea6;
-    text-shadow: 0 0 8px rgba(255,46,166,0.8), 0 0 2px rgba(255,46,166,1);
+    text-shadow: 0 0 3px rgba(255,46,166,0.35);
     z-index: -1;
     pointer-events: none;
-    opacity: 0.85;
+    opacity: 0.28;
     animation: floatAround 22s ease-in-out infinite;
   }
   @keyframes floatAround{
@@ -1450,6 +1456,7 @@
   <span class="page-dot active" data-page="0">List</span>
   <span class="page-dot" data-page="1">Calendar</span>
   <span class="page-dot" data-page="2">Expenses</span>
+  <button type="button" class="page-dot" id="otherNavBtn">📦 Other</button>
 </div>
 
 <div class="page-columns" id="pageColumns">
@@ -1465,10 +1472,6 @@
         <button type="button" class="add">Add</button>
       </form>
       <ul class="list" id="list-list" data-section="list"></ul>
-    </div>
-
-    <div class="restaurants-nav-row">
-      <button type="button" class="nav-btn" id="otherNavBtn">📦 Other</button>
     </div>
 
     <div class="section" id="section-today-cal">
@@ -1504,7 +1507,10 @@
     <div class="section" id="section-expenses">
       <div class="section-head">
         <div class="section-title">Expenses</div>
-        <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
+        <div class="expense-head-actions">
+          <button type="button" class="expense-head-btn" id="expenseListToggle" title="Show/hide the list">👁</button>
+          <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
+        </div>
       </div>
       <div class="cal-nav expense-nav">
         <button type="button" id="expensePrevBtn" class="cal-nav-btn">‹</button>
@@ -2098,6 +2104,14 @@ expenseDetailsToggle.addEventListener('click', () => {
   expenseShowAllDetails = !expenseShowAllDetails;
   expenseDetailsToggle.classList.toggle('active', expenseShowAllDetails);
   renderExpenseItems();
+});
+
+const expenseListToggle = document.getElementById('expenseListToggle');
+expenseListToggle.addEventListener('click', () => {
+  const hidden = expensesListEl.style.display === 'none';
+  expensesListEl.style.display = hidden ? '' : 'none';
+  expenseListToggle.textContent = hidden ? '👁' : '🙈';
+  expenseListToggle.classList.toggle('active', !hidden);
 });
 
 function renderExpenseItems(){

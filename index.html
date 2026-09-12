@@ -821,6 +821,11 @@
     background: rgba(42,245,176,0.08);
     color: var(--success);
   }
+  #ledgerCurrencyToggle{
+    border-color: var(--accent2);
+    background: rgba(34,224,255,0.08);
+    color: var(--accent2);
+  }
   .expense-amount{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
     font-size: 16px;
@@ -1443,11 +1448,13 @@
     <div class="section" id="section-ledger">
       <div class="section-head">
         <div class="section-title">Work <span class="count" id="tally-ledger">0</span></div>
+        <button type="button" class="expense-head-btn" id="ledgerFormToggle">+ add</button>
       </div>
-      <form class="add-row ledger-row no-generic-add" id="ledgerForm">
+      <form class="add-row ledger-row no-generic-add" id="ledgerForm" style="display:none;">
         <input type="text" id="ledgerAutomation" placeholder="Automation…" autocomplete="off">
         <input type="date" id="ledgerDate" class="cal-enddate-input">
-        <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off">
+        <button type="button" class="expense-type-toggle" id="ledgerCurrencyToggle" data-currency="€" title="Tap to switch currency">€</button>
+        <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off" inputmode="decimal">
         <button type="button" class="add">Add</button>
       </form>
       <ul class="list" id="ledgerList"></ul>
@@ -2299,8 +2306,10 @@ function renderLedger(){
 function addLedgerEntry(){
   const automation = document.getElementById('ledgerAutomation').value.trim();
   const dateInput = document.getElementById('ledgerDate');
-  const amount = document.getElementById('ledgerAmount').value.trim();
+  const rawAmount = document.getElementById('ledgerAmount').value.trim();
   if(!automation) return;
+  const currency = ledgerCurrencyToggle.dataset.currency;
+  const amount = (rawAmount && /^[\d.,]+$/.test(rawAmount)) ? currency + rawAmount : rawAmount;
   data.ledger.push({
     id: Date.now() + Math.random().toString(36).slice(2),
     date: dateInput.value || dateKey(new Date()),
@@ -2312,10 +2321,24 @@ function addLedgerEntry(){
   document.getElementById('ledgerAmount').value = '';
   renderLedger(); saveTasks();
 }
-document.getElementById('ledgerForm').addEventListener('submit', (e) => e.preventDefault());
+const ledgerForm = document.getElementById('ledgerForm');
+ledgerForm.addEventListener('submit', (e) => e.preventDefault());
 document.querySelector('#ledgerForm button.add').addEventListener('click', addLedgerEntry);
 document.getElementById('ledgerAutomation').addEventListener('keydown', (e) => {
   if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
+});
+const ledgerCurrencyToggle = document.getElementById('ledgerCurrencyToggle');
+ledgerCurrencyToggle.addEventListener('click', () => {
+  const isEuro = ledgerCurrencyToggle.dataset.currency === '€';
+  ledgerCurrencyToggle.dataset.currency = isEuro ? '£' : '€';
+  ledgerCurrencyToggle.textContent = isEuro ? '£' : '€';
+});
+const ledgerFormToggle = document.getElementById('ledgerFormToggle');
+ledgerFormToggle.addEventListener('click', () => {
+  const showing = ledgerForm.style.display !== 'none';
+  ledgerForm.style.display = showing ? 'none' : 'flex';
+  ledgerFormToggle.textContent = showing ? '+ add' : 'hide';
+  ledgerFormToggle.classList.toggle('active', !showing);
 });
 document.getElementById('ledgerAmount').addEventListener('keydown', (e) => {
   if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }

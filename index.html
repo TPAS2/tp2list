@@ -1508,7 +1508,7 @@
       <div class="section-head">
         <div class="section-title">Expenses</div>
         <div class="expense-head-actions">
-          <button type="button" class="expense-head-btn" id="expenseListToggle" title="Show/hide the list">👁</button>
+          <button type="button" class="expense-head-btn" id="expenseListToggle" title="Show/hide the list">🙈</button>
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
         </div>
       </div>
@@ -1541,7 +1541,7 @@
           <span id="sumBalance">€0.00</span>
         </div>
       </div>
-      <ul class="list" id="list-expenses"></ul>
+      <ul class="list" id="list-expenses" style="display:none;"></ul>
     </div>
   </div>
   </div>
@@ -3605,12 +3605,15 @@ async function pushToSync(){
   const { key, bin } = getSyncConfig();
   if(!key || !bin) return;
   try{
-    const payload = { ...data, updatedAt: Date.now() };
+    const ts = Date.now();
+    const payload = { ...data, updatedAt: ts };
     await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
       body: JSON.stringify(payload)
     });
+    data.updatedAt = ts; // keep local in sync with what we just pushed, so the next
+                         // pull doesn't mistake our own just-saved data for being stale
     setSyncBtnState('synced');
   }catch(e){
     setSyncBtnState('failed');

@@ -158,52 +158,13 @@
   #page-expenses{ order: 2; }
 
   @media (min-width: 860px){
-    html, body{ height: auto; }
-    body{ display: block; overflow: visible; }
-    .wrap{ max-width: 1040px; padding: 22px 18px 8px; }
-    .page-dots{ justify-content: center; margin-top: 0; margin-bottom: 20px; }
-    .page-dots .page-dot[data-page]{ display: none; }
+    .wrap{ max-width: 640px; margin: 0 auto; padding: 22px 18px 8px; }
+    .page-dots{ margin-bottom: 14px; }
+    .page{ padding: 8px max(18px, calc(50% - 320px)) 90px; }
     #otherNavBtn{
       font-size: 0.8rem;
       padding: 9px 18px;
       border-radius: 24px;
-    }
-    .page-columns{
-      display: flex;
-      align-items: flex-start;
-      flex: none;
-      min-height: unset;
-      overflow: visible;
-      scroll-snap-type: none;
-      max-width: 1040px;
-      margin: 0 auto;
-      padding: 0 18px 30px;
-      gap: 64px;
-      position: relative;
-    }
-    .page-columns::before{
-      content: "";
-      position: absolute;
-      top: 0; bottom: 0;
-      left: calc(50% - 0.5px);
-      width: 1px;
-      background: linear-gradient(to bottom, transparent, var(--accent), var(--accent2), transparent);
-      opacity: 0.5;
-      overflow: hidden;
-    }
-    .left-stack{
-      display: flex;
-      flex-direction: column;
-      flex: 1 1 0;
-      min-width: 0;
-    }
-    .page{
-      padding: 0;
-      height: auto;
-      overflow-y: visible;
-      scroll-snap-align: none;
-      flex: 1 1 0;
-      min-width: 0;
     }
     header{ margin-bottom: 16px; padding-bottom: 12px; }
     .brandblock h1{ font-size: 1.9rem; letter-spacing: 0.06em; }
@@ -211,19 +172,6 @@
     .restaurants-nav-row{ margin-top: 2px; }
     .cal-nav{ margin-bottom: 6px; }
     .cal-dow{ margin-bottom: 3px; }
-    .cal-grid{
-      grid-auto-rows: unset;
-      gap: 0;
-      margin-bottom: 8px;
-    }
-    .cal-day{
-      aspect-ratio: unset;
-      min-height: 0;
-      height: 40px;
-      font-size: 0.8rem;
-      border-radius: 0;
-      border-color: var(--line);
-    }
     .section-title{ font-size: 0.85rem; }
     form.add-row{ margin-bottom: 8px; }
     input[type="text"]{ padding: 8px 12px; }
@@ -708,6 +656,7 @@
     color: var(--text-dim);
     flex-shrink: 0;
     white-space: nowrap;
+    cursor: pointer;
   }
   .ledger-status{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
@@ -2335,9 +2284,20 @@ function renderLedger(){
     const amount = document.createElement('span');
     amount.className = 'ledger-amount';
     amount.textContent = entry.amount || '—';
+    amount.title = 'Tap to change the amount';
     amount.onclick = () => {
       startInlineEdit(amount, entry.amount || '', (newVal) => {
-        if(newVal !== null){ entry.amount = newVal; saveTasks(); }
+        if(newVal !== null){
+          const trimmed = newVal.trim();
+          if(trimmed && /^[\d.,]+$/.test(trimmed)){
+            // plain number typed — keep whatever currency symbol this entry already used
+            const existingSymbol = (entry.amount || '').match(/^[€£]/);
+            entry.amount = (existingSymbol ? existingSymbol[0] : ledgerCurrencyToggle.dataset.currency) + trimmed;
+          } else {
+            entry.amount = trimmed;
+          }
+          saveTasks();
+        }
         renderLedger();
       });
     };

@@ -1457,7 +1457,6 @@
       <div class="section-head">
         <div class="section-title">Expenses</div>
         <div class="expense-head-actions">
-          <button type="button" class="expense-head-btn" id="expenseListToggle" title="Show/hide the list">🙈</button>
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
         </div>
       </div>
@@ -1490,7 +1489,7 @@
           <span id="sumBalance">€0.00</span>
         </div>
       </div>
-      <ul class="list" id="list-expenses" style="display:none;"></ul>
+      <ul class="list" id="list-expenses"></ul>
     </div>
   </div>
   </div>
@@ -2055,76 +2054,69 @@ expenseDetailsToggle.addEventListener('click', () => {
   renderExpenseItems();
 });
 
-const expenseListToggle = document.getElementById('expenseListToggle');
-expenseListToggle.addEventListener('click', () => {
-  const hidden = expensesListEl.style.display === 'none';
-  expensesListEl.style.display = hidden ? '' : 'none';
-  expenseListToggle.textContent = hidden ? '👁' : '🙈';
-  expenseListToggle.classList.toggle('active', !hidden);
-});
-
 function renderExpenseItems(){
   if(expenseShowAllDetails) renderExpenseItemsDetailed();
   else renderExpenseItemsCompact();
 }
 
 function renderExpenseItemsCompact(){
-  const monthKey = expenseMonthKey(expenseViewDate);
-  const monthExpenses = data.expenses.filter(e => e.month === monthKey);
-  const groups = groupExpenses(monthExpenses).sort((a, b) => {
-    if(a.type !== b.type) return a.type === 'income' ? -1 : 1;
-    return b.total - a.total;
-  });
+  const todayKey = dateKey(new Date());
+  const todayExpenses = data.expenses
+    .filter(e => dateKey(new Date(e.createdAt)) === todayKey)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   expensesListEl.innerHTML = '';
-  if(groups.length === 0){
+  if(todayExpenses.length === 0){
     const empty = document.createElement('div');
     empty.className = 'empty-row';
-    empty.textContent = 'nothing this month';
+    empty.textContent = 'nothing added today';
     expensesListEl.appendChild(empty);
     return;
   }
 
-  groups.forEach(group => {
+  todayExpenses.forEach(exp => {
     const li = document.createElement('li');
     li.className = 'expense-item compact';
 
     const text = document.createElement('div');
     text.className = 'text';
-    text.textContent = group.desc;
+    text.textContent = exp.desc;
     text.onclick = () => {
-      startInlineEdit(text, group.desc, (newVal) => {
-        if(newVal !== null){
-          data.expenses.forEach(e => { if(group.ids.includes(e.id)) e.desc = newVal; });
-          saveTasks();
-        }
+      startInlineEdit(text, exp.desc, (newVal) => {
+        if(newVal !== null){ exp.desc = newVal; saveTasks(); }
         renderExpenses();
       });
     };
     li.appendChild(text);
 
-    if(group.ids.length > 1){
-      const countBadge = document.createElement('span');
-      countBadge.className = 'expense-count-badge';
-      countBadge.textContent = `×${group.ids.length}`;
-      li.appendChild(countBadge);
-    }
+    const ts = document.createElement('div');
+    ts.className = 'expense-timestamp';
+    ts.textContent = formatExpenseTimestamp(exp.createdAt);
+    ts.onclick = () => {
+      startTimestampEdit(ts, exp, () => renderExpenses());
+    };
+    li.appendChild(ts);
 
-    const isIncome = group.type === 'income';
+    const isIncome = exp.type === 'income';
     const amount = document.createElement('div');
     amount.className = 'expense-amount' + (isIncome ? ' income' : '');
-    amount.textContent = (isIncome ? '+' : '−') + formatCurrency(group.total);
+    amount.textContent = (isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    amount.onclick = () => {
+      startInlineEdit(amount, String(exp.amount), (newVal) => {
+        if(newVal !== null){
+          const parsed = parseFloat(newVal.replace(/[^0-9.\-]/g, ''));
+          if(!isNaN(parsed)){ exp.amount = Math.abs(parsed); saveTasks(); }
+        }
+        renderExpenses();
+      });
+    };
     li.appendChild(amount);
 
     const del = document.createElement('button');
     del.className = 'del';
     del.textContent = '✕';
     del.onclick = () => {
-      if(group.ids.length > 1){
-        const ok = confirm(`Remove all ${group.ids.length} entries for "${group.desc}"?`);
-        if(!ok) return;
-      }
-      data.expenses = data.expenses.filter(e => !group.ids.includes(e.id));
+      data.expenses = data.expenses.filter(e => e.id !== exp.id);
       renderExpenses(); saveTasks();
       showStatus('removed');
     };

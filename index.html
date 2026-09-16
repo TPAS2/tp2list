@@ -489,6 +489,12 @@
     background: var(--panel);
     box-shadow: inset 0 0 0 1.5px dashed var(--accent2);
   }
+  .item.completing{
+    transition: opacity .45s ease, transform .45s ease;
+    opacity: 0;
+    transform: scale(0.97) translateX(4px);
+    pointer-events: none;
+  }
   .item{
     display:flex;
     align-items:flex-start;
@@ -1440,7 +1446,10 @@
     <div class="section" id="section-ledger">
       <div class="section-head">
         <div class="section-title">Work <span class="count" id="tally-ledger">0</span></div>
-        <button type="button" class="expense-head-btn" id="ledgerFormToggle">+ add</button>
+        <div class="expense-head-actions">
+          <button type="button" class="expense-head-btn" id="ledgerHideCompletedToggle">HIDE SENT</button>
+          <button type="button" class="expense-head-btn" id="ledgerFormToggle">+ add</button>
+        </div>
       </div>
       <form class="add-row ledger-row no-generic-add" id="ledgerForm" style="display:none;">
         <input type="text" id="ledgerAutomation" placeholder="Automation…" autocomplete="off">
@@ -2205,19 +2214,24 @@ function ledgerStatus(entry){
   return entry.date <= todayKey ? 'sent' : 'pending';
 }
 
+let ledgerHideCompleted = false;
+
 function renderLedger(){
   const ledgerListEl = document.getElementById('ledgerList');
   const tallyEl = document.getElementById('tally-ledger');
   if(!ledgerListEl) return;
 
-  const entries = [...data.ledger].sort((a, b) => a.date.localeCompare(b.date));
+  let entries = [...data.ledger].sort((a, b) => a.date.localeCompare(b.date));
+  if(ledgerHideCompleted){
+    entries = entries.filter(e => ledgerStatus(e) !== 'sent');
+  }
   tallyEl.textContent = `${entries.length}`;
 
   ledgerListEl.innerHTML = '';
   if(entries.length === 0){
     const empty = document.createElement('div');
     empty.className = 'empty-row';
-    empty.textContent = 'no automation runs logged yet';
+    empty.textContent = ledgerHideCompleted ? 'nothing pending' : 'no automation runs logged yet';
     ledgerListEl.appendChild(empty);
     return;
   }
@@ -2347,6 +2361,14 @@ ledgerFormToggle.addEventListener('click', () => {
   ledgerForm.style.display = showing ? 'none' : 'flex';
   ledgerFormToggle.textContent = showing ? '+ add' : 'hide';
   ledgerFormToggle.classList.toggle('active', !showing);
+});
+
+const ledgerHideCompletedToggle = document.getElementById('ledgerHideCompletedToggle');
+ledgerHideCompletedToggle.addEventListener('click', () => {
+  ledgerHideCompleted = !ledgerHideCompleted;
+  ledgerHideCompletedToggle.textContent = ledgerHideCompleted ? 'SHOW SENT' : 'HIDE SENT';
+  ledgerHideCompletedToggle.classList.toggle('active', ledgerHideCompleted);
+  renderLedger();
 });
 document.getElementById('ledgerAmount').addEventListener('keydown', (e) => {
   if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
@@ -2997,9 +3019,12 @@ function renderTodayCalendar(){
     const box = document.createElement('div');
     box.className = 'box';
     box.onclick = () => {
-      if(kind === 'normal') toggleCalendarItem(key, ref.id);
-      else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
-      else toggleSpanOccurrence(ref.id, key);
+      li.classList.add('completing');
+      setTimeout(() => {
+        if(kind === 'normal') toggleCalendarItem(key, ref.id);
+        else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
+        else toggleSpanOccurrence(ref.id, key);
+      }, 380);
     };
     li.appendChild(box);
 
@@ -3085,9 +3110,12 @@ function renderOverdueInto(listId, tallyId, overdue){
     const box = document.createElement('div');
     box.className = 'box';
     box.onclick = () => {
-      if(kind === 'normal') toggleCalendarItem(key, ref.id);
-      else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
-      else toggleSpanOccurrence(ref.id, key);
+      li.classList.add('completing');
+      setTimeout(() => {
+        if(kind === 'normal') toggleCalendarItem(key, ref.id);
+        else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
+        else toggleSpanOccurrence(ref.id, key);
+      }, 380);
     };
     li.appendChild(box);
 

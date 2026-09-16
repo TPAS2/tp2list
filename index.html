@@ -1447,7 +1447,7 @@
       <div class="section-head">
         <div class="section-title">Work <span class="count" id="tally-ledger">0</span></div>
         <div class="expense-head-actions">
-          <button type="button" class="expense-head-btn" id="ledgerHideCompletedToggle">HIDE SENT</button>
+          <button type="button" class="expense-head-btn" id="ledgerHideCompletedToggle" title="Show/hide sent items">🙈</button>
           <button type="button" class="expense-head-btn" id="ledgerFormToggle">+ add</button>
         </div>
       </div>
@@ -2214,7 +2214,7 @@ function ledgerStatus(entry){
   return entry.date <= todayKey ? 'sent' : 'pending';
 }
 
-let ledgerHideCompleted = false;
+let ledgerHideCompleted = true;
 
 function renderLedger(){
   const ledgerListEl = document.getElementById('ledgerList');
@@ -2225,14 +2225,10 @@ function renderLedger(){
   if(ledgerHideCompleted){
     entries = entries.filter(e => ledgerStatus(e) !== 'sent');
   }
-  tallyEl.textContent = `${entries.length}`;
+  tallyEl.textContent = `(${entries.length})`;
 
   ledgerListEl.innerHTML = '';
   if(entries.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'empty-row';
-    empty.textContent = ledgerHideCompleted ? 'nothing pending' : 'no automation runs logged yet';
-    ledgerListEl.appendChild(empty);
     return;
   }
 
@@ -2366,8 +2362,8 @@ ledgerFormToggle.addEventListener('click', () => {
 const ledgerHideCompletedToggle = document.getElementById('ledgerHideCompletedToggle');
 ledgerHideCompletedToggle.addEventListener('click', () => {
   ledgerHideCompleted = !ledgerHideCompleted;
-  ledgerHideCompletedToggle.textContent = ledgerHideCompleted ? 'SHOW SENT' : 'HIDE SENT';
-  ledgerHideCompletedToggle.classList.toggle('active', ledgerHideCompleted);
+  ledgerHideCompletedToggle.textContent = ledgerHideCompleted ? '🙈' : '👁';
+  ledgerHideCompletedToggle.classList.toggle('active', !ledgerHideCompleted);
   renderLedger();
 });
 document.getElementById('ledgerAmount').addEventListener('keydown', (e) => {

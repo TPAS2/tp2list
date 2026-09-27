@@ -690,6 +690,47 @@
     background: rgba(255,79,121,0.18);
     color: #ff8fa8;
   }
+  .ledger-status.waiting{
+    border: 1px solid rgba(255,196,77,0.5);
+    background: rgba(255,196,77,0.12);
+    color: #ffc44d;
+  }
+  .ledger-status.cancelled{
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-faint);
+  }
+
+  /* monthly documents: live progress written by the Ai-Monthly runs */
+  .auto-status{ display:flex; flex-direction:column; gap: 8px; margin-bottom: 12px; }
+  .auto-card{
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .auto-head{ display:flex; align-items:center; gap: 10px; }
+  .auto-title{ flex:1; min-width:0; font-size: 15px; font-weight: 600; color: var(--text); }
+  .auto-month{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem; color: var(--text-dim); margin-top: 2px;
+  }
+  .auto-steps{ list-style:none; margin: 8px 0 0; padding: 0; display:flex; flex-direction:column; gap: 3px; }
+  .auto-step{ display:flex; gap: 8px; align-items:baseline; font-size: 13px; color: var(--text-faint); }
+  .auto-step.done{ color: var(--text); }
+  .auto-step .mark{ width: 14px; flex-shrink:0; text-align:center; }
+  .auto-step.done .mark{ color: var(--success); }
+  .auto-step.bad .mark{ color: var(--danger); }
+  .auto-step .when{
+    margin-left: auto; flex-shrink: 0; white-space: nowrap;
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.68rem; color: var(--text-dim);
+  }
+  .auto-detail{ font-size: 12px; color: var(--text-dim); margin: 2px 0 0 22px; word-break: break-word; }
+  .auto-foot{
+    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
+    font-size: 0.66rem; color: var(--text-faint); margin-top: 8px;
+  }
   .ledger-bottom-row{
     display:flex;
     align-items:baseline;
@@ -1458,6 +1499,7 @@
         <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off" inputmode="decimal">
         <button type="button" class="add">Add</button>
       </form>
+      <div class="auto-status" id="autoStatus"></div>
       <ul class="list" id="ledgerList"></ul>
     </div>
   </div>
@@ -2208,10 +2250,159 @@ function formatLedgerDate(dateStr){
 }
 
 
+/* Monthly documents: the Ai-Monthly runs write every step (created, sent to Telegram,
+   SEND received, emailed / cancelled / failed) to a private JSONBin record in the same
+   JSONBin account used for sync. It is read with the saved master key and never written
+   here, so it can't clash with this app's own list data. */
+const STATUS_BIN_ID = '6ab92326ac6210605afaf851';
+const AUTOMATIONS = [   // matches Work entries to a monthly job by name
+  { key: 'ptma', match: /ptma|panismo/i },
+  { key: 'theomie', match: /theomie|statement/i },
+  { key: 'mazda', match: /mazda|tp2/i }
+];
+let autoStatus = null;
+
+function automationFor(entry){
+  const name = entry.automation || entry.description || '';
+  const hit = AUTOMATIONS.find(a => a.match.test(name));
+  return hit && autoStatus && autoStatus.automations ? autoStatus.automations[hit.key] : null;
+}
+
 function ledgerStatus(entry){
   if(entry.delivery === 'failed') return 'failed';
+  // a Work entry for a monthly job shows the real progress of that month's run
+  const auto = automationFor(entry);
+  const run = auto && auto.current;
+  if(run && entry.date && entry.date.slice(0, 7) === run.month){
+    return { sent: 'sent', awaiting_approval: 'waiting', not_emailed: 'waiting', created: 'pending',
+             cancelled: 'cancelled', failed: 'failed' }[run.status] || 'pending';
+  }
   const todayKey = dateKey(new Date());
   return entry.date <= todayKey ? 'sent' : 'pending';
+}
+
+function formatAutoTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  const tz = 'Asia/Nicosia';   // the runs are scheduled on Cyprus time
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', timeZone: tz }) + ' ' +
+         d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+}
+
+function formatRunDate(ymd){
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, m-1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+const AUTO_CHIPS = {
+  sent: ['sent', 'Emailed'], awaiting_approval: ['waiting', 'Reply SEND'], not_emailed: ['waiting', 'Not emailed'],
+  created: ['pending', 'In progress'], cancelled: ['cancelled', 'Cancelled'], failed: ['failed', 'Checks failed']
+};
+
+function latestStep(run){
+  return run ? Object.values(run.steps || {}).sort().pop() || '' : '';
+}
+
+function renderAutomationStatus(){
+  const box = document.getElementById('autoStatus');
+  if(!box) return;
+  box.innerHTML = '';
+  if(!autoStatus || !autoStatus.automations) return;
+
+  const entries = Object.entries(autoStatus.automations).sort((a, b) => (a[1].day || 0) - (b[1].day || 0));
+  entries.forEach(([key, auto]) => {
+    // show the real month; show a dry run instead only while it is the more recent one
+    let run = auto.current, isTest = false;
+    if(auto.last_test && latestStep(auto.last_test) > latestStep(auto.current)){ run = auto.last_test; isTest = true; }
+
+    const card = document.createElement('div');
+    card.className = 'auto-card';
+    const head = document.createElement('div');
+    head.className = 'auto-head';
+    const titleWrap = document.createElement('div');
+    titleWrap.style.flex = '1';
+    titleWrap.style.minWidth = '0';
+    const title = document.createElement('div');
+    title.className = 'auto-title';
+    title.textContent = auto.title || key;
+    titleWrap.appendChild(title);
+    const month = document.createElement('div');
+    month.className = 'auto-month';
+    if(run){
+      const [y, m] = run.month.split('-').map(Number);
+      month.textContent = new Date(y, m-1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) +
+                          (isTest ? ' · dry run (only to you)' : '');
+    } else {
+      month.textContent = 'Not run yet';
+    }
+    titleWrap.appendChild(month);
+    head.appendChild(titleWrap);
+    if(run){
+      const [cls, label] = AUTO_CHIPS[run.status] || ['pending', run.status];
+      const chip = document.createElement('div');
+      chip.className = 'ledger-status ' + cls;
+      chip.textContent = label;
+      head.appendChild(chip);
+    }
+    card.appendChild(head);
+
+    if(run){
+      const s = run.steps || {};
+      const steps = [
+        ['created', 'Created & checked', (run.numbers || []).join(', ')],
+        ['telegram', 'Sent to Telegram', ''],
+        ['approved', 'You replied SEND', ''],
+        ['emailed', 'Emailed', run.from ? `from ${run.from} to ${run.to}` : '']
+      ];
+      if(s.cancelled) steps.splice(2, 2, ['cancelled', 'Cancelled (STOP)', '']);
+      if(s.failed) steps.splice(0, 4, ['failed', 'Checks failed - nothing sent', run.note || '']);
+      const list = document.createElement('ul');
+      list.className = 'auto-steps';
+      steps.forEach(([k, label, detail]) => {
+        const done = !!s[k];
+        const li = document.createElement('li');
+        li.className = 'auto-step' + (done ? ' done' : '') + ((k === 'failed' || k === 'cancelled') ? ' bad' : '');
+        const mark = document.createElement('span');
+        mark.className = 'mark';
+        mark.textContent = done ? (k === 'failed' || k === 'cancelled' ? '✕' : '✓') : '○';
+        const text = document.createElement('span');
+        text.textContent = label;
+        const when = document.createElement('span');
+        when.className = 'when';
+        when.textContent = formatAutoTime(s[k]);
+        li.append(mark, text, when);
+        list.appendChild(li);
+        if(detail && (done || k === 'created')){
+          const d = document.createElement('li');
+          d.className = 'auto-detail';
+          d.textContent = detail;
+          list.appendChild(d);
+        }
+      });
+      card.appendChild(list);
+    }
+    if(auto.next_run){
+      const foot = document.createElement('div');
+      foot.className = 'auto-foot';
+      foot.textContent = 'Next run: ' + formatRunDate(auto.next_run) + ', just before 7:00';
+      card.appendChild(foot);
+    }
+    box.appendChild(card);
+  });
+}
+
+async function pullAutomationStatus(){
+  const { key } = getSyncConfig();
+  if(!key || !STATUS_BIN_ID) return;
+  try{
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${STATUS_BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' }
+    });
+    if(!res.ok) return;
+    autoStatus = await res.json();
+    renderAutomationStatus();
+    renderLedger();
+  }catch(e){}
 }
 
 let ledgerHideCompleted = true;
@@ -2254,6 +2445,10 @@ function renderLedger(){
     const statusBox = document.createElement('div');
     statusBox.className = 'ledger-status ' + status;
     statusBox.textContent = status;
+    const run = (automationFor(entry) || {}).current;
+    if(run && entry.date && entry.date.slice(0, 7) === run.month && run.steps && run.steps.emailed){
+      statusBox.title = `Emailed ${formatAutoTime(run.steps.emailed)} from ${run.from} to ${run.to}`;
+    }
     topRow.appendChild(statusBox);
 
     li.appendChild(topRow);
@@ -3657,7 +3852,7 @@ syncRefreshBtn.addEventListener('click', async () => {
     return;
   }
   syncRefreshBtn.classList.add('spinning');
-  await pullFromSync();
+  await Promise.all([pullFromSync(), pullAutomationStatus()]);
   syncRefreshBtn.classList.remove('spinning');
 });
 
@@ -3692,9 +3887,10 @@ syncBtn.addEventListener('click', async () => {
 window.addEventListener('load', () => {
   window.scrollTo(0, 0);
   pullFromSync();
+  pullAutomationStatus();
 });
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') pullFromSync();
+  if(document.visibilityState === 'visible'){ pullFromSync(); pullAutomationStatus(); }
 });
 if(getSyncConfig().bin) setSyncBtnState('idle');
 

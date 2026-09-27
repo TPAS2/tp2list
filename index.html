@@ -1488,7 +1488,7 @@
       <div class="section-head">
         <div class="section-title">Work <span class="count" id="tally-ledger">0</span></div>
         <div class="expense-head-actions">
-          <button type="button" class="expense-head-btn" id="ledgerHideCompletedToggle" title="Show/hide sent items">🙈</button>
+          <button type="button" class="expense-head-btn" id="ledgerHideCompletedToggle" title="Show/hide sent items and monthly document progress">🙈</button>
           <button type="button" class="expense-head-btn" id="ledgerFormToggle">+ add</button>
         </div>
       </div>
@@ -2307,7 +2307,9 @@ function renderAutomationStatus(){
   const box = document.getElementById('autoStatus');
   if(!box) return;
   box.innerHTML = '';
-  if(!autoStatus || !autoStatus.automations) return;
+  // follows the Work section's show/hide button: hidden by default, shown with 👁
+  box.style.display = ledgerHideCompleted ? 'none' : '';
+  if(ledgerHideCompleted || !autoStatus || !autoStatus.automations) return;
 
   const entries = Object.entries(autoStatus.automations).sort((a, b) => (a[1].day || 0) - (b[1].day || 0));
   entries.forEach(([key, auto]) => {
@@ -2560,6 +2562,7 @@ ledgerHideCompletedToggle.addEventListener('click', () => {
   ledgerHideCompletedToggle.textContent = ledgerHideCompleted ? '🙈' : '👁';
   ledgerHideCompletedToggle.classList.toggle('active', !ledgerHideCompleted);
   renderLedger();
+  renderAutomationStatus();
 });
 document.getElementById('ledgerAmount').addEventListener('keydown', (e) => {
   if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }

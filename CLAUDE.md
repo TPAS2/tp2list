@@ -5,6 +5,9 @@ A single-file `index.html` personal organizer. No build step, no backend.
 Hosted on GitHub Pages (moved from Netlify after its free tier became credit-limited).
 Cross-device sync uses JSONBin.io via a Master Key + Bin ID. This is independent of the hosting URL,
 so reconnecting Sync on any new deployment pulls everything back.
+Works offline: `sw.js` (service worker) caches the app. Edits save locally; if a sync push fails,
+a pending flag (`tpas2:sync:pending`) makes the app push them before its next pull, including when it comes back online.
+Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
 
 ## Structure
 Four swipeable pages, all sized the same: **List, Calendar, Expenses, Other**.

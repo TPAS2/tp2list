@@ -3752,6 +3752,7 @@ document.getElementById('otherBackBtn').addEventListener('click', hideAllPages);
 /* ---------- cross-device sync via jsonbin.io ---------- */
 const SYNC_KEY_KEY = 'tpas2:sync:masterkey';
 const SYNC_BIN_KEY = 'tpas2:sync:binid';
+const SYNC_PENDING_KEY = 'tpas2:sync:pending';
 const syncBtn = document.getElementById('syncBtn');
 
 function getSyncConfig(){
@@ -3770,6 +3771,8 @@ function setSyncBtnState(state){
     syncBtn.textContent = '🔄 Syncing…';
   } else if(state === 'failed'){
     syncBtn.textContent = '🔄 Sync failed';
+  } else if(state === 'offline'){
+    syncBtn.textContent = '📴 Offline';
   } else {
     syncBtn.textContent = '🔄 Sync';
   }
@@ -3781,22 +3784,37 @@ async function pushToSync(){
   try{
     const ts = Date.now();
     const payload = { ...data, updatedAt: ts };
-    await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
+    const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
       body: JSON.stringify(payload)
     });
+    if(!res.ok) throw new Error('bad response');
     data.updatedAt = ts; // keep local in sync with what we just pushed, so the next
                          // pull doesn't mistake our own just-saved data for being stale
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+    try{ localStorage.removeItem(SYNC_PENDING_KEY); }catch(e){}
     setSyncBtnState('synced');
   }catch(e){
-    setSyncBtnState('failed');
+    // remember there are unsent changes so they go up as soon as we're back online
+    try{ localStorage.setItem(SYNC_PENDING_KEY, '1'); }catch(e2){}
+    setSyncBtnState(navigator.onLine ? 'failed' : 'offline');
   }
+}
+
+function hasPendingPush(){
+  try{ return localStorage.getItem(SYNC_PENDING_KEY) === '1'; }catch(e){ return false; }
 }
 
 async function pullFromSync(){
   const { key, bin } = getSyncConfig();
   if(!key || !bin) return;
+  if(!navigator.onLine){ setSyncBtnState('offline'); return; }
+  // send offline edits first so they aren't lost to a newer copy from another device
+  if(hasPendingPush()){
+    await pushToSync();
+    if(hasPendingPush()) return;
+  }
   setSyncBtnState('syncing');
   try{
     const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}/latest`, {
@@ -3895,7 +3913,16 @@ window.addEventListener('load', () => {
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ pullFromSync(); pullAutomationStatus(); }
 });
-if(getSyncConfig().bin) setSyncBtnState('idle');
+window.addEventListener('online', () => { pullFromSync(); pullAutomationStatus(); });
+window.addEventListener('offline', () => { if(getSyncConfig().bin) setSyncBtnState('offline'); });
+if(getSyncConfig().bin) setSyncBtnState(navigator.onLine ? 'idle' : 'offline');
+
+/* offline support: cache the app so it opens without a connection */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
 
 document.getElementById('titleRefresh').addEventListener('click', () => {
   window.location.reload();

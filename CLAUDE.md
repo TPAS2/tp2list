@@ -35,6 +35,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - Stray CSS brace, hidden `.stamp-mark` reserving layout space, and a background-color rule blocking the glow.
 
 ## Rules
+- Always merge when done: once a change is made and tested, open a PR and merge it into `main` without asking (the user authorized this). Main deploys to GitHub Pages.
 - Never hardcode real business data (invoice names/amounts) in the source.
 - Any sync change must preserve every data field (`ledger`, `spanEvents`, etc.) and keep timestamps consistent.
 

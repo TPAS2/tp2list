@@ -1534,6 +1534,10 @@
           <span>Expenses</span>
           <span id="sumExpense" class="sum-expense">€0.00</span>
         </div>
+        <div class="expense-summary-row">
+          <span>Spent today</span>
+          <span id="sumToday" class="sum-expense">€0.00</span>
+        </div>
         <div class="expense-summary-row total">
           <span>Balance</span>
           <span id="sumBalance">€0.00</span>
@@ -2093,6 +2097,11 @@ function renderExpenses(){
   sumExpense.textContent = '−' + formatCurrency(stats.expense);
   sumBalance.textContent = formatSigned(stats.balance);
   sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
+  const todayKey = dateKey(new Date());
+  const spentToday = data.expenses
+    .filter(e => e.type !== 'income' && dateKey(new Date(e.createdAt)) === todayKey)
+    .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  document.getElementById('sumToday').textContent = '−' + formatCurrency(spentToday);
   renderExpenseItems();
 }
 

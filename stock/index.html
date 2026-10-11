@@ -44,14 +44,22 @@
   button{ cursor: pointer; }
   .wrap{ max-width: 920px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 16px 0; }
 
-  header{ display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-  header h1{ font-size: 22px; margin: 0; letter-spacing: .02em; flex: 1; }
+  header{ display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  header h1{ font-size: 22px; margin: 0; letter-spacing: .02em; flex: 1; min-width: 0; }
   header h1 small{ display: block; font-size: 12px; color: var(--text-dim); font-weight: 500; letter-spacing: 0; margin-top: 2px; }
   .icon-btn{
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-    padding: 8px 12px; font-size: 14px; color: var(--text-dim); text-decoration: none;
+    padding: 8px 12px; font-size: 14px; color: var(--text-dim); text-decoration: none; white-space: nowrap;
   }
   .icon-btn:active{ transform: scale(.97); }
+  .share-btn{ display: flex; align-items: center; gap: 6px; }
+  .share-btn.linked{ color: var(--text); border-color: rgba(42,245,176,.45); }
+  .dot{ width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  .dot.ok{ background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .dot.syncing{ background: var(--accent2); animation: pulse 1s ease-in-out infinite; }
+  .dot.error{ background: var(--danger); }
+  .dot.offline{ background: var(--warn); }
+  @keyframes pulse{ 50%{ opacity: .3; } }
 
   .tabs{ display: flex; gap: 6px; margin-bottom: 10px; }
   .tab{
@@ -82,16 +90,11 @@
     overflow: hidden; display: flex; flex-direction: column; position: relative;
   }
   .card.out{ border-color: rgba(255,79,121,.35); }
-  .card .photo{
-    aspect-ratio: 1 / 1; background: var(--panel-raised) center / cover no-repeat;
-    display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--text-faint);
-    border: 0; padding: 0; width: 100%;
+  .card .art{
+    aspect-ratio: 4 / 3; border: 0; padding: 0; width: 100%;
+    display: flex; align-items: center; justify-content: center; font-size: 64px; line-height: 1;
   }
-  .card.out .photo{ filter: grayscale(.85) brightness(.6); }
-  .card .count-pics{
-    position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); border-radius: 8px;
-    font-size: 11px; padding: 2px 6px; color: #fff;
-  }
+  .card.out .art{ filter: grayscale(.85) brightness(.6); }
   .badge{
     position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em;
     padding: 3px 7px; border-radius: 6px; text-transform: uppercase;
@@ -100,7 +103,7 @@
   .badge.low{ background: rgba(255,198,92,.95); color: #321; }
   .badge.out{ background: rgba(255,79,121,.95); color: #fff; }
   .card .body{ padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
-  .card .name{ font-weight: 600; font-size: 15px; line-height: 1.2; word-break: break-word; }
+  .card .name{ font-weight: 600; font-size: 15px; line-height: 1.2; word-break: break-word; cursor: pointer; }
   .card .cat{ font-size: 12px; color: var(--text-dim); }
   .qty{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
   .qty button{
@@ -160,11 +163,13 @@
   .inline .field{ flex: 1; min-width: 0; }
   .btn{
     border: 1px solid var(--line); background: var(--panel); border-radius: 10px;
-    padding: 10px 14px; font-size: 14px; white-space: nowrap;
+    padding: 10px 14px; font-size: 14px; white-space: nowrap; text-decoration: none; display: inline-block;
   }
   .btn.primary{ background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
   .btn.danger{ color: var(--danger); border-color: rgba(255,79,121,.4); }
+  .btn.big{ width: 100%; padding: 14px; font-size: 16px; }
   .btn:active{ transform: scale(.98); }
+  .btn:disabled{ opacity: .5; }
   .actions{ display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
   .actions .grow{ flex: 1; }
 
@@ -172,25 +177,21 @@
   .stepper button{ width: 44px; height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; }
   .stepper input{ text-align: center; flex: 1; min-width: 0; }
 
-  .photos{ display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
-  .ph{
-    position: relative; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden;
-    background: var(--panel-raised) center / cover no-repeat; border: 2px solid transparent; padding: 0;
+  /* icon picker */
+  .icon-row{ display: flex; align-items: center; gap: 12px; }
+  .icon-current{
+    width: 76px; height: 76px; border-radius: 18px; border: 1px solid var(--line);
+    font-size: 44px; line-height: 1; display: flex; align-items: center; justify-content: center; flex: none; padding: 0;
   }
-  .ph.cover{ border-color: var(--accent2); }
-  .ph .x{
-    position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%;
-    background: rgba(0,0,0,.7); color: #fff; border: 0; font-size: 14px; line-height: 24px; padding: 0;
+  .icon-row .hint{ margin: 0; }
+  .icon-grid{
+    display: none; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px;
+    margin-top: 10px; padding: 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+    max-height: 210px; overflow-y: auto;
   }
-  .ph .star{
-    position: absolute; left: 4px; bottom: 4px; font-size: 10px; background: rgba(0,0,0,.7);
-    color: var(--accent2); border-radius: 6px; padding: 2px 5px; font-weight: 700;
-  }
-  .add-ph{
-    aspect-ratio: 1/1; border-radius: 12px; border: 1.5px dashed var(--line); background: transparent;
-    color: var(--text-dim); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-  }
-  .add-ph b{ font-size: 24px; color: var(--text); font-weight: 400; }
+  .icon-grid.open{ display: grid; }
+  .icon-grid button{ font-size: 26px; height: 44px; border: 0; background: transparent; border-radius: 10px; padding: 0; }
+  .icon-grid button.sel{ background: rgba(124,92,255,.3); }
 
   /* scanner */
   .scan-box{ position: relative; border-radius: 16px; overflow: hidden; background: #000; aspect-ratio: 3/4; max-height: 62vh; margin: 0 auto; }
@@ -206,14 +207,21 @@
   @keyframes scanMove{ to{ top: 80%; } }
   .scan-msg{ text-align: center; color: var(--text-dim); font-size: 13px; margin: 10px 0 0; min-height: 1.2em; }
 
-  .viewer{ position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.94); display: none; align-items: center; justify-content: center; }
-  .viewer.open{ display: flex; }
-  .viewer img{ max-width: 100%; max-height: 100%; object-fit: contain; }
-
   .qr-label{ background: #fff; color: #000; border-radius: 14px; padding: 16px; text-align: center; margin: 0 auto; max-width: 260px; }
   .qr-label img{ width: 100%; image-rendering: pixelated; display: block; }
   .qr-label .ql-name{ font-weight: 700; font-size: 18px; margin-top: 8px; word-break: break-word; }
   .qr-label .ql-code{ font-size: 11px; color: #555; margin-top: 2px; word-break: break-all; }
+
+  /* share */
+  .share-code{
+    font-size: 40px; font-weight: 800; letter-spacing: .14em; text-align: center; font-variant-numeric: tabular-nums;
+    padding: 18px 10px; border-radius: 16px; background: var(--bg); border: 1px solid var(--line); margin: 6px 0 4px;
+    user-select: all;
+  }
+  .code-input{ text-transform: uppercase; letter-spacing: .2em; text-align: center; font-size: 24px; font-weight: 700; }
+  .or{ display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: 12px; margin: 18px 0 6px; }
+  .or::before, .or::after{ content: ""; flex: 1; height: 1px; background: var(--line); }
+  .sync-line{ text-align: center; font-size: 13px; color: var(--text-dim); display: flex; align-items: center; justify-content: center; gap: 8px; }
 
   .menu-list{ display: flex; flex-direction: column; gap: 8px; }
   .menu-list .btn{ text-align: left; padding: 13px 14px; }
@@ -239,6 +247,7 @@
   <header>
     <a class="icon-btn" href="../" title="Back to TP2List">←</a>
     <h1>Home Stock<small id="subtitle">What's at home</small></h1>
+    <button class="icon-btn share-btn" id="shareBtn"><span class="dot" id="syncDot"></span><span id="shareLabel">Share</span></button>
     <button class="icon-btn" id="menuBtn" title="Menu">⋯</button>
   </header>
 
@@ -266,10 +275,11 @@
       <button type="button" class="close" data-close>×</button>
     </div>
 
-    <label>Photos</label>
-    <div class="photos" id="photoGrid"></div>
-    <input type="file" id="photoInput" accept="image/*" multiple hidden>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+    <div class="icon-row">
+      <button type="button" class="icon-current" id="iconCurrent" title="Choose icon">📦</button>
+      <p class="hint">Tap the icon to change it. It's picked automatically from the name until you choose one.</p>
+    </div>
+    <div class="icon-grid" id="iconGrid"></div>
 
     <label for="fName">Name</label>
     <input class="field" id="fName" required placeholder="e.g. Olive oil">
@@ -317,6 +327,43 @@
       <button type="submit" class="btn primary">Save</button>
     </div>
   </form>
+</div>
+
+<!-- share / link phones -->
+<div class="modal" id="shareModal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Share this list</h2>
+      <button type="button" class="close" data-close>×</button>
+    </div>
+
+    <div id="shareOff">
+      <p class="hint">Sharing isn't switched on for this app yet. It needs a free Firebase database. See the setup notes in the project's CLAUDE.md.</p>
+    </div>
+
+    <div id="shareNew">
+      <button type="button" class="btn primary big" id="createCodeBtn">Get a share code</button>
+      <p class="hint">Gives you a 6-character code. Type it on another phone and you'll both see the same list. Changes show up on both phones straight away.</p>
+      <div class="or">or join a list</div>
+      <div class="inline">
+        <input class="field code-input" id="joinInput" maxlength="7" placeholder="ABC123" autocapitalize="characters" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn primary" id="joinBtn">Join</button>
+      </div>
+    </div>
+
+    <div id="shareOn">
+      <p class="hint" style="text-align:center;margin-top:0">Type this code on the other phone (Share → Join)</p>
+      <div class="share-code" id="shareCode"></div>
+      <div class="sync-line"><span class="dot" id="syncDot2"></span><span id="syncText"></span></div>
+      <div class="actions">
+        <button type="button" class="btn" id="sendCodeBtn">Send code</button>
+        <button type="button" class="btn" id="syncNowBtn">Sync now</button>
+        <span class="grow"></span>
+        <button type="button" class="btn danger" id="leaveBtn">Stop sharing</button>
+      </div>
+      <p class="hint">Only the stock list is shared. It's completely separate from your TP2List sync. Anyone with the code can see and edit this list.</p>
+    </div>
+  </div>
 </div>
 
 <!-- scanner -->
@@ -371,16 +418,14 @@
     </div>
     <div class="menu-list">
       <button class="btn" id="copyListBtn">📋 Copy shopping list</button>
-      <button class="btn" id="exportBtn">⬇️ Export backup (with photos)</button>
+      <button class="btn" id="exportBtn">⬇️ Export backup</button>
       <button class="btn" id="importBtn">⬆️ Import backup</button>
     </div>
     <input type="file" id="importInput" accept="application/json,.json" hidden>
-    <p class="hint">Items and photos are stored on this device. Use Export / Import to move them to another phone or keep a backup.</p>
-    <p class="hint" id="storageInfo"></p>
+    <p class="hint">Items are saved on this phone and, when you're sharing, in the shared list too.</p>
   </div>
 </div>
 
-<div class="viewer" id="viewer"><img id="viewerImg" alt=""></div>
 <div class="toast" id="toast"></div>
 
 <script src="vendor/qrcode.js"></script>
@@ -388,7 +433,12 @@
 <script>
 'use strict';
 
-/* ---------- storage (IndexedDB: photos are too big for localStorage) ---------- */
+/* Shared lists live in a Firebase Realtime Database at /lists/<CODE>.
+   This is the stock list's own storage. It is separate from TP2List's JSONBin sync. Leave empty to hide sharing.
+   The URL is not a secret: the database rules only allow access to /lists/<code>. */
+const SHARE_DB = '';
+
+/* ---------- local storage (IndexedDB) ---------- */
 const DB_NAME = 'tp2stock', STORE = 'items';
 let dbp = null;
 function db(){
@@ -412,6 +462,7 @@ async function tx(mode, fn){
 const dbAll = () => tx('readonly', (s) => s.getAll());
 const dbPut = (item) => tx('readwrite', (s) => s.put(item));
 const dbDel = (id) => tx('readwrite', (s) => s.delete(id));
+const dbReplace = (list) => tx('readwrite', (s) => { s.clear(); list.forEach((it) => s.put(it)); });
 
 /* ---------- state ---------- */
 let items = [];
@@ -427,7 +478,45 @@ const statusOf = (it) => it.qty <= 0 ? 'out' : (it.min > 0 && it.qty <= it.min ?
 function toast(msg){
   const t = $('toast');
   t.textContent = msg; t.classList.add('show');
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------- icons ---------- */
+// first match wins, so specific words come before general ones
+const ICON_RULES = [
+  [/washing.?up|dish soap|hand ?wash|shampoo|conditioner|shower gel|lotion|soap|liquid/, '🧴'],
+  [/toilet|kitchen roll|tissue|paper towel/, '🧻'], [/sponge|scrub/, '🧽'], [/bin bag|rubbish|trash/, '🗑️'],
+  [/detergent|laundry|washing|fabric/, '🧺'], [/toothpaste|toothbrush/, '🪥'], [/batter(y|ies)/, '🔋'], [/bulb/, '💡'],
+  [/medicine|pill|paracetamol|ibuprofen|vitamin/, '💊'], [/plaster|bandage/, '🩹'], [/nappies|nappy|diaper|baby/, '🍼'],
+  [/dog/, '🦴'], [/cat food|cat litter/, '🐈'],
+  [/ice ?cream/, '🍦'], [/watermelon/, '🍉'], [/pineapple/, '🍍'], [/peanut/, '🥜'], [/coconut/, '🥥'],
+  [/olive/, '🫒'], [/coffee/, '☕'], [/\btea\b/, '🍵'], [/milk|cream/, '🥛'], [/yog/, '🥣'], [/egg/, '🥚'],
+  [/bread|loaf|toast/, '🍞'], [/croissant/, '🥐'], [/bagel/, '🥯'], [/cheese/, '🧀'], [/butter/, '🧈'],
+  [/pasta|spaghetti|noodle|penne/, '🍝'], [/rice/, '🍚'], [/cereal|oats|muesli|granola/, '🥣'], [/flour/, '🌾'],
+  [/banana/, '🍌'], [/apple/, '🍎'], [/orange|clementine|satsuma/, '🍊'], [/lemon|lime/, '🍋'], [/grape/, '🍇'],
+  [/strawberr|berr/, '🍓'], [/cherr/, '🍒'], [/peach|nectarine/, '🍑'], [/pear/, '🍐'], [/melon/, '🍈'], [/kiwi/, '🥝'],
+  [/tomato/, '🍅'], [/potato/, '🥔'], [/carrot/, '🥕'], [/onion/, '🧅'], [/garlic/, '🧄'], [/pepper/, '🫑'],
+  [/lettuce|salad|spinach|cabbage/, '🥬'], [/cucumber/, '🥒'], [/avocado/, '🥑'], [/broccoli/, '🥦'], [/corn/, '🌽'], [/mushroom/, '🍄'],
+  [/chicken/, '🍗'], [/bacon/, '🥓'], [/sausage|hot ?dog/, '🌭'], [/burger/, '🍔'], [/steak|beef|mince|meat|pork|lamb/, '🥩'],
+  [/fish|salmon|tuna|cod|prawn|shrimp/, '🐟'], [/pizza/, '🍕'], [/sushi/, '🍣'], [/frozen|\bice\b/, '🧊'],
+  [/beer|lager/, '🍺'], [/wine|prosecco/, '🍷'], [/juice/, '🧃'], [/water/, '💧'], [/cola|soda|fizzy|drink/, '🥤'],
+  [/honey/, '🍯'], [/jam|spread/, '🍯'], [/chocolate|cocoa/, '🍫'], [/biscuit|cookie/, '🍪'], [/crisps|chips/, '🍟'],
+  [/cake/, '🍰'], [/sweet|candy|sugar/, '🍬'], [/salt|spice|herb/, '🧂'], [/\boil\b/, '🫗'], [/nut/, '🥜'],
+  [/bean|tin|can|soup|sauce|ketchup/, '🥫'],
+];
+const ICON_CHOICES = ('📦 🛒 🥛 🥚 🍞 🧀 🧈 🫒 ☕ 🍵 🍝 🍚 🥣 🌾 🍌 🍎 🍊 🍋 🍇 🍓 🍒 🍑 🍐 🍉 🍍 🥝 🥥 ' +
+  '🍅 🥔 🥕 🧅 🧄 🫑 🥬 🥒 🥑 🥦 🌽 🍄 🍗 🥓 🌭 🥩 🐟 🍕 🍔 🍣 🧊 🍦 🍰 🍪 🍫 🍬 🍯 🍟 🥜 🥫 🧂 🫗 ' +
+  '🍺 🍷 🧃 🥤 💧 🧴 🧻 🧽 🧺 🗑️ 🪥 💊 🩹 🔋 💡 🍼 🦴 🐈 🌸 🕯️ 🧹 🧤').split(' ');
+function guessIcon(text){
+  const t = String(text || '').toLowerCase();
+  for(const [re, icon] of ICON_RULES) if(re.test(t)) return icon;
+  return '📦';
+}
+// each category gets its own soft colour behind the icon
+function catColor(c){
+  let h = 250;
+  for(const ch of String(c || '')) h = (h * 31 + ch.codePointAt(0)) % 360;
+  return `linear-gradient(135deg, hsl(${h} 45% 20%), hsl(${(h + 30) % 360} 55% 38%))`;
 }
 
 /* ---------- render ---------- */
@@ -449,6 +538,7 @@ function render(){
   $('catList').innerHTML = cats.map((c) => `<option value="${esc(c)}">`).join('');
 
   const q = query.trim().toLowerCase();
+  const rank = { out: 0, low: 1, home: 2 };
   const list = items.filter((it) => {
     const s = statusOf(it);
     if(tab === 'home' && s === 'out') return false;
@@ -458,25 +548,22 @@ function render(){
     return true;
   }).sort((a, b) => {
     // in "All": things you need first, then by name
-    const rank = { out: 0, low: 1, home: 2 };
     if(tab === 'all' && rank[statusOf(a)] !== rank[statusOf(b)]) return rank[statusOf(a)] - rank[statusOf(b)];
     return a.name.localeCompare(b.name);
   });
 
   $('grid').innerHTML = list.map((it) => {
     const s = statusOf(it);
-    const cover = it.photos[it.cover || 0];
     const label = { home: 'At home', low: 'Low', out: 'To buy' }[s];
     return `<div class="card ${s}" data-id="${it.id}">
-      <button class="photo" data-open style="${cover ? `background-image:url(${cover})` : ''}">${cover ? '' : '📦'}</button>
+      <button class="art" data-open style="background:${catColor(it.category)}">${esc(it.icon)}</button>
       <span class="badge ${s}">${label}</span>
-      ${it.photos.length > 1 ? `<span class="count-pics">📷 ${it.photos.length}</span>` : ''}
       <div class="body">
         <div class="name" data-open>${esc(it.name)}</div>
         ${it.category ? `<div class="cat">${esc(it.category)}</div>` : ''}
         <div class="qty">
           <button data-dq="-1" aria-label="One less">−</button>
-          <span>${it.qty}<small>${esc(it.unit || '')}</small></span>
+          <span>${it.qty}<small>${esc(it.unit)}</small></span>
           <button data-dq="1" aria-label="One more">+</button>
         </div>
       </div>
@@ -488,7 +575,7 @@ function render(){
   else {
     empty.hidden = false;
     empty.innerHTML = !items.length
-      ? 'No items yet.<br>Tap <b>Scan QR</b> to add from a code, or <b>+ Add item</b> to add one by hand.'
+      ? 'No items yet.<br>Tap <b>+ Add item</b> to add one, or <b>Scan QR</b> to add from a code.'
       : tab === 'out' && !q && !cat ? 'Nothing to buy. Everything is at home 🎉' : 'No matching items.';
   }
 }
@@ -499,29 +586,37 @@ async function load(){
 }
 
 function normalize(it){
+  const name = String(it.name || 'Unnamed');
   return {
-    id: it.id || uid(),
-    name: String(it.name || 'Unnamed'),
+    id: String(it.id || uid()),
+    name,
+    icon: String(it.icon || guessIcon(`${name} ${it.category || ''}`)),
     category: String(it.category || ''),
     unit: String(it.unit || ''),
     qty: Math.max(0, parseInt(it.qty, 10) || 0),
     min: Math.max(0, parseInt(it.min, 10) || 0),
     code: String(it.code || ''),
     notes: String(it.notes || ''),
-    photos: Array.isArray(it.photos) ? it.photos.filter((p) => typeof p === 'string') : [],
-    cover: Number.isInteger(it.cover) ? it.cover : 0,
-    created: it.created || Date.now(),
-    updated: it.updated || Date.now(),
+    created: Number(it.created) || Date.now(),
+    updated: Number(it.updated) || Date.now(),
   };
 }
 
 async function save(it){
   it.updated = Date.now();
-  if(it.cover >= it.photos.length) it.cover = 0;
   await dbPut(it);
   const i = items.findIndex((x) => x.id === it.id);
   if(i >= 0) items[i] = it; else items.push(it);
   render();
+  scheduleSync();
+}
+
+async function removeItem(id){
+  await dbDel(id);
+  items = items.filter((x) => x.id !== id);
+  const del = getTombstones(); del[id] = Date.now(); setTombstones(del);
+  render();
+  scheduleSync();
 }
 
 async function changeQty(id, d){
@@ -566,17 +661,17 @@ document.querySelectorAll('.modal').forEach((m) => {
 });
 document.addEventListener('keydown', (e) => {
   if(e.key !== 'Escape') return;
-  if($('viewer').classList.contains('open')){ $('viewer').classList.remove('open'); return; }
   const top = [...document.querySelectorAll('.modal.open')].pop();
   if(top) closeModal(top.id);
 });
 
 /* ---------- item editor ---------- */
+let iconChosen = false;   // once the user picks an icon, stop auto-guessing from the name
+
 function openEditor(it, prefill){
   const isNew = !it;
-  editing = isNew
-    ? normalize({ id: uid(), qty: 1, ...(prefill || {}) })
-    : { ...it, photos: it.photos.slice() };
+  editing = isNew ? normalize({ id: uid(), qty: 1, ...(prefill || {}) }) : { ...it };
+  iconChosen = !isNew || !!(prefill && prefill.icon);
   $('itemTitle').textContent = isNew ? 'New item' : 'Edit item';
   $('fName').value = isNew && !(prefill && prefill.name) ? '' : editing.name;
   $('fCat').value = editing.category || (isNew && cat) || '';
@@ -586,70 +681,39 @@ function openEditor(it, prefill){
   $('fCode').value = editing.code;
   $('fNotes').value = editing.notes;
   $('deleteBtn').hidden = isNew;
-  renderPhotos();
+  $('iconGrid').classList.remove('open');
+  if(!iconChosen) editing.icon = guessIcon(`${$('fName').value} ${$('fCat').value}`);
+  showIcon();
   openModal('itemModal');
   if(isNew && !$('fName').value) setTimeout(() => $('fName').focus(), 50);
 }
 
-function renderPhotos(){
-  const ph = editing.photos.map((p, i) => `<div class="ph${i === editing.cover ? ' cover' : ''}" data-i="${i}" style="background-image:url(${p})">
-      <button type="button" class="x" data-del="${i}" aria-label="Remove photo">×</button>
-      ${i === editing.cover ? '<span class="star">COVER</span>' : ''}
-    </div>`).join('');
-  $('photoGrid').innerHTML = ph +
-    `<button type="button" class="add-ph" data-add="camera"><b>📷</b>Camera</button>
-     <button type="button" class="add-ph" data-add="library"><b>🖼</b>Library</button>`;
+function showIcon(){
+  $('iconCurrent').textContent = editing.icon;
+  $('iconCurrent').style.background = catColor($('fCat').value);
 }
+function autoIcon(){
+  if(iconChosen) return;
+  editing.icon = guessIcon(`${$('fName').value} ${$('fCat').value}`);
+  showIcon();
+}
+$('fName').addEventListener('input', autoIcon);
+$('fCat').addEventListener('input', () => { autoIcon(); showIcon(); });
 
-$('photoGrid').onclick = (e) => {
-  const add = e.target.closest('[data-add]');
-  if(add){ (add.dataset.add === 'camera' ? $('cameraInput') : $('photoInput')).click(); return; }
-  const del = e.target.closest('[data-del]');
-  if(del){
-    const i = +del.dataset.del;
-    editing.photos.splice(i, 1);
-    if(editing.cover === i) editing.cover = 0;
-    else if(editing.cover > i) editing.cover--;
-    renderPhotos(); return;
+$('iconCurrent').onclick = () => {
+  const g = $('iconGrid');
+  if(!g.classList.contains('open')){
+    g.innerHTML = ICON_CHOICES.map((ic) => `<button type="button" class="${ic === editing.icon ? 'sel' : ''}">${ic}</button>`).join('');
   }
-  const ph = e.target.closest('.ph');
-  if(ph){
-    const i = +ph.dataset.i;
-    if(i !== editing.cover){ editing.cover = i; renderPhotos(); toast('Set as cover photo'); }
-    else showImage(editing.photos[i]);
-  }
+  g.classList.toggle('open');
 };
-
-async function addPhotoFiles(files){
-  for(const f of files){
-    try { editing.photos.push(await shrinkImage(f)); }
-    catch { toast('Could not read that image'); }
-  }
-  renderPhotos();
-}
-$('photoInput').onchange = (e) => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
-$('cameraInput').onchange = (e) => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
-
-// resize photos so a few hundred items still fit comfortably on the device
-function loadImage(src){
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => res(img); img.onerror = rej; img.src = src;
-  });
-}
-async function shrinkImage(fileOrUrl, max = 900){
-  const isFile = fileOrUrl instanceof Blob;
-  const src = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
-  try {
-    const img = await loadImage(src);
-    const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-    const c = document.createElement('canvas');
-    c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
-    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.78);
-  } finally { if(isFile) URL.revokeObjectURL(src); }
-}
+$('iconGrid').onclick = (e) => {
+  const b = e.target.closest('button'); if(!b) return;
+  editing.icon = b.textContent;
+  iconChosen = true;
+  showIcon();
+  $('iconGrid').classList.remove('open');
+};
 
 document.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => {
   const f = $('fQty');
@@ -680,10 +744,8 @@ $('itemForm').onsubmit = async (e) => {
 
 $('deleteBtn').onclick = async () => {
   if(!confirm(`Delete "${editing.name}"?`)) return;
-  await dbDel(editing.id);
-  items = items.filter((x) => x.id !== editing.id);
+  await removeItem(editing.id);
   closeModal('itemModal');
-  render();
   toast('Deleted');
 };
 
@@ -702,21 +764,24 @@ function showLabel(it){
   qr.make();
   const url = qr.createDataURL(8, 2);
   $('qrImg').src = url;
-  $('qrName').textContent = it.name;
+  $('qrName').textContent = `${it.icon} ${it.name}`;
   $('qrCode').textContent = it.code;
   $('qrDownload').href = url;
   $('qrDownload').download = `${it.name.replace(/[^\w-]+/g, '_')}-qr.png`;
   openModal('qrModal');
 }
 
-/* ---------- image viewer ---------- */
-function showImage(src){ $('viewerImg').src = src; $('viewer').classList.add('open'); }
-$('viewer').onclick = () => $('viewer').classList.remove('open');
-
 /* ---------- scanner ---------- */
 let stream = null, scanning = false, detector = null;
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+function loadImage(src){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img); img.onerror = rej; img.src = src;
+  });
+}
 
 async function getDetector(){
   if(detector !== null) return detector;
@@ -768,7 +833,7 @@ async function decodeFrom(source, w, h){
       if(r.length) return r[0].rawValue;
     } catch {}
   }
-  // jsQR fallback (QR codes only) — covers iOS Safari / Firefox
+  // jsQR fallback (QR codes only), covers iOS Safari / Firefox
   const s = Math.min(1, 800 / Math.max(w, h));
   canvas.width = Math.round(w * s); canvas.height = Math.round(h * s);
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
@@ -802,6 +867,8 @@ $('scanFileInput').onchange = async (e) => {
     const code = await decodeFrom(img, img.naturalWidth, img.naturalHeight);
     if(code){ closeModal('scanModal'); handleCode(code.trim()); }
     else $('scanMsg').textContent = 'No code found in that photo. Try a closer, sharper one.';
+  } catch {
+    $('scanMsg').textContent = 'Could not read that photo.';
   } finally { URL.revokeObjectURL(url); }
 };
 $('manualCodeBtn').onclick = () => {
@@ -812,7 +879,7 @@ $('manualCodeBtn').onclick = () => {
 /* What a scanned code turns into:
    - code already linked to an item → open that item
    - JSON like {"name":"Milk","category":"Fridge","qty":2} → new item prefilled
-   - shop barcode (EAN/UPC digits) → look up name + photo on Open Food Facts
+   - shop barcode (EAN/UPC digits) → look up the product name on Open Food Facts
    - any other text → new item, text used as the name (URLs kept only as the code) */
 async function handleCode(code){
   if(scanTarget === 'field'){
@@ -831,15 +898,15 @@ async function handleCode(code){
   try {
     const j = JSON.parse(code);
     if(j && typeof j === 'object'){
-      ['name', 'category', 'unit', 'notes'].forEach((k) => { if(j[k]) prefill[k] = String(j[k]); });
+      ['name', 'icon', 'category', 'unit', 'notes'].forEach((k) => { if(j[k]) prefill[k] = String(j[k]); });
       if(j.qty != null) prefill.qty = j.qty;
       if(j.min != null) prefill.min = j.min;
     }
   } catch {
     if(/^\d{8,14}$/.test(code)){
       toast('Looking up product…');
-      const p = await lookupProduct(code);
-      if(p){ Object.assign(prefill, p); }
+      const name = await lookupProduct(code);
+      if(name) prefill.name = name;
     } else if(!/^(https?:)?\/\//i.test(code) && !/^TPS-/.test(code) && code.length <= 80){
       prefill.name = code;
     }
@@ -852,44 +919,237 @@ async function lookupProduct(code){
   try {
     const ctl = new AbortController();
     setTimeout(() => ctl.abort(), 6000);
-    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,image_front_url,categories`, { signal: ctl.signal });
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands`, { signal: ctl.signal });
     const j = await r.json();
     if(j.status !== 1 || !j.product) return null;
     const p = j.product;
-    const out = {};
-    const name = [p.brands && p.brands.split(',')[0], p.product_name].filter(Boolean).join(' ').trim();
-    if(name) out.name = name;
-    if(p.image_front_url){
-      try { out.photos = [await shrinkImage(p.image_front_url)]; } catch {}
-    }
-    return out;
+    return [p.brands && p.brands.split(',')[0], p.product_name].filter(Boolean).join(' ').trim() || null;
   } catch { return null; }
 }
 
 $('scanBtn').onclick = () => startScan('lookup');
 $('addBtn').onclick = () => openEditor(null);
 
-/* ---------- menu: shopping list + backup ---------- */
-$('menuBtn').onclick = async () => {
-  $('storageInfo').textContent = '';
-  if(navigator.storage && navigator.storage.estimate){
-    const e = await navigator.storage.estimate();
-    $('storageInfo').textContent = `Using ${(e.usage / 1048576).toFixed(1)} MB on this device.`;
+/* ---------- sharing between phones ----------
+   Each item is stored at /lists/<CODE>/items/<id>. Deletions leave a timestamp at /deleted/<id>
+   so another phone doesn't bring the item back. When both phones changed the same item,
+   the most recent edit wins. */
+const CODE_KEY = 'tp2stock:share:code';
+const DEL_KEY = 'tp2stock:deleted';
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no 0/O, 1/I/L mix-ups
+let shareCode = localStorage.getItem(CODE_KEY) || '';
+let syncState = 'idle', lastSynced = 0;
+let syncing = false, syncAgain = false, syncTimer = null, events = null;
+
+function getTombstones(){
+  try { return JSON.parse(localStorage.getItem(DEL_KEY)) || {}; } catch { return {}; }
+}
+function setTombstones(del){
+  // forget deletions after 90 days
+  const cutoff = Date.now() - 90 * 864e5;
+  for(const id in del) if(del[id] < cutoff) delete del[id];
+  try { localStorage.setItem(DEL_KEY, JSON.stringify(del)); } catch {}
+}
+
+const listUrl = (code, path = '') => `${SHARE_DB.replace(/\/+$/, '')}/lists/${code}${path}.json`;
+const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+const prettyCode = (c) => c.length === 6 ? `${c.slice(0, 3)} ${c.slice(3)}` : c;
+
+function setSyncState(s){
+  syncState = s;
+  if(s === 'ok') lastSynced = Date.now();
+  renderShare();
+}
+
+function renderShare(){
+  const btn = $('shareBtn');
+  btn.hidden = !SHARE_DB;
+  btn.classList.toggle('linked', !!shareCode);
+  $('shareLabel').textContent = shareCode ? prettyCode(shareCode) : 'Share';
+  const dotClass = 'dot' + (shareCode ? ' ' + syncState : '');
+  $('syncDot').className = dotClass;
+  $('syncDot2').className = dotClass;
+  $('shareOff').hidden = !!SHARE_DB;
+  $('shareNew').hidden = !SHARE_DB || !!shareCode;
+  $('shareOn').hidden = !SHARE_DB || !shareCode;
+  $('shareCode').textContent = prettyCode(shareCode);
+  const t = lastSynced ? new Date(lastSynced).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  $('syncText').textContent = {
+    ok: `Up to date${t ? ' · ' + t : ''}`, syncing: 'Syncing…', idle: 'Connecting…',
+    error: "Couldn't sync, will retry", offline: 'Offline. Changes will sync when you reconnect',
+  }[syncState];
+}
+
+function scheduleSync(delay = 700){
+  if(!shareCode || !SHARE_DB) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncNow, delay);
+}
+
+async function syncNow(){
+  if(!shareCode || !SHARE_DB) return;
+  if(syncing){ syncAgain = true; return; }
+  if(!navigator.onLine){ setSyncState('offline'); return; }
+  syncing = true;
+  setSyncState('syncing');
+  const code = shareCode;
+  try {
+    const r = await fetch(listUrl(code));
+    if(!r.ok) throw new Error('get ' + r.status);
+    const remote = (await r.json()) || {};
+    if(code !== shareCode) return;   // stopped sharing mid-sync
+    const rItems = remote.items || {}, rDel = remote.deleted || {};
+    const lDel = getTombstones();
+    const local = new Map(items.map((it) => [it.id, it]));
+    const ids = new Set([...local.keys(), ...Object.keys(rItems)]);
+    const merged = [], patch = {};
+
+    for(const id of ids){
+      const L = local.get(id);
+      const R = rItems[id] ? normalize({ ...rItems[id], id }) : null;
+      const del = Math.max(lDel[id] || 0, rDel[id] || 0);
+      const win = L && R ? (L.updated >= R.updated ? L : R) : (L || R);
+      if(del && win.updated <= del){
+        if(R) patch[`items/${id}`] = null;
+        continue;
+      }
+      merged.push(win);
+      if(!R || win.updated > R.updated){
+        const { id: _omit, ...data } = win;
+        patch[`items/${id}`] = data;
+      }
+    }
+    const allDel = { ...rDel };
+    for(const id in lDel){
+      if((rDel[id] || 0) < lDel[id]){ patch[`deleted/${id}`] = lDel[id]; allDel[id] = lDel[id]; }
+    }
+    setTombstones(allDel);
+
+    if(Object.keys(patch).length){
+      const w = await fetch(listUrl(code), { method: 'PATCH', body: JSON.stringify(patch) });
+      if(!w.ok) throw new Error('patch ' + w.status);
+    }
+
+    // only touch the screen if something actually came in
+    const key = (list) => JSON.stringify(list.map((it) => [it.id, it.updated]).sort());
+    if(key(merged) !== key(items)){
+      const editingId = editing && $('itemModal').classList.contains('open') ? editing.id : null;
+      items = merged;
+      await dbReplace(items);
+      render();
+      if(editingId && !items.some((x) => x.id === editingId)){
+        closeModal('itemModal');
+        toast('That item was deleted on the other phone');
+      }
+    }
+    setSyncState('ok');
+  } catch {
+    setSyncState(navigator.onLine ? 'error' : 'offline');
+    if(navigator.onLine){ clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 15000); }
+  } finally {
+    syncing = false;
+    if(syncAgain){ syncAgain = false; syncNow(); }
   }
-  openModal('menuModal');
+}
+
+// live updates: the database pushes an event whenever the shared list changes
+function listen(){
+  if(events){ events.close(); events = null; }
+  if(!shareCode || !SHARE_DB || typeof EventSource === 'undefined') return;
+  events = new EventSource(listUrl(shareCode));
+  const onChange = () => scheduleSync(300);
+  events.addEventListener('put', onChange);
+  events.addEventListener('patch', onChange);
+}
+
+function startSharing(code){
+  shareCode = code;
+  localStorage.setItem(CODE_KEY, code);
+  setSyncState('idle');
+  syncNow();
+  listen();
+}
+
+$('shareBtn').onclick = () => { renderShare(); openModal('shareModal'); };
+
+$('createCodeBtn').onclick = async () => {
+  const b = $('createCodeBtn');
+  b.disabled = true; b.textContent = 'Creating…';
+  try {
+    let code = '';
+    for(let tries = 0; tries < 5 && !code; tries++){
+      const c = Array.from(crypto.getRandomValues(new Uint32Array(6)), (n) => CODE_CHARS[n % CODE_CHARS.length]).join('');
+      const r = await fetch(listUrl(c, '/created'));
+      if(!r.ok) throw new Error();
+      if((await r.json()) === null) code = c;
+    }
+    if(!code) throw new Error();
+    const w = await fetch(listUrl(code), { method: 'PATCH', body: JSON.stringify({ created: Date.now() }) });
+    if(!w.ok) throw new Error();
+    startSharing(code);
+    toast('Share code ready');
+  } catch {
+    toast("Couldn't create a code. Check your connection");
+  } finally {
+    b.disabled = false; b.textContent = 'Get a share code';
+  }
 };
+
+$('joinInput').oninput = (e) => { e.target.value = cleanCode(e.target.value).slice(0, 6); };
+$('joinBtn').onclick = async () => {
+  const code = cleanCode($('joinInput').value);
+  if(code.length !== 6){ toast('Codes are 6 characters'); return; }
+  const b = $('joinBtn');
+  b.disabled = true;
+  try {
+    const r = await fetch(listUrl(code, '/created'));
+    if(!r.ok) throw new Error();
+    if((await r.json()) === null){ toast('No list found with that code'); return; }
+    $('joinInput').value = '';
+    startSharing(code);
+    toast(items.length ? 'Joined. Your items were added to the shared list' : 'Joined the shared list');
+  } catch {
+    toast("Couldn't join. Check your connection");
+  } finally { b.disabled = false; }
+};
+
+$('sendCodeBtn').onclick = async () => {
+  const text = `Join my Home Stock list: open ${new URL('./', location.href).href}, tap Share and enter code ${shareCode}`;
+  if(navigator.share){ try { await navigator.share({ text }); return; } catch(e){ if(e.name === 'AbortError') return; } }
+  try { await navigator.clipboard.writeText(text); toast('Copied, paste it in a message'); }
+  catch { prompt('Copy this message:', text); }
+};
+$('syncNowBtn').onclick = () => syncNow();
+$('leaveBtn').onclick = () => {
+  if(!confirm('Stop sharing on this phone? Your items stay here, and the other phone keeps the shared list.')) return;
+  shareCode = '';
+  localStorage.removeItem(CODE_KEY);
+  if(events){ events.close(); events = null; }
+  clearTimeout(syncTimer);
+  renderShare();
+  toast('Stopped sharing on this phone');
+};
+
+window.addEventListener('online', () => { scheduleSync(100); listen(); });
+window.addEventListener('offline', () => { if(shareCode) setSyncState('offline'); });
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && shareCode){ scheduleSync(100); if(!events || events.readyState === 2) listen(); }
+});
+
+/* ---------- menu: shopping list + backup ---------- */
+$('menuBtn').onclick = () => openModal('menuModal');
 
 $('copyListBtn').onclick = async () => {
   const out = items.filter((i) => statusOf(i) === 'out');
   const low = items.filter((i) => statusOf(i) === 'low');
   if(!out.length && !low.length){ toast('Nothing to buy right now'); return; }
-  const text = ['Shopping list', ...out.map((i) => `• ${i.name}`), ...low.map((i) => `• ${i.name} (low)`)].join('\n');
+  const text = ['Shopping list', ...out.map((i) => `${i.icon} ${i.name}`), ...low.map((i) => `${i.icon} ${i.name} (low)`)].join('\n');
   try { await navigator.clipboard.writeText(text); toast('Shopping list copied'); }
   catch { prompt('Copy your list:', text); }
 };
 
 $('exportBtn').onclick = () => {
-  const blob = new Blob([JSON.stringify({ app: 'tp2stock', version: 1, exported: new Date().toISOString(), items }, null, 0)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify({ app: 'tp2stock', version: 2, exported: new Date().toISOString(), items })], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `home-stock-${new Date().toISOString().slice(0, 10)}.json`;
@@ -912,6 +1172,7 @@ $('importInput').onchange = async (e) => {
       if(!cur || it.updated > cur.updated){ await dbPut(it); n++; }
     }
     await load();
+    scheduleSync();
     closeModal('menuModal');
     toast(`Imported ${n} item${n === 1 ? '' : 's'}`);
   } catch { toast('That file is not a valid backup'); }
@@ -922,7 +1183,8 @@ if(navigator.storage && navigator.storage.persist) navigator.storage.persist().c
 if('serviceWorker' in navigator){
   window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
 }
-load().catch(() => {
+renderShare();
+load().then(() => { if(shareCode){ syncNow(); listen(); } }).catch(() => {
   $('empty').hidden = false;
   $('empty').textContent = 'Storage is unavailable in this browser mode (private window?).';
 });

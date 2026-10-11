@@ -55,5 +55,8 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - Any sync change must preserve every data field (`ledger`, `spanEvents`, etc.) and keep timestamps consistent.
 
 ## Open items
+- Firebase sync/sharing not yet verified against the real database (sandbox can't reach it; only tested with mocks).
+  Check: `<FB_DB>/sync/ZZZZZZZZZZ/created.json` and `<FB_DB>/lists/ZZZZZZ/created.json` should return `null`, `<FB_DB>/.json` "Permission denied";
+  in the app, Sync → Get a sync code should show "✓ Live". "Permission denied" on the first two = rules not published.
 - Re-enter Work entries (Panismo / Theomie / TP2 Mazda) with correct dates and amounts. The old data was lost to the sync bug.
 - Optional: purge old git history that contains the earlier hardcoded business data.

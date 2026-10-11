@@ -24,10 +24,15 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **Expenses**: euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
 - **Other**: separate full-page view for arbitrary categorized lists.
-- **Stock** (`stock/index.html`, linked from Other): separate home-stock app. Items with photos, qty, category,
-  low threshold; tabs All / At home / To buy. Add via QR/barcode scan (BarcodeDetector, falls back to vendored jsQR),
-  barcodes look up Open Food Facts, and each item can print its own QR label. Data is in IndexedDB on the device
-  (photos are too big for the JSONBin sync), with JSON export/import for backup. The root `sw.js` serves it offline.
+- **Stock / SL** (`stock/index.html`, the "SL" nav tab before Other): separate home-stock + shopping list app.
+  Items have an emoji icon (auto-guessed from the name, or picked by hand), qty, category, low threshold;
+  tabs All / At home / To buy. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),
+  printable QR labels per item. Stored in IndexedDB on the device; JSON export/import in the menu.
+  **Sharing** is separate from TP2List's JSONBin sync: "Share" gives a 6-character code, and other phones join by typing it.
+  The code is remembered on each phone (`tp2stock:share:code`). Backend is a Firebase Realtime Database
+  (REST + EventSource, no SDK) at `/lists/<CODE>/{created,items/<id>,deleted/<id>}`, set via `SHARE_DB` in stock/index.html.
+  The Share button stays hidden while `SHARE_DB` is empty. Merge is per item, newest `updated` wins, and deletions are timestamped.
+  Firebase rules: `{"rules":{"lists":{"$code":{".read":true,".write":true}}}}` (root stays unreadable, so codes can't be listed).
 - **Polish**: subtle background glow + grid texture, two faint drifting easter-egg labels ("iis" / "Kay Kays"),
   brief fade when completing a Today/Overdue item.
 

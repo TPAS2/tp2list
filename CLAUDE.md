@@ -9,7 +9,7 @@ the 10-character code, after which the synced copy replaces its data. Data is st
 one entry per top-level field of `data`, so new fields sync automatically. Sections merge independently and the newest edit wins.
 Live updates come via EventSource. Remote changes wait while an input is focused. Local state is kept in `tpas2:fb:code` / `tpas2:fb:state`.
 JSONBin (Master Key + Bin ID) remains as a push-only **backup** when sync codes are on, the old full sync when they're off,
-and the key for the automation status bin. Its setup is the "JSONBin key…" link in the sync sheet.
+and the fallback for the automation status. Automation status (Ai-Monthly runs) is read first from Firebase at `/sync/<CODE>/automation` (same JSON as the JSONBin status record, live via EventSource); JSONBin bin `STATUS_BIN_ID` is used only if that's empty. Its setup is the "JSONBin key…" link in the sync sheet.
 Works offline: `sw.js` (service worker) caches the app. Edits save locally and sync when back online.
 Firebase rules (must include both):
 `{"rules":{"lists":{"$code":{".read":true,".write":true}},"sync":{"$code":{".read":"$code.length >= 10",".write":"$code.length >= 10"}}}}`
@@ -35,7 +35,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   each item is at Home or Apartment; three tabs At Home / At Apartment / To Buy, set via the "List" dropdown in the editor (To Buy = qty 0; the item keeps its place for when it is restocked). No category filter chips. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),
   printable QR labels per item. Stored in IndexedDB on the device; JSON export/import in the menu.
   **Sharing** is separate from TP2List's JSONBin sync: "Share" gives a 6-character code, and other phones join by typing it.
-  The code is remembered on each phone (`tp2stock:share:code`). Backend is a Firebase Realtime Database
+  The code is remembered on each phone (`tp2stock:share:code`). The header button shows "Synced" (not the code) once joined; the code is shown inside the Share sheet. Backend is a Firebase Realtime Database
   (REST + EventSource, no SDK) at `/lists/<CODE>/{created,items/<id>,deleted/<id>}`, set via `SHARE_DB` in stock/index.html (project `tp2-list`, europe-west1).
   The Share button stays hidden while `SHARE_DB` is empty. Merge is per item, newest `updated` wins, and deletions are timestamped.
   Firebase rules: `{"rules":{"lists":{"$code":{".read":true,".write":true}}}}` (root stays unreadable, so codes can't be listed).

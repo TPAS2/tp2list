@@ -963,7 +963,7 @@ function renderShare(){
   const btn = $('shareBtn');
   btn.hidden = !SHARE_DB;
   btn.classList.toggle('linked', !!shareCode);
-  $('shareLabel').textContent = shareCode ? prettyCode(shareCode) : 'Share';
+  $('shareLabel').textContent = shareCode ? 'Synced' : 'Share';
   const dotClass = 'dot' + (shareCode ? ' ' + syncState : '');
   $('syncDot').className = dotClass;
   $('syncDot2').className = dotClass;

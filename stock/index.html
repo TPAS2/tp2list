@@ -81,15 +81,8 @@
     padding: 10px 12px; font-size: 16px; outline: none;
   }
   .search:focus{ border-color: var(--accent); }
-  .chips{ display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 4px; scrollbar-width: none; }
-  .chips::-webkit-scrollbar{ display: none; }
-  .chip{
-    flex: none; background: transparent; border: 1px solid var(--line); border-radius: 999px;
-    padding: 5px 12px; font-size: 13px; color: var(--text-dim); white-space: nowrap;
-  }
-  .chip.active{ border-color: var(--accent2); color: var(--accent2); }
 
-  .grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+  .grid{ margin-top: 12px !important; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
   .card{
     background: var(--panel-solid); border: 1px solid var(--line); border-radius: 16px;
     overflow: hidden; display: flex; flex-direction: column; position: relative;
@@ -255,19 +248,17 @@
 <div class="wrap">
   <header>
     <a class="icon-btn" href="../" title="Back to TP2List">←</a>
-    <h1>Home Stock<small id="subtitle"></small></h1>
+    <h1>Home Stock</h1>
     <button class="icon-btn share-btn" id="shareBtn"><span class="dot" id="syncDot"></span><span id="shareLabel">Share</span></button>
     <button class="icon-btn" id="menuBtn" title="Menu">⋯</button>
   </header>
 
   <div class="tabs">
-    <button class="tab active" data-tab="all"><b id="nAll">0</b>All</button>
-    <button class="tab" data-tab="home"><b id="nHome">0</b>At home</button>
-    <button class="tab" data-tab="apt"><b id="nApt">0</b>At apartment</button>
-    <button class="tab" data-tab="out"><b id="nOut">0</b>To buy</button>
+    <button class="tab active" data-tab="home"><b id="nHome">0</b>At Home</button>
+    <button class="tab" data-tab="apt"><b id="nApt">0</b>At Apartment</button>
+    <button class="tab" data-tab="out"><b id="nOut">0</b>To Buy</button>
   </div>
   <input class="search" id="search" type="search" placeholder="Search items…" autocomplete="off">
-  <div class="chips" id="chips"></div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" hidden></div>
 </div>
@@ -294,11 +285,12 @@
     <label for="fName">Name</label>
     <input class="field" id="fName" required placeholder="e.g. Olive oil">
 
-    <label>Where</label>
-    <div class="seg" id="fPlace">
-      <button type="button" data-place="home">🏠 Home</button>
-      <button type="button" data-place="apartment">🏢 Apartment</button>
-    </div>
+    <label for="fWhere">List</label>
+    <select class="field" id="fWhere">
+      <option value="home">🏠 At Home</option>
+      <option value="apartment">🏢 At Apartment</option>
+      <option value="buy">🛒 To Buy</option>
+    </select>
 
     <div class="row">
       <div>
@@ -314,7 +306,7 @@
 
     <div class="row">
       <div>
-        <label for="fQty">Quantity at home</label>
+        <label for="fQty">Quantity</label>
         <div class="stepper">
           <button type="button" data-step="-1">−</button>
           <input class="field" id="fQty" type="number" min="0" step="1" inputmode="numeric" value="1">
@@ -482,7 +474,7 @@ const dbReplace = (list) => tx('readwrite', (s) => { s.clear(); list.forEach((it
 
 /* ---------- state ---------- */
 let items = [];
-let tab = 'all', cat = '', query = '';
+let tab = 'home', query = '';
 let editing = null;          // item being edited (a copy)
 let scanTarget = 'lookup';   // 'lookup' = find/add item, 'field' = fill the code field
 
@@ -543,19 +535,11 @@ function render(){
     else if(it.place === 'apartment') counts.apt++;
     else counts.home++;
   });
-  $('nAll').textContent = counts.all;
   $('nHome').textContent = counts.home;
   $('nApt').textContent = counts.apt;
   $('nOut').textContent = counts.out;
-  $('subtitle').textContent = items.length
-    ? `${counts.home} home · ${counts.apt} apartment · ${counts.out} to buy`
-    : '';
 
   const cats = [...new Set(items.map((i) => i.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  if(cat && !cats.includes(cat)) cat = '';
-  $('chips').innerHTML = cats.length
-    ? [''].concat(cats).map((c) => `<button class="chip${c === cat ? ' active' : ''}" data-cat="${esc(c)}">${c ? esc(c) : 'All categories'}</button>`).join('')
-    : '';
   $('catList').innerHTML = cats.map((c) => `<option value="${esc(c)}">`).join('');
 
   const q = query.trim().toLowerCase();
@@ -565,14 +549,9 @@ function render(){
     if(tab === 'home' && (s === 'out' || it.place !== 'home')) return false;
     if(tab === 'apt' && (s === 'out' || it.place !== 'apartment')) return false;
     if(tab === 'out' && s !== 'out') return false;
-    if(cat && it.category !== cat) return false;
     if(q && !`${it.name} ${it.category} ${it.notes} ${it.code}`.toLowerCase().includes(q)) return false;
     return true;
-  }).sort((a, b) => {
-    // in "All": things you need first, then by name
-    if(tab === 'all' && rank[statusOf(a)] !== rank[statusOf(b)]) return rank[statusOf(a)] - rank[statusOf(b)];
-    return a.name.localeCompare(b.name);
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name));
 
   $('grid').innerHTML = list.map((it) => {
     const s = statusOf(it);
@@ -599,7 +578,8 @@ function render(){
     empty.hidden = false;
     empty.innerHTML = !items.length
       ? 'No items yet.<br>Tap <b>+ Add item</b> to add one, or <b>Scan QR</b> to add from a code.'
-      : tab === 'out' && !q && !cat ? 'Nothing to buy. Everything is at home 🎉' : 'No matching items.';
+      : q ? 'No matching items.'
+      : { home: 'Nothing at home yet.', apt: 'Nothing at the apartment yet.', out: 'Nothing to buy 🎉' }[tab];
   }
 }
 
@@ -651,7 +631,7 @@ async function changeQty(id, d){
   await save(it);
   const after = statusOf(it);
   if(before !== 'out' && after === 'out') toast(`${it.name} added to the shopping list`);
-  else if(before === 'out' && after !== 'out') toast(`${it.name} is back at home`);
+  else if(before === 'out' && after !== 'out') toast(`${it.name} is back ${it.place === 'apartment' ? 'at the apartment' : 'at home'}`);
 }
 
 /* ---------- list interactions ---------- */
@@ -661,10 +641,6 @@ document.querySelectorAll('.tab').forEach((b) => b.onclick = () => {
   render();
 });
 $('search').oninput = (e) => { query = e.target.value; render(); };
-$('chips').onclick = (e) => {
-  const c = e.target.closest('.chip'); if(!c) return;
-  cat = c.dataset.cat; render();
-};
 $('grid').onclick = (e) => {
   const card = e.target.closest('.card'); if(!card) return;
   const dq = e.target.closest('[data-dq]');
@@ -698,14 +674,15 @@ function openEditor(it, prefill){
   iconChosen = !isNew || !!(prefill && prefill.icon);
   $('itemTitle').textContent = isNew ? 'New item' : 'Edit item';
   $('fName').value = isNew && !(prefill && prefill.name) ? '' : editing.name;
-  $('fCat').value = editing.category || (isNew && cat) || '';
+  $('fCat').value = editing.category;
   $('fUnit').value = editing.unit;
   $('fQty').value = editing.qty;
   $('fMin').value = editing.min;
   $('fCode').value = editing.code;
   $('fNotes').value = editing.notes;
   if(isNew && !(prefill && prefill.place)) editing.place = tab === 'apt' ? 'apartment' : 'home';
-  showPlace();
+  if(isNew && tab === 'out' && !(prefill && prefill.qty != null)){ editing.qty = 0; $('fQty').value = 0; }
+  $('fWhere').value = editing.qty <= 0 ? 'buy' : editing.place;
   $('deleteBtn').hidden = isNew;
   $('iconGrid').classList.remove('open');
   if(!iconChosen) editing.icon = guessIcon(`${$('fName').value} ${$('fCat').value}`);
@@ -714,13 +691,17 @@ function openEditor(it, prefill){
   if(isNew && !$('fName').value) setTimeout(() => $('fName').focus(), 50);
 }
 
-function showPlace(){
-  document.querySelectorAll('#fPlace button').forEach((b) => b.classList.toggle('on', b.dataset.place === editing.place));
-}
-$('fPlace').onclick = (e) => {
-  const b = e.target.closest('[data-place]'); if(!b) return;
-  editing.place = b.dataset.place; showPlace();
+// "To Buy" means none left (qty 0). Home / Apartment means it's there, so at least 1
+$('fWhere').onchange = () => {
+  const w = $('fWhere').value, q = $('fQty');
+  if(w === 'buy') q.value = 0;
+  else if((parseInt(q.value, 10) || 0) <= 0) q.value = 1;
 };
+$('fQty').addEventListener('input', () => {
+  const n = parseInt($('fQty').value, 10) || 0;
+  if(n <= 0) $('fWhere').value = 'buy';
+  else if($('fWhere').value === 'buy') $('fWhere').value = editing.place;
+});
 
 function showIcon(){
   $('iconCurrent').textContent = editing.icon;
@@ -752,6 +733,7 @@ $('iconGrid').onclick = (e) => {
 document.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => {
   const f = $('fQty');
   f.value = Math.max(0, (parseInt(f.value, 10) || 0) + +b.dataset.step);
+  f.dispatchEvent(new Event('input'));
 });
 
 async function saveForm(){
@@ -762,7 +744,8 @@ async function saveForm(){
     name: $('fName').value.trim() || 'Unnamed',
     category: $('fCat').value.trim(),
     unit: $('fUnit').value.trim(),
-    qty: Math.max(0, parseInt($('fQty').value, 10) || 0),
+    qty: $('fWhere').value === 'buy' ? 0 : Math.max(1, parseInt($('fQty').value, 10) || 0),
+    place: $('fWhere').value === 'buy' ? editing.place : $('fWhere').value,
     min: Math.max(0, parseInt($('fMin').value, 10) || 0),
     code,
     notes: $('fNotes').value.trim(),

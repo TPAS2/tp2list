@@ -30,7 +30,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   printable QR labels per item. Stored in IndexedDB on the device; JSON export/import in the menu.
   **Sharing** is separate from TP2List's JSONBin sync: "Share" gives a 6-character code, and other phones join by typing it.
   The code is remembered on each phone (`tp2stock:share:code`). Backend is a Firebase Realtime Database
-  (REST + EventSource, no SDK) at `/lists/<CODE>/{created,items/<id>,deleted/<id>}`, set via `SHARE_DB` in stock/index.html.
+  (REST + EventSource, no SDK) at `/lists/<CODE>/{created,items/<id>,deleted/<id>}`, set via `SHARE_DB` in stock/index.html (project `tp2-list`, europe-west1).
   The Share button stays hidden while `SHARE_DB` is empty. Merge is per item, newest `updated` wins, and deletions are timestamped.
   Firebase rules: `{"rules":{"lists":{"$code":{".read":true,".write":true}}}}` (root stays unreadable, so codes can't be listed).
 - **Polish**: subtle background glow + grid texture, two faint drifting easter-egg labels ("iis" / "Kay Kays"),

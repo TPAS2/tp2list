@@ -2467,6 +2467,21 @@ function renderAutomationStatus(){
 }
 
 async function pullAutomationStatus(){
+  // with a sync code, the runs can write their status to Firebase at /sync/<CODE>/automation
+  // (same JSON as the JSONBin record). JSONBin stays the fallback until they do.
+  const code = fbCode();
+  if(code){
+    try{
+      const res = await fetch(fbUrl(code, '/automation'));
+      const json = res.ok ? await res.json() : null;
+      if(json && json.automations){
+        autoStatus = json;
+        renderAutomationStatus();
+        renderLedger();
+        return;
+      }
+    }catch(e){}
+  }
   const { key } = getSyncConfig();
   if(!key || !STATUS_BIN_ID) return;
   try{
@@ -3990,7 +4005,7 @@ const FB_DB = 'https://tp2-list-default-rtdb.europe-west1.firebasedatabase.app';
 const FB_CODE_KEY = 'tpas2:fb:code';
 const FB_STATE_KEY = 'tpas2:fb:state';
 const FB_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-let fbSyncing = false, fbAgain = false, fbTimer = null, fbEvents = null, fbLastOk = 0;
+let fbSyncing = false, fbAgain = false, fbTimer = null, fbEvents = null, fbAutoEvents = null, fbLastOk = 0;
 
 const fbCode = () => localStorage.getItem(FB_CODE_KEY) || '';
 const fbUrl = (code, path = '') => `${FB_DB}/sync/${code}${path}.json`;
@@ -4123,6 +4138,11 @@ function fbListen(){
   const onChange = () => fbSchedule(300);
   fbEvents.addEventListener('put', onChange);
   fbEvents.addEventListener('patch', onChange);
+  // live automation status written by the Ai-Monthly runs
+  if(fbAutoEvents) fbAutoEvents.close();
+  fbAutoEvents = new EventSource(fbUrl(code, '/automation'));
+  fbAutoEvents.addEventListener('put', () => pullAutomationStatus());
+  fbAutoEvents.addEventListener('patch', () => pullAutomationStatus());
 }
 
 /* the Sync button sends to Firebase when connected, otherwise the old JSONBin sync.
@@ -4226,6 +4246,7 @@ document.getElementById('dsLeave').addEventListener('click', () => {
   localStorage.removeItem(FB_CODE_KEY);
   localStorage.removeItem(FB_STATE_KEY);
   if(fbEvents){ fbEvents.close(); fbEvents = null; }
+  if(fbAutoEvents){ fbAutoEvents.close(); fbAutoEvents = null; }
   clearTimeout(fbTimer);
   setSyncBtnState('idle');
   fbRenderSheet();

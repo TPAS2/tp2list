@@ -3,10 +3,16 @@
 ## What it is
 A single-file `index.html` personal organizer. No build step, no backend.
 Hosted on GitHub Pages (moved from Netlify after its free tier became credit-limited).
-Cross-device sync uses JSONBin.io via a Master Key + Bin ID. This is independent of the hosting URL,
-so reconnecting Sync on any new deployment pulls everything back.
-Works offline: `sw.js` (service worker) caches the app. Edits save locally; if a sync push fails,
-a pending flag (`tpas2:sync:pending`) makes the app push them before its next pull, including when it comes back online.
+Cross-device sync (laptop ↔ phone) uses a **sync code** via Firebase Realtime Database (`FB_DB` in index.html,
+project `tp2-list`). The Sync button opens a sheet: "Get a sync code" uploads this device's data, and the other device enters
+the 10-character code, after which the synced copy replaces its data. Data is stored at `/sync/<CODE>/sections/<field>` = `{v: JSON text, t: edit time}`,
+one entry per top-level field of `data`, so new fields sync automatically. Sections merge independently and the newest edit wins.
+Live updates come via EventSource. Remote changes wait while an input is focused. Local state is kept in `tpas2:fb:code` / `tpas2:fb:state`.
+JSONBin (Master Key + Bin ID) remains as a push-only **backup** when sync codes are on, the old full sync when they're off,
+and the key for the automation status bin. Its setup is the "JSONBin key…" link in the sync sheet.
+Works offline: `sw.js` (service worker) caches the app. Edits save locally and sync when back online.
+Firebase rules (must include both):
+`{"rules":{"lists":{"$code":{".read":true,".write":true}},"sync":{"$code":{".read":"$code.length >= 10",".write":"$code.length >= 10"}}}}`
 Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
 
 ## Structure
@@ -26,7 +32,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **Other**: separate full-page view for arbitrary categorized lists.
 - **Stock / SL** (`stock/index.html`, the "SL" nav tab before Other): separate home-stock + shopping list app.
   Items have an emoji icon (auto-guessed from the name, or picked by hand), qty, category, low threshold;
-  tabs All / At home / To buy. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),
+  each item is at Home or Apartment; tabs All / At home / At apartment / To buy. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),
   printable QR labels per item. Stored in IndexedDB on the device; JSON export/import in the menu.
   **Sharing** is separate from TP2List's JSONBin sync: "Share" gives a 6-character code, and other phones join by typing it.
   The code is remembered on each phone (`tp2stock:share:code`). Backend is a Firebase Realtime Database

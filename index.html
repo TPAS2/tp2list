@@ -1428,6 +1428,38 @@
     font-size: 0.7rem;
     padding: 4px 2px 8px;
   }
+
+  /* data sync sheet (Firebase sync code, separate from the SL shopping list code) */
+  .ds-modal{ position: fixed; inset: 0; z-index: 200; background: rgba(2,3,8,.75); display: none;
+    align-items: center; justify-content: center; padding: 16px;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .ds-modal.open{ display: flex; }
+  .ds-sheet{ width: 100%; max-width: 420px; background: var(--panel-solid); border: 1px solid var(--line);
+    border-radius: 20px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+  .ds-head{ display: flex; align-items: center; margin-bottom: 12px; }
+  .ds-head h3{ flex: 1; margin: 0; font-size: 1.05rem; }
+  .ds-close{ background: none; border: 0; color: var(--text-dim); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
+  .ds-btn{ border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 10px;
+    padding: 10px 14px; font: inherit; font-size: .9rem; cursor: pointer; white-space: nowrap; }
+  .ds-btn.primary{ background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .ds-btn.danger{ color: var(--danger); border-color: rgba(255,79,121,.4); }
+  .ds-btn.link{ border: 0; background: none; color: var(--text-faint); font-size: .78rem; padding: 6px 0; text-decoration: underline; }
+  .ds-btn.big{ width: 100%; padding: 13px; font-size: 1rem; }
+  .ds-btn:disabled{ opacity: .5; }
+  .ds-hint{ font-size: .78rem; color: var(--text-faint); line-height: 1.5; margin: 10px 0 0; }
+  .ds-or{ display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: .75rem; margin: 16px 0 8px; }
+  .ds-or::before, .ds-or::after{ content: ""; flex: 1; height: 1px; background: var(--line); }
+  .ds-row{ display: flex; gap: 8px; }
+  .ds-input{ flex: 1; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; color: var(--text);
+    padding: 10px 12px; font: inherit; font-size: 1.1rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+    text-align: center; outline: none; -webkit-user-select: text; user-select: text; }
+  .ds-input:focus{ border-color: var(--accent); }
+  .ds-code{ font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace; font-size: 1.7rem; font-weight: 800;
+    letter-spacing: .1em; text-align: center; padding: 16px 8px; border-radius: 14px; background: var(--bg);
+    border: 1px solid var(--line); -webkit-user-select: all; user-select: all; }
+  .ds-status{ text-align: center; font-size: .82rem; color: var(--text-dim); margin-top: 8px; }
+  .ds-actions{ display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .ds-actions .grow{ flex: 1; }
 </style>
 </head>
 <body>
@@ -1603,6 +1635,38 @@
     <button type="button" class="add">Add</button>
   </form>
   <div class="resto-grid" id="otherContainer"></div>
+</div>
+
+<div class="ds-modal" id="dataSyncModal">
+  <div class="ds-sheet">
+    <div class="ds-head">
+      <h3>Sync your devices</h3>
+      <button type="button" class="ds-close" id="dsClose">×</button>
+    </div>
+    <div id="dsOff">
+      <button type="button" class="ds-btn primary big" id="dsCreate">Get a sync code</button>
+      <p class="ds-hint">Creates a code and uploads this device's data. Enter the code on your laptop or phone to keep them in sync. Changes show up on the other device straight away.</p>
+      <div class="ds-or">or enter the code from your other device</div>
+      <div class="ds-row">
+        <input class="ds-input" id="dsInput" maxlength="12" placeholder="XXXXX-XXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button type="button" class="ds-btn primary" id="dsJoin">Connect</button>
+      </div>
+      <p class="ds-hint">Connecting replaces this device's data with the synced copy.</p>
+    </div>
+    <div id="dsOn">
+      <p class="ds-hint" style="text-align:center;margin-top:0">Enter this code on your other device (Sync → enter code)</p>
+      <div class="ds-code" id="dsCode"></div>
+      <div class="ds-status" id="dsStatus"></div>
+      <div class="ds-actions">
+        <button type="button" class="ds-btn" id="dsCopy">Copy code</button>
+        <button type="button" class="ds-btn" id="dsNow">Sync now</button>
+        <span class="grow"></span>
+        <button type="button" class="ds-btn danger" id="dsLeave">Disconnect</button>
+      </div>
+    </div>
+    <p class="ds-hint">This is only for your own devices. It's separate from the SL shopping list code, which never gives access to this data.</p>
+    <button type="button" class="ds-btn link" id="dsJsonbin">JSONBin key (automation status &amp; backup)…</button>
+  </div>
 </div>
 
 <div class="status" id="status"></div>
@@ -3787,7 +3851,7 @@ function setSyncBtnState(state){
   }
 }
 
-async function pushToSync(){
+async function jsonbinPush(backupOnly){
   const { key, bin } = getSyncConfig();
   if(!key || !bin) return;
   try{
@@ -3803,11 +3867,11 @@ async function pushToSync(){
                          // pull doesn't mistake our own just-saved data for being stale
     try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
     try{ localStorage.removeItem(SYNC_PENDING_KEY); }catch(e){}
-    setSyncBtnState('synced');
+    if(!backupOnly) setSyncBtnState('synced');
   }catch(e){
     // remember there are unsent changes so they go up as soon as we're back online
     try{ localStorage.setItem(SYNC_PENDING_KEY, '1'); }catch(e2){}
-    setSyncBtnState(navigator.onLine ? 'failed' : 'offline');
+    if(!backupOnly) setSyncBtnState(navigator.onLine ? 'failed' : 'offline');
   }
 }
 
@@ -3815,13 +3879,13 @@ function hasPendingPush(){
   try{ return localStorage.getItem(SYNC_PENDING_KEY) === '1'; }catch(e){ return false; }
 }
 
-async function pullFromSync(){
+async function jsonbinPull(){
   const { key, bin } = getSyncConfig();
   if(!key || !bin) return;
   if(!navigator.onLine){ setSyncBtnState('offline'); return; }
   // send offline edits first so they aren't lost to a newer copy from another device
   if(hasPendingPush()){
-    await pushToSync();
+    await jsonbinPush();
     if(hasPendingPush()) return;
   }
   setSyncBtnState('syncing');
@@ -3837,6 +3901,7 @@ async function pullFromSync(){
       // preserve scroll position — re-rendering can change page height and jerk the view otherwise
       const scrollY = window.scrollY;
       data = {
+        ...remote,   // keep every field, including ones added later
         list: remote.list || [],
         calendar: remote.calendar || {},
         other: remote.other || [],
@@ -3877,7 +3942,7 @@ async function createSharedBin(){
 const syncRefreshBtn = document.getElementById('syncRefreshBtn');
 syncRefreshBtn.addEventListener('click', async () => {
   const { bin } = getSyncConfig();
-  if(!bin){
+  if(!bin && !fbCode()){
     showStatus('sync not set up yet — tap Sync first');
     return;
   }
@@ -3886,7 +3951,9 @@ syncRefreshBtn.addEventListener('click', async () => {
   syncRefreshBtn.classList.remove('spinning');
 });
 
-syncBtn.addEventListener('click', async () => {
+// old JSONBin setup, now reached from the sync sheet. Still used for the automation
+// status and as a backup copy of the data
+async function jsonbinSetup(){
   const current = getSyncConfig();
   const key = prompt('Paste your JSONBin.io Master Key:', current.key || '');
   if(key === null) return;
@@ -3898,7 +3965,7 @@ syncBtn.addEventListener('click', async () => {
 
   if(binInput.trim()){
     localStorage.setItem(SYNC_BIN_KEY, binInput.trim());
-    await pullFromSync();
+    if(!fbCode()) await jsonbinPull();  // with code sync on, JSONBin is only a backup
     showStatus('connected to sync');
   } else {
     try{
@@ -3911,7 +3978,267 @@ syncBtn.addEventListener('click', async () => {
       setSyncBtnState('failed');
     }
   }
+}
+
+/* ---------- device sync via Firebase (the Sync button) ----------
+   Laptop and phone share a sync code. Data lives at /sync/<CODE>/sections/<name> = { v: JSON text, t: time },
+   one entry per top-level field of `data` (list, calendar, expenses, ledger, spanEvents…). New fields
+   sync automatically. Each section syncs on its own, so editing the calendar on one device and expenses on
+   the other can't overwrite each other. The same section edited on both: the newest edit wins.
+   Separate from the SL shopping list, which uses /lists/<code>. */
+const FB_DB = 'https://tp2-list-default-rtdb.europe-west1.firebasedatabase.app';
+const FB_CODE_KEY = 'tpas2:fb:code';
+const FB_STATE_KEY = 'tpas2:fb:state';
+const FB_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+let fbSyncing = false, fbAgain = false, fbTimer = null, fbEvents = null, fbLastOk = 0;
+
+const fbCode = () => localStorage.getItem(FB_CODE_KEY) || '';
+const fbUrl = (code, path = '') => `${FB_DB}/sync/${code}${path}.json`;
+const fbPretty = (c) => c.length === 10 ? `${c.slice(0, 5)}-${c.slice(5)}` : c;
+const fbClean = (c) => String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+function fbHash(str){
+  // small fast string hash (cyrb53), enough to tell whether a section changed
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i = 0; i < str.length; i++){
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (h2 >>> 0).toString(36) + (h1 >>> 0).toString(36);
+}
+// per section: known = hash of the copy both sides agree on, ts = its server time, edit = last local edit
+function fbState(){
+  try{ const st = JSON.parse(localStorage.getItem(FB_STATE_KEY)); if(st && st.known) return st; }catch(e){}
+  return { known: {}, ts: {}, edit: {} };
+}
+function fbSaveState(st){ try{ localStorage.setItem(FB_STATE_KEY, JSON.stringify(st)); }catch(e){} }
+const fbSections = () => Object.keys(data).filter(k => k !== 'updatedAt' && data[k] !== undefined);
+
+// called after every local save: remember which sections changed and when
+function fbMarkEdits(){
+  const st = fbState(), now = Date.now();
+  fbSections().forEach(k => {
+    if(fbHash(JSON.stringify(data[k])) !== st.known[k]) st.edit[k] = now;
+  });
+  fbSaveState(st);
+}
+
+function fbIsEditing(){
+  const a = document.activeElement;
+  if(!a || a === document.body) return false;
+  if(a.isContentEditable || a.tagName === 'TEXTAREA') return true;
+  return a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(a.type);
+}
+
+function fbSchedule(delay = 500){
+  if(!fbCode()) return;
+  clearTimeout(fbTimer);
+  fbTimer = setTimeout(fbSync, delay);
+}
+
+async function fbSync(){
+  const code = fbCode();
+  if(!code) return;
+  if(fbSyncing){ fbAgain = true; return; }
+  if(!navigator.onLine){ setSyncBtnState('offline'); fbRenderSheet(); return; }
+  fbSyncing = true;
+  setSyncBtnState('syncing');
+  try{
+    const res = await fetch(fbUrl(code, '/sections'));
+    if(!res.ok) throw new Error('get ' + res.status);
+    const remote = (await res.json()) || {};
+    if(code !== fbCode()) return;
+    const st = fbState(), now = Date.now();
+    const keys = new Set([...fbSections(), ...Object.keys(remote)]);
+    const incoming = {}, patch = {}, pushed = {};
+
+    for(const k of keys){
+      const R = remote[k] && typeof remote[k].v === 'string' ? remote[k] : null;
+      const has = k in data && data[k] !== undefined && k !== 'updatedAt';
+      const json = has ? JSON.stringify(data[k]) : undefined;
+      const h = has ? fbHash(json) : null;
+      const dirty = has && h !== st.known[k];
+      const remoteNewer = R && R.t > (st.ts[k] || 0);
+      if(remoteNewer && (!dirty || (st.edit[k] || 0) <= R.t)){
+        incoming[k] = R;
+      } else if(dirty){
+        // stamp with when the edit was made, so the genuinely newer edit wins
+        const t = Math.max(st.edit[k] || now, R ? R.t + 1 : 0);
+        patch[k] = { v: json, t };
+        pushed[k] = { h, t };
+      }
+    }
+
+    // don't redraw under someone typing. Try again shortly instead
+    if(Object.keys(incoming).length && fbIsEditing()){
+      fbSyncing = false;
+      fbSchedule(1500);
+      return;
+    }
+
+    if(Object.keys(patch).length){
+      const w = await fetch(fbUrl(code, '/sections'), { method: 'PATCH', body: JSON.stringify(patch) });
+      if(!w.ok) throw new Error('patch ' + w.status);
+      for(const k in pushed){ st.known[k] = pushed[k].h; st.ts[k] = pushed[k].t; }
+    }
+
+    if(Object.keys(incoming).length){
+      const scrollY = window.scrollY;
+      for(const k in incoming){
+        data[k] = JSON.parse(incoming[k].v);
+        st.known[k] = fbHash(incoming[k].v);
+        st.ts[k] = incoming[k].t;
+      }
+      // fill in anything older data may be missing, same defaults as loadTasks
+      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+      if(!data.calendar || typeof data.calendar !== 'object') data.calendar = {};
+      data.updatedAt = now;
+      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+      lastSavedSnapshot = JSON.stringify(data);
+      renderAll();
+      window.scrollTo(0, scrollY);
+      showStatus('updated from sync');
+    }
+    fbSaveState(st);
+    fbLastOk = Date.now();
+    setSyncBtnState('synced');
+  }catch(e){
+    setSyncBtnState(navigator.onLine ? 'failed' : 'offline');
+    if(navigator.onLine){ clearTimeout(fbTimer); fbTimer = setTimeout(fbSync, 15000); }
+  }finally{
+    fbSyncing = false;
+    fbRenderSheet();
+    if(fbAgain){ fbAgain = false; fbSync(); }
+  }
+}
+
+// live updates: Firebase pushes an event whenever the other device saves
+function fbListen(){
+  if(fbEvents){ fbEvents.close(); fbEvents = null; }
+  const code = fbCode();
+  if(!code || typeof EventSource === 'undefined') return;
+  fbEvents = new EventSource(fbUrl(code, '/sections'));
+  const onChange = () => fbSchedule(300);
+  fbEvents.addEventListener('put', onChange);
+  fbEvents.addEventListener('patch', onChange);
+}
+
+/* the Sync button sends to Firebase when connected, otherwise the old JSONBin sync.
+   JSONBin keeps getting a backup copy either way if it's set up on this device. */
+function pushToSync(){
+  if(fbCode()){
+    fbMarkEdits();
+    fbSchedule(400);
+    jsonbinPush(true);
+    return;
+  }
+  return jsonbinPush();
+}
+function pullFromSync(){
+  if(fbCode()) return fbSync();
+  return jsonbinPull();
+}
+
+/* ---------- sync sheet ---------- */
+const dsModal = document.getElementById('dataSyncModal');
+function fbRenderSheet(){
+  const code = fbCode();
+  document.getElementById('dsOff').hidden = !!code;
+  document.getElementById('dsOn').hidden = !code;
+  document.getElementById('dsCode').textContent = fbPretty(code);
+  const t = fbLastOk ? new Date(fbLastOk).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  document.getElementById('dsStatus').textContent = !navigator.onLine ? '📴 Offline. Changes sync when you reconnect'
+    : fbSyncing ? 'Syncing…' : fbLastOk ? `✓ Live · up to date ${t}` : 'Connecting…';
+}
+syncBtn.addEventListener('click', () => { fbRenderSheet(); dsModal.classList.add('open'); });
+document.getElementById('dsClose').addEventListener('click', () => dsModal.classList.remove('open'));
+dsModal.addEventListener('click', (e) => { if(e.target === dsModal) dsModal.classList.remove('open'); });
+
+function fbConnect(code, uploadAll){
+  localStorage.setItem(FB_CODE_KEY, code);
+  const st = { known: {}, ts: {}, edit: {} };
+  // creating: this device's data is the starting copy. Joining: the synced copy wins
+  if(uploadAll){ const now = Date.now(); fbSections().forEach(k => { st.edit[k] = now; }); }
+  fbSaveState(st);
+  fbListen();
+  return fbSync();
+}
+
+document.getElementById('dsCreate').addEventListener('click', async () => {
+  const b = document.getElementById('dsCreate');
+  b.disabled = true; b.textContent = 'Creating…';
+  try{
+    // bring in the latest from the old JSONBin sync first, so nothing newer is left behind
+    if(getSyncConfig().bin){ try{ await jsonbinPull(); }catch(e){} }
+    let code = '';
+    for(let tries = 0; tries < 5 && !code; tries++){
+      const c = Array.from(crypto.getRandomValues(new Uint32Array(10)), n => FB_CODE_CHARS[n % FB_CODE_CHARS.length]).join('');
+      const r = await fetch(fbUrl(c, '/created'));
+      if(!r.ok) throw new Error();
+      if((await r.json()) === null) code = c;
+    }
+    if(!code) throw new Error();
+    const w = await fetch(fbUrl(code), { method: 'PATCH', body: JSON.stringify({ created: Date.now() }) });
+    if(!w.ok) throw new Error();
+    await fbConnect(code, true);
+    showStatus('sync code ready');
+  }catch(e){
+    alert("Couldn't create a sync code. Check your connection. If it keeps failing, the Firebase rules may need the \"sync\" entry (see CLAUDE.md).");
+  }finally{
+    b.disabled = false; b.textContent = 'Get a sync code';
+    fbRenderSheet();
+  }
 });
+
+document.getElementById('dsInput').addEventListener('input', (e) => {
+  const c = fbClean(e.target.value).slice(0, 10);
+  e.target.value = c.length > 5 ? `${c.slice(0, 5)}-${c.slice(5)}` : c;
+});
+document.getElementById('dsJoin').addEventListener('click', async () => {
+  const code = fbClean(document.getElementById('dsInput').value);
+  if(code.length !== 10){ alert('Sync codes are 10 characters, like ABCDE-FGH23'); return; }
+  const b = document.getElementById('dsJoin');
+  b.disabled = true;
+  try{
+    const r = await fetch(fbUrl(code, '/created'));
+    if(!r.ok) throw new Error();
+    if((await r.json()) === null){ alert('No synced data found for that code. Check it and try again.'); return; }
+    document.getElementById('dsInput').value = '';
+    await fbConnect(code, false);
+    showStatus('connected to sync');
+  }catch(e){
+    alert("Couldn't connect. Check your connection and try again.");
+  }finally{
+    b.disabled = false;
+    fbRenderSheet();
+  }
+});
+
+document.getElementById('dsCopy').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText(fbPretty(fbCode())); showStatus('code copied'); }
+  catch(e){ prompt('Your sync code:', fbPretty(fbCode())); }
+});
+document.getElementById('dsNow').addEventListener('click', () => fbSync());
+document.getElementById('dsLeave').addEventListener('click', () => {
+  if(!confirm('Disconnect this device from sync? Your data stays on this device. The other device keeps syncing.')) return;
+  localStorage.removeItem(FB_CODE_KEY);
+  localStorage.removeItem(FB_STATE_KEY);
+  if(fbEvents){ fbEvents.close(); fbEvents = null; }
+  clearTimeout(fbTimer);
+  setSyncBtnState('idle');
+  fbRenderSheet();
+});
+document.getElementById('dsJsonbin').addEventListener('click', () => {
+  dsModal.classList.remove('open');
+  jsonbinSetup();
+});
+window.addEventListener('online', () => { if(fbCode()) fbListen(); });
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && fbCode() && (!fbEvents || fbEvents.readyState === 2)) fbListen();
+});
+
 
 /* pull latest on open/return, push after every save */
 window.addEventListener('load', () => {
@@ -3923,8 +4250,9 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ pullFromSync(); pullAutomationStatus(); }
 });
 window.addEventListener('online', () => { pullFromSync(); pullAutomationStatus(); });
-window.addEventListener('offline', () => { if(getSyncConfig().bin) setSyncBtnState('offline'); });
-if(getSyncConfig().bin) setSyncBtnState(navigator.onLine ? 'idle' : 'offline');
+window.addEventListener('offline', () => { if(getSyncConfig().bin || fbCode()) setSyncBtnState('offline'); });
+if(getSyncConfig().bin || fbCode()) setSyncBtnState(navigator.onLine ? 'idle' : 'offline');
+if(fbCode()) fbListen();
 
 /* offline support: cache the app so it opens without a connection */
 if('serviceWorker' in navigator){

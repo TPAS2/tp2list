@@ -255,7 +255,7 @@
 <div class="wrap">
   <header>
     <a class="icon-btn" href="../" title="Back to TP2List">←</a>
-    <h1>Home Stock<small id="subtitle">What's at home</small></h1>
+    <h1>Home Stock<small id="subtitle"></small></h1>
     <button class="icon-btn share-btn" id="shareBtn"><span class="dot" id="syncDot"></span><span id="shareLabel">Share</span></button>
     <button class="icon-btn" id="menuBtn" title="Menu">⋯</button>
   </header>
@@ -549,7 +549,7 @@ function render(){
   $('nOut').textContent = counts.out;
   $('subtitle').textContent = items.length
     ? `${counts.home} home · ${counts.apt} apartment · ${counts.out} to buy`
-    : "What's at home";
+    : '';
 
   const cats = [...new Set(items.map((i) => i.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   if(cat && !cats.includes(cat)) cat = '';

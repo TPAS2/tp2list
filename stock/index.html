@@ -436,7 +436,7 @@
 /* Shared lists live in a Firebase Realtime Database at /lists/<CODE>.
    This is the stock list's own storage. It is separate from TP2List's JSONBin sync. Leave empty to hide sharing.
    The URL is not a secret: the database rules only allow access to /lists/<code>. */
-const SHARE_DB = '';
+const SHARE_DB = 'https://tp2-list-default-rtdb.europe-west1.firebasedatabase.app';
 
 /* ---------- local storage (IndexedDB) ---------- */
 const DB_NAME = 'tp2stock', STORE = 'items';

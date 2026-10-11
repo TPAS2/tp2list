@@ -1516,24 +1516,6 @@
       <ul class="list" id="overdueList2"></ul>
     </div>
 
-    <div class="section" id="section-ledger">
-      <div class="section-head">
-        <div class="section-title">Work <span class="count" id="tally-ledger">0</span></div>
-        <div class="expense-head-actions">
-          <button type="button" class="expense-head-btn" id="ledgerHideCompletedToggle" title="Show/hide sent items and monthly document progress">🙈</button>
-          <button type="button" class="expense-head-btn" id="ledgerFormToggle">+ add</button>
-        </div>
-      </div>
-      <form class="add-row ledger-row no-generic-add" id="ledgerForm" style="display:none;">
-        <input type="text" id="ledgerAutomation" placeholder="Automation…" autocomplete="off">
-        <input type="date" id="ledgerDate" class="cal-enddate-input">
-        <button type="button" class="expense-type-toggle" id="ledgerCurrencyToggle" data-currency="€" title="Tap to switch currency">€</button>
-        <input type="text" id="ledgerAmount" placeholder="Amount…" autocomplete="off" inputmode="decimal">
-        <button type="button" class="add">Add</button>
-      </form>
-      <div class="auto-status" id="autoStatus"></div>
-      <ul class="list" id="ledgerList"></ul>
-    </div>
   </div>
   <div class="page" id="page-expenses">
     <div class="section" id="section-expenses">
@@ -1665,7 +1647,6 @@
       </div>
     </div>
     <p class="ds-hint">This is only for your own devices. It's separate from the SL shopping list code, which never gives access to this data.</p>
-    <button type="button" class="ds-btn link" id="dsJsonbin">JSONBin key (automation status &amp; backup)…</button>
   </div>
 </div>
 
@@ -1823,7 +1804,6 @@ async function saveTasks(){
 function renderAll(){
   const steps = [
     () => renderSection('list'),
-    () => renderLedger(),
     () => renderCalendar(),
     () => renderOther(),
     () => renderExpenses()
@@ -2316,345 +2296,6 @@ function renderExpenseItemsDetailed(){
     expensesListEl.appendChild(li);
   });
 }
-
-function formatLedgerDate(dateStr){
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m-1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-
-/* Monthly documents: the Ai-Monthly runs write every step (created, sent to Telegram,
-   SEND received, emailed / cancelled / failed) to a private JSONBin record in the same
-   JSONBin account used for sync. It is read with the saved master key and never written
-   here, so it can't clash with this app's own list data. */
-const STATUS_BIN_ID = '6ab92326ac6210605afaf851';
-const AUTOMATIONS = [   // matches Work entries to a monthly job by name
-  { key: 'ptma', match: /ptma|panismo/i },
-  { key: 'theomie', match: /theomie|statement/i },
-  { key: 'mazda', match: /mazda|tp2/i }
-];
-let autoStatus = null;
-
-function automationFor(entry){
-  const name = entry.automation || entry.description || '';
-  const hit = AUTOMATIONS.find(a => a.match.test(name));
-  return hit && autoStatus && autoStatus.automations ? autoStatus.automations[hit.key] : null;
-}
-
-function ledgerStatus(entry){
-  if(entry.delivery === 'failed') return 'failed';
-  // a Work entry for a monthly job shows the real progress of that month's run
-  const auto = automationFor(entry);
-  const run = auto && auto.current;
-  if(run && entry.date && entry.date.slice(0, 7) === run.month){
-    return { sent: 'sent', awaiting_approval: 'waiting', not_emailed: 'waiting', created: 'pending',
-             cancelled: 'cancelled', failed: 'failed' }[run.status] || 'pending';
-  }
-  const todayKey = dateKey(new Date());
-  return entry.date <= todayKey ? 'sent' : 'pending';
-}
-
-function formatAutoTime(iso){
-  if(!iso) return '';
-  const d = new Date(iso);
-  const tz = 'Asia/Nicosia';   // the runs are scheduled on Cyprus time
-  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', timeZone: tz }) + ' ' +
-         d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
-}
-
-function formatRunDate(ymd){
-  const [y, m, d] = ymd.split('-').map(Number);
-  return new Date(y, m-1, d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-const AUTO_CHIPS = {
-  sent: ['sent', 'Emailed'], awaiting_approval: ['waiting', 'Reply SEND'], not_emailed: ['waiting', 'Not emailed'],
-  created: ['pending', 'In progress'], cancelled: ['cancelled', 'Cancelled'], failed: ['failed', 'Checks failed']
-};
-
-function latestStep(run){
-  return run ? Object.values(run.steps || {}).sort().pop() || '' : '';
-}
-
-function renderAutomationStatus(){
-  const box = document.getElementById('autoStatus');
-  if(!box) return;
-  box.innerHTML = '';
-  // follows the Work section's show/hide button: hidden by default, shown with 👁
-  box.style.display = ledgerHideCompleted ? 'none' : '';
-  if(ledgerHideCompleted || !autoStatus || !autoStatus.automations) return;
-
-  const entries = Object.entries(autoStatus.automations).sort((a, b) => (a[1].day || 0) - (b[1].day || 0));
-  entries.forEach(([key, auto]) => {
-    // show the real month; show a dry run instead only while it is the more recent one
-    let run = auto.current, isTest = false;
-    if(auto.last_test && latestStep(auto.last_test) > latestStep(auto.current)){ run = auto.last_test; isTest = true; }
-
-    const card = document.createElement('div');
-    card.className = 'auto-card';
-    const head = document.createElement('div');
-    head.className = 'auto-head';
-    const titleWrap = document.createElement('div');
-    titleWrap.style.flex = '1';
-    titleWrap.style.minWidth = '0';
-    const title = document.createElement('div');
-    title.className = 'auto-title';
-    title.textContent = auto.title || key;
-    titleWrap.appendChild(title);
-    const month = document.createElement('div');
-    month.className = 'auto-month';
-    if(run){
-      const [y, m] = run.month.split('-').map(Number);
-      month.textContent = new Date(y, m-1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) +
-                          (isTest ? ' · dry run (only to you)' : '');
-    } else {
-      month.textContent = 'Not run yet';
-    }
-    titleWrap.appendChild(month);
-    head.appendChild(titleWrap);
-    if(run){
-      const [cls, label] = AUTO_CHIPS[run.status] || ['pending', run.status];
-      const chip = document.createElement('div');
-      chip.className = 'ledger-status ' + cls;
-      chip.textContent = label;
-      head.appendChild(chip);
-    }
-    card.appendChild(head);
-
-    if(run){
-      const s = run.steps || {};
-      const steps = [
-        ['created', 'Created & checked', (run.numbers || []).join(', ')],
-        ['telegram', 'Sent to Telegram', ''],
-        ['approved', 'You replied SEND', ''],
-        ['emailed', 'Emailed', run.from ? `from ${run.from} to ${run.to}` : '']
-      ];
-      if(s.cancelled) steps.splice(2, 2, ['cancelled', 'Cancelled (STOP)', '']);
-      if(s.failed) steps.splice(0, 4, ['failed', 'Checks failed - nothing sent', run.note || '']);
-      const list = document.createElement('ul');
-      list.className = 'auto-steps';
-      steps.forEach(([k, label, detail]) => {
-        const done = !!s[k];
-        const li = document.createElement('li');
-        li.className = 'auto-step' + (done ? ' done' : '') + ((k === 'failed' || k === 'cancelled') ? ' bad' : '');
-        const mark = document.createElement('span');
-        mark.className = 'mark';
-        mark.textContent = done ? (k === 'failed' || k === 'cancelled' ? '✕' : '✓') : '○';
-        const text = document.createElement('span');
-        text.textContent = label;
-        const when = document.createElement('span');
-        when.className = 'when';
-        when.textContent = formatAutoTime(s[k]);
-        li.append(mark, text, when);
-        list.appendChild(li);
-        if(detail && (done || k === 'created')){
-          const d = document.createElement('li');
-          d.className = 'auto-detail';
-          d.textContent = detail;
-          list.appendChild(d);
-        }
-      });
-      card.appendChild(list);
-    }
-    if(auto.next_run){
-      const foot = document.createElement('div');
-      foot.className = 'auto-foot';
-      foot.textContent = 'Next run: ' + formatRunDate(auto.next_run) + ', just before 7:00';
-      card.appendChild(foot);
-    }
-    box.appendChild(card);
-  });
-}
-
-async function pullAutomationStatus(){
-  // with a sync code, the runs can write their status to Firebase at /sync/<CODE>/automation
-  // (same JSON as the JSONBin record). JSONBin stays the fallback until they do.
-  const code = fbCode();
-  if(code){
-    try{
-      const res = await fetch(fbUrl(code, '/automation'));
-      const json = res.ok ? await res.json() : null;
-      if(json && json.automations){
-        autoStatus = json;
-        renderAutomationStatus();
-        renderLedger();
-        return;
-      }
-    }catch(e){}
-  }
-  const { key } = getSyncConfig();
-  if(!key || !STATUS_BIN_ID) return;
-  try{
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${STATUS_BIN_ID}/latest`, {
-      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' }
-    });
-    if(!res.ok) return;
-    autoStatus = await res.json();
-    renderAutomationStatus();
-    renderLedger();
-  }catch(e){}
-}
-
-let ledgerHideCompleted = true;
-
-function renderLedger(){
-  const ledgerListEl = document.getElementById('ledgerList');
-  const tallyEl = document.getElementById('tally-ledger');
-  if(!ledgerListEl) return;
-
-  let entries = [...data.ledger].sort((a, b) => a.date.localeCompare(b.date));
-  if(ledgerHideCompleted){
-    entries = entries.filter(e => ledgerStatus(e) !== 'sent');
-  }
-  tallyEl.textContent = `(${entries.length})`;
-
-  ledgerListEl.innerHTML = '';
-  if(entries.length === 0){
-    return;
-  }
-
-  entries.forEach(entry => {
-    const li = document.createElement('li');
-    li.className = 'ledger-item';
-
-    const topRow = document.createElement('div');
-    topRow.className = 'ledger-top-row';
-
-    const name = document.createElement('div');
-    name.className = 'ledger-name';
-    name.textContent = entry.automation || entry.description;
-    name.onclick = () => {
-      startInlineEdit(name, entry.automation || '', (newVal) => {
-        if(newVal !== null){ entry.automation = newVal; saveTasks(); }
-        renderLedger();
-      });
-    };
-    topRow.appendChild(name);
-
-    const status = ledgerStatus(entry);
-    const statusBox = document.createElement('div');
-    statusBox.className = 'ledger-status ' + status;
-    statusBox.textContent = status;
-    const run = (automationFor(entry) || {}).current;
-    if(run && entry.date && entry.date.slice(0, 7) === run.month && run.steps && run.steps.emailed){
-      statusBox.title = `Emailed ${formatAutoTime(run.steps.emailed)} from ${run.from} to ${run.to}`;
-    }
-    topRow.appendChild(statusBox);
-
-    li.appendChild(topRow);
-
-    const bottomRow = document.createElement('div');
-    bottomRow.className = 'ledger-bottom-row';
-
-    const dateBadge = document.createElement('span');
-    dateBadge.className = 'ledger-date';
-    dateBadge.textContent = formatDateShort(entry.date);
-    dateBadge.onclick = () => {
-      const input = document.createElement('input');
-      input.type = 'date';
-      input.className = 'cal-enddate-input';
-      input.value = entry.date;
-      dateBadge.replaceWith(input);
-      requestAnimationFrame(() => input.focus());
-      let done = false;
-      function commit(){
-        if(done) return;
-        done = true;
-        if(input.value) entry.date = input.value;
-        renderLedger(); saveTasks();
-      }
-      input.addEventListener('change', commit);
-      input.addEventListener('blur', commit);
-    };
-    bottomRow.appendChild(dateBadge);
-
-    const amount = document.createElement('span');
-    amount.className = 'ledger-amount';
-    amount.textContent = entry.amount || '—';
-    amount.title = 'Tap to change the amount';
-    amount.onclick = () => {
-      startInlineEdit(amount, entry.amount || '', (newVal) => {
-        if(newVal !== null){
-          const trimmed = newVal.trim();
-          if(trimmed && /^[\d.,]+$/.test(trimmed)){
-            // plain number typed — keep whatever currency symbol this entry already used
-            const existingSymbol = (entry.amount || '').match(/^[€£]/);
-            entry.amount = (existingSymbol ? existingSymbol[0] : ledgerCurrencyToggle.dataset.currency) + trimmed;
-          } else {
-            entry.amount = trimmed;
-          }
-          saveTasks();
-        }
-        renderLedger();
-      });
-    };
-    bottomRow.appendChild(amount);
-
-    li.appendChild(bottomRow);
-
-    const del = document.createElement('button');
-    del.className = 'del ledger-del';
-    del.textContent = '✕';
-    del.onclick = () => {
-      data.ledger = data.ledger.filter(e => e.id !== entry.id);
-      renderLedger(); saveTasks();
-      showStatus('removed');
-    };
-    li.appendChild(del);
-
-    ledgerListEl.appendChild(li);
-  });
-}
-
-function addLedgerEntry(){
-  const automation = document.getElementById('ledgerAutomation').value.trim();
-  const dateInput = document.getElementById('ledgerDate');
-  const rawAmount = document.getElementById('ledgerAmount').value.trim();
-  if(!automation) return;
-  const currency = ledgerCurrencyToggle.dataset.currency;
-  const amount = (rawAmount && /^[\d.,]+$/.test(rawAmount)) ? currency + rawAmount : rawAmount;
-  data.ledger.push({
-    id: Date.now() + Math.random().toString(36).slice(2),
-    date: dateInput.value || dateKey(new Date()),
-    automation, description: automation, amount,
-    delivery: 'email', paid: false, paidAt: null
-  });
-  document.getElementById('ledgerAutomation').value = '';
-  dateInput.value = '';
-  document.getElementById('ledgerAmount').value = '';
-  renderLedger(); saveTasks();
-}
-const ledgerForm = document.getElementById('ledgerForm');
-ledgerForm.addEventListener('submit', (e) => e.preventDefault());
-document.querySelector('#ledgerForm button.add').addEventListener('click', addLedgerEntry);
-document.getElementById('ledgerAutomation').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
-});
-const ledgerCurrencyToggle = document.getElementById('ledgerCurrencyToggle');
-ledgerCurrencyToggle.addEventListener('click', () => {
-  const isEuro = ledgerCurrencyToggle.dataset.currency === '€';
-  ledgerCurrencyToggle.dataset.currency = isEuro ? '£' : '€';
-  ledgerCurrencyToggle.textContent = isEuro ? '£' : '€';
-});
-const ledgerFormToggle = document.getElementById('ledgerFormToggle');
-ledgerFormToggle.addEventListener('click', () => {
-  const showing = ledgerForm.style.display !== 'none';
-  ledgerForm.style.display = showing ? 'none' : 'flex';
-  ledgerFormToggle.textContent = showing ? '+ add' : 'hide';
-  ledgerFormToggle.classList.toggle('active', !showing);
-});
-
-const ledgerHideCompletedToggle = document.getElementById('ledgerHideCompletedToggle');
-ledgerHideCompletedToggle.addEventListener('click', () => {
-  ledgerHideCompleted = !ledgerHideCompleted;
-  ledgerHideCompletedToggle.textContent = ledgerHideCompleted ? '🙈' : '👁';
-  ledgerHideCompletedToggle.classList.toggle('active', !ledgerHideCompleted);
-  renderLedger();
-  renderAutomationStatus();
-});
-document.getElementById('ledgerAmount').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter'){ e.preventDefault(); addLedgerEntry(); }
-});
 
 function addExpense(){
   const desc = expenseDescInput.value.trim();
@@ -3837,18 +3478,8 @@ function hideAllPages(){
 document.getElementById('otherNavBtn').addEventListener('click', () => showPage(otherPageEl));
 document.getElementById('otherBackBtn').addEventListener('click', hideAllPages);
 
-/* ---------- cross-device sync via jsonbin.io ---------- */
-const SYNC_KEY_KEY = 'tpas2:sync:masterkey';
-const SYNC_BIN_KEY = 'tpas2:sync:binid';
-const SYNC_PENDING_KEY = 'tpas2:sync:pending';
+/* ---------- sync button ---------- */
 const syncBtn = document.getElementById('syncBtn');
-
-function getSyncConfig(){
-  return {
-    key: localStorage.getItem(SYNC_KEY_KEY) || '',
-    bin: localStorage.getItem(SYNC_BIN_KEY) || ''
-  };
-}
 
 function setSyncBtnState(state){
   syncBtn.classList.remove('synced');
@@ -3866,134 +3497,16 @@ function setSyncBtnState(state){
   }
 }
 
-async function jsonbinPush(backupOnly){
-  const { key, bin } = getSyncConfig();
-  if(!key || !bin) return;
-  try{
-    const ts = Date.now();
-    const payload = { ...data, updatedAt: ts };
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
-      body: JSON.stringify(payload)
-    });
-    if(!res.ok) throw new Error('bad response');
-    data.updatedAt = ts; // keep local in sync with what we just pushed, so the next
-                         // pull doesn't mistake our own just-saved data for being stale
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
-    try{ localStorage.removeItem(SYNC_PENDING_KEY); }catch(e){}
-    if(!backupOnly) setSyncBtnState('synced');
-  }catch(e){
-    // remember there are unsent changes so they go up as soon as we're back online
-    try{ localStorage.setItem(SYNC_PENDING_KEY, '1'); }catch(e2){}
-    if(!backupOnly) setSyncBtnState(navigator.onLine ? 'failed' : 'offline');
-  }
-}
-
-function hasPendingPush(){
-  try{ return localStorage.getItem(SYNC_PENDING_KEY) === '1'; }catch(e){ return false; }
-}
-
-async function jsonbinPull(){
-  const { key, bin } = getSyncConfig();
-  if(!key || !bin) return;
-  if(!navigator.onLine){ setSyncBtnState('offline'); return; }
-  // send offline edits first so they aren't lost to a newer copy from another device
-  if(hasPendingPush()){
-    await jsonbinPush();
-    if(hasPendingPush()) return;
-  }
-  setSyncBtnState('syncing');
-  try{
-    const res = await fetch(`https://api.jsonbin.io/v3/b/${bin}/latest`, {
-      headers: { 'X-Master-Key': key, 'X-Bin-Meta': 'false' }
-    });
-    if(!res.ok) throw new Error('bad response');
-    const remote = await res.json();
-    const localTs = data.updatedAt || 0;
-    const remoteTs = remote.updatedAt || 0;
-    if(remoteTs > localTs){
-      // preserve scroll position — re-rendering can change page height and jerk the view otherwise
-      const scrollY = window.scrollY;
-      data = {
-        ...remote,   // keep every field, including ones added later
-        list: remote.list || [],
-        calendar: remote.calendar || {},
-        other: remote.other || [],
-        expenses: remote.expenses || [],
-        recurringEvents: remote.recurringEvents || [],
-        spanEvents: remote.spanEvents || [],
-        ledger: remote.ledger || [],
-        automationsSeeded: remote.automationsSeeded,
-        ledgerFixApplied: remote.ledgerFixApplied,
-        ledgerDatesFixed: remote.ledgerDatesFixed,
-        automationCalendarEventsRemoved: remote.automationCalendarEventsRemoved,
-        updatedAt: remoteTs
-      };
-      renderAll();
-      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
-      window.scrollTo(0, scrollY);
-      showStatus('updated from sync');
-    }
-    setSyncBtnState('synced');
-  }catch(e){
-    setSyncBtnState('failed');
-  }
-}
-
-async function createSharedBin(){
-  const { key } = getSyncConfig();
-  const payload = { ...data, updatedAt: Date.now() };
-  const res = await fetch('https://api.jsonbin.io/v3/b', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Master-Key': key, 'X-Bin-Meta': 'false' },
-    body: JSON.stringify(payload)
-  });
-  if(!res.ok) throw new Error('create failed');
-  const result = await res.json();
-  return result.metadata ? result.metadata.id : result.id;
-}
-
 const syncRefreshBtn = document.getElementById('syncRefreshBtn');
 syncRefreshBtn.addEventListener('click', async () => {
-  const { bin } = getSyncConfig();
-  if(!bin && !fbCode()){
+  if(!fbCode()){
     showStatus('sync not set up yet — tap Sync first');
     return;
   }
   syncRefreshBtn.classList.add('spinning');
-  await Promise.all([pullFromSync(), pullAutomationStatus()]);
+  await pullFromSync();
   syncRefreshBtn.classList.remove('spinning');
 });
-
-// old JSONBin setup, now reached from the sync sheet. Still used for the automation
-// status and as a backup copy of the data
-async function jsonbinSetup(){
-  const current = getSyncConfig();
-  const key = prompt('Paste your JSONBin.io Master Key:', current.key || '');
-  if(key === null) return;
-  if(!key.trim()){ setSyncBtnState('idle'); return; }
-  localStorage.setItem(SYNC_KEY_KEY, key.trim());
-
-  const binInput = prompt('Paste an existing shared list ID to connect to it, or leave blank to create a new shared list on this device:', current.bin || '');
-  if(binInput === null) return;
-
-  if(binInput.trim()){
-    localStorage.setItem(SYNC_BIN_KEY, binInput.trim());
-    if(!fbCode()) await jsonbinPull();  // with code sync on, JSONBin is only a backup
-    showStatus('connected to sync');
-  } else {
-    try{
-      setSyncBtnState('syncing');
-      const newBinId = await createSharedBin();
-      localStorage.setItem(SYNC_BIN_KEY, newBinId);
-      setSyncBtnState('synced');
-      alert(`Shared list created. On your other device, tap "Sync", paste the same Master Key, then paste this ID:\n\n${newBinId}`);
-    }catch(e){
-      setSyncBtnState('failed');
-    }
-  }
-}
 
 /* ---------- device sync via Firebase (the Sync button) ----------
    Laptop and phone share a sync code. Data lives at /sync/<CODE>/sections/<name> = { v: JSON text, t: time },
@@ -4005,7 +3518,7 @@ const FB_DB = 'https://tp2-list-default-rtdb.europe-west1.firebasedatabase.app';
 const FB_CODE_KEY = 'tpas2:fb:code';
 const FB_STATE_KEY = 'tpas2:fb:state';
 const FB_CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-let fbSyncing = false, fbAgain = false, fbTimer = null, fbEvents = null, fbAutoEvents = null, fbLastOk = 0;
+let fbSyncing = false, fbAgain = false, fbTimer = null, fbEvents = null, fbLastOk = 0;
 
 const fbCode = () => localStorage.getItem(FB_CODE_KEY) || '';
 const fbUrl = (code, path = '') => `${FB_DB}/sync/${code}${path}.json`;
@@ -4138,27 +3651,16 @@ function fbListen(){
   const onChange = () => fbSchedule(300);
   fbEvents.addEventListener('put', onChange);
   fbEvents.addEventListener('patch', onChange);
-  // live automation status written by the Ai-Monthly runs
-  if(fbAutoEvents) fbAutoEvents.close();
-  fbAutoEvents = new EventSource(fbUrl(code, '/automation'));
-  fbAutoEvents.addEventListener('put', () => pullAutomationStatus());
-  fbAutoEvents.addEventListener('patch', () => pullAutomationStatus());
 }
 
-/* the Sync button sends to Firebase when connected, otherwise the old JSONBin sync.
-   JSONBin keeps getting a backup copy either way if it's set up on this device. */
+/* edits go to Firebase when this device has a sync code */
 function pushToSync(){
-  if(fbCode()){
-    fbMarkEdits();
-    fbSchedule(400);
-    jsonbinPush(true);
-    return;
-  }
-  return jsonbinPush();
+  if(!fbCode()) return;
+  fbMarkEdits();
+  fbSchedule(400);
 }
 function pullFromSync(){
   if(fbCode()) return fbSync();
-  return jsonbinPull();
 }
 
 /* ---------- sync sheet ---------- */
@@ -4190,8 +3692,6 @@ document.getElementById('dsCreate').addEventListener('click', async () => {
   const b = document.getElementById('dsCreate');
   b.disabled = true; b.textContent = 'Creating…';
   try{
-    // bring in the latest from the old JSONBin sync first, so nothing newer is left behind
-    if(getSyncConfig().bin){ try{ await jsonbinPull(); }catch(e){} }
     let code = '';
     for(let tries = 0; tries < 5 && !code; tries++){
       const c = Array.from(crypto.getRandomValues(new Uint32Array(10)), n => FB_CODE_CHARS[n % FB_CODE_CHARS.length]).join('');
@@ -4246,14 +3746,9 @@ document.getElementById('dsLeave').addEventListener('click', () => {
   localStorage.removeItem(FB_CODE_KEY);
   localStorage.removeItem(FB_STATE_KEY);
   if(fbEvents){ fbEvents.close(); fbEvents = null; }
-  if(fbAutoEvents){ fbAutoEvents.close(); fbAutoEvents = null; }
   clearTimeout(fbTimer);
   setSyncBtnState('idle');
   fbRenderSheet();
-});
-document.getElementById('dsJsonbin').addEventListener('click', () => {
-  dsModal.classList.remove('open');
-  jsonbinSetup();
 });
 window.addEventListener('online', () => { if(fbCode()) fbListen(); });
 document.addEventListener('visibilitychange', () => {
@@ -4265,14 +3760,13 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('load', () => {
   window.scrollTo(0, 0);
   pullFromSync();
-  pullAutomationStatus();
 });
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible'){ pullFromSync(); pullAutomationStatus(); }
+  if(document.visibilityState === 'visible'){ pullFromSync(); }
 });
-window.addEventListener('online', () => { pullFromSync(); pullAutomationStatus(); });
-window.addEventListener('offline', () => { if(getSyncConfig().bin || fbCode()) setSyncBtnState('offline'); });
-if(getSyncConfig().bin || fbCode()) setSyncBtnState(navigator.onLine ? 'idle' : 'offline');
+window.addEventListener('online', () => { pullFromSync(); });
+window.addEventListener('offline', () => { if(fbCode()) setSyncBtnState('offline'); });
+if(fbCode()) setSyncBtnState(navigator.onLine ? 'idle' : 'offline');
 if(fbCode()) fbListen();
 
 /* offline support: cache the app so it opens without a connection */

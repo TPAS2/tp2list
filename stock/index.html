@@ -294,18 +294,6 @@
 
     <div class="row">
       <div>
-        <label for="fCat">Category</label>
-        <input class="field" id="fCat" list="catList" placeholder="e.g. Pantry">
-        <datalist id="catList"></datalist>
-      </div>
-      <div>
-        <label for="fUnit">Unit</label>
-        <input class="field" id="fUnit" placeholder="pcs, bottles…">
-      </div>
-    </div>
-
-    <div class="row">
-      <div>
         <label for="fQty">Quantity</label>
         <div class="stepper">
           <button type="button" data-step="-1">−</button>
@@ -539,8 +527,6 @@ function render(){
   $('nApt').textContent = counts.apt;
   $('nOut').textContent = counts.out;
 
-  const cats = [...new Set(items.map((i) => i.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
-  $('catList').innerHTML = cats.map((c) => `<option value="${esc(c)}">`).join('');
 
   const q = query.trim().toLowerCase();
   const rank = { out: 0, low: 1, home: 2 };
@@ -674,8 +660,6 @@ function openEditor(it, prefill){
   iconChosen = !isNew || !!(prefill && prefill.icon);
   $('itemTitle').textContent = isNew ? 'New item' : 'Edit item';
   $('fName').value = isNew && !(prefill && prefill.name) ? '' : editing.name;
-  $('fCat').value = editing.category;
-  $('fUnit').value = editing.unit;
   $('fQty').value = editing.qty;
   $('fMin').value = editing.min;
   $('fCode').value = editing.code;
@@ -685,7 +669,7 @@ function openEditor(it, prefill){
   $('fWhere').value = editing.qty <= 0 ? 'buy' : editing.place;
   $('deleteBtn').hidden = isNew;
   $('iconGrid').classList.remove('open');
-  if(!iconChosen) editing.icon = guessIcon(`${$('fName').value} ${$('fCat').value}`);
+  if(!iconChosen) editing.icon = guessIcon(`${$('fName').value} ${editing.category || ''}`);
   showIcon();
   openModal('itemModal');
   if(isNew && !$('fName').value) setTimeout(() => $('fName').focus(), 50);
@@ -705,15 +689,14 @@ $('fQty').addEventListener('input', () => {
 
 function showIcon(){
   $('iconCurrent').textContent = editing.icon;
-  $('iconCurrent').style.background = catColor($('fCat').value);
+  $('iconCurrent').style.background = catColor(editing.category);
 }
 function autoIcon(){
   if(iconChosen) return;
-  editing.icon = guessIcon(`${$('fName').value} ${$('fCat').value}`);
+  editing.icon = guessIcon(`${$('fName').value} ${editing.category || ''}`);
   showIcon();
 }
 $('fName').addEventListener('input', autoIcon);
-$('fCat').addEventListener('input', () => { autoIcon(); showIcon(); });
 
 $('iconCurrent').onclick = () => {
   const g = $('iconGrid');
@@ -742,8 +725,6 @@ async function saveForm(){
   if(clash){ toast(`That code already belongs to "${clash.name}"`); return false; }
   Object.assign(editing, {
     name: $('fName').value.trim() || 'Unnamed',
-    category: $('fCat').value.trim(),
-    unit: $('fUnit').value.trim(),
     qty: $('fWhere').value === 'buy' ? 0 : Math.max(1, parseInt($('fQty').value, 10) || 0),
     place: $('fWhere').value === 'buy' ? editing.place : $('fWhere').value,
     min: Math.max(0, parseInt($('fMin').value, 10) || 0),

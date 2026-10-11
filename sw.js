@@ -1,7 +1,7 @@
 /* Offline support: serve the cached app instantly, refresh the cache in the background.
    A new version shows up on the next open after it's been fetched. */
-const CACHE = 'tp2list-v3';
-const APP_SHELL = ['./', './index.html'];
+const CACHE = 'tp2list-v4';
+const APP_SHELL = ['./', './index.html', './stock/index.html', './stock/vendor/jsQR.js', './stock/vendor/qrcode.js'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(APP_SHELL)).then(() => self.skipWaiting()));
@@ -22,7 +22,9 @@ self.addEventListener('fetch', (e) => {
 
   e.respondWith(
     caches.open(CACHE).then(async (cache) => {
-      const key = req.mode === 'navigate' ? './index.html' : req;
+      // page navigations map to their app's index.html (main list or /stock/)
+      const isStock = new URL(req.url).pathname.includes('/stock/');
+      const key = req.mode === 'navigate' ? (isStock ? './stock/index.html' : './index.html') : req;
       const cached = await cache.match(key, { ignoreSearch: true });
       const network = fetch(req).then((res) => {
         if(res.ok) cache.put(key, res.clone());

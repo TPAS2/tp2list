@@ -24,6 +24,10 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **Expenses**: euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
 - **Other**: separate full-page view for arbitrary categorized lists.
+- **Stock** (`stock/index.html`, linked from Other): separate home-stock app. Items with photos, qty, category,
+  low threshold; tabs All / At home / To buy. Add via QR/barcode scan (BarcodeDetector, falls back to vendored jsQR),
+  barcodes look up Open Food Facts, and each item can print its own QR label. Data is in IndexedDB on the device
+  (photos are too big for the JSONBin sync), with JSON export/import for backup. The root `sw.js` serves it offline.
 - **Polish**: subtle background glow + grid texture, two faint drifting easter-egg labels ("iis" / "Kay Kays"),
   brief fade when completing a Today/Overdue item.
 

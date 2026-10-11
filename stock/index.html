@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Home Stock</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stock">
+<meta name="theme-color" content="#070812">
+<meta name="color-scheme" content="dark">
+<style>
+  :root{
+    --bg: #05060d;
+    --panel: rgba(140, 130, 255, 0.06);
+    --panel-solid: #0d1024;
+    --panel-raised: #12162c;
+    --text: #e8ebfb;
+    --text-dim: #8890b8;
+    --text-faint: #565d84;
+    --line: rgba(140, 150, 255, 0.16);
+    --accent: #7c5cff;
+    --accent2: #22e0ff;
+    --success: #2af5b0;
+    --warn: #ffc65c;
+    --danger: #ff4f79;
+  }
+  *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html{ background: var(--bg); color-scheme: dark; }
+  body{
+    margin: 0; color: var(--text); background: var(--bg);
+    font-family: -apple-system, system-ui, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased; min-height: 100vh;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  body::before{
+    content:""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(40% 30% at 15% 10%, rgba(124,92,255,0.22) 0%, transparent 70%),
+      radial-gradient(35% 28% at 90% 20%, rgba(34,224,255,0.12) 0%, transparent 70%),
+      radial-gradient(45% 35% at 60% 95%, rgba(42,245,176,0.08) 0%, transparent 70%);
+  }
+  button, input, select, textarea{ font: inherit; color: inherit; }
+  button{ cursor: pointer; }
+  .wrap{ max-width: 920px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 16px 0; }
+
+  header{ display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  header h1{ font-size: 22px; margin: 0; letter-spacing: .02em; flex: 1; }
+  header h1 small{ display: block; font-size: 12px; color: var(--text-dim); font-weight: 500; letter-spacing: 0; margin-top: 2px; }
+  .icon-btn{
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 8px 12px; font-size: 14px; color: var(--text-dim); text-decoration: none;
+  }
+  .icon-btn:active{ transform: scale(.97); }
+
+  .tabs{ display: flex; gap: 6px; margin-bottom: 10px; }
+  .tab{
+    flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 9px 4px; font-size: 13px; color: var(--text-dim); text-align: center;
+  }
+  .tab b{ display: block; font-size: 18px; color: var(--text); }
+  .tab.active{ border-color: var(--accent); background: rgba(124,92,255,.16); color: var(--text); }
+  .tab[data-tab="out"].active{ border-color: var(--danger); background: rgba(255,79,121,.12); }
+  .tab[data-tab="home"].active{ border-color: var(--success); background: rgba(42,245,176,.10); }
+
+  .search{
+    width: 100%; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; font-size: 16px; outline: none;
+  }
+  .search:focus{ border-color: var(--accent); }
+  .chips{ display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 4px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar{ display: none; }
+  .chip{
+    flex: none; background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; font-size: 13px; color: var(--text-dim); white-space: nowrap;
+  }
+  .chip.active{ border-color: var(--accent2); color: var(--accent2); }
+
+  .grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 8px; }
+  .card{
+    background: var(--panel-solid); border: 1px solid var(--line); border-radius: 16px;
+    overflow: hidden; display: flex; flex-direction: column; position: relative;
+  }
+  .card.out{ border-color: rgba(255,79,121,.35); }
+  .card .photo{
+    aspect-ratio: 1 / 1; background: var(--panel-raised) center / cover no-repeat;
+    display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--text-faint);
+    border: 0; padding: 0; width: 100%;
+  }
+  .card.out .photo{ filter: grayscale(.85) brightness(.6); }
+  .card .count-pics{
+    position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,.55); border-radius: 8px;
+    font-size: 11px; padding: 2px 6px; color: #fff;
+  }
+  .badge{
+    position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    padding: 3px 7px; border-radius: 6px; text-transform: uppercase;
+  }
+  .badge.home{ background: rgba(42,245,176,.9); color: #032; }
+  .badge.low{ background: rgba(255,198,92,.95); color: #321; }
+  .badge.out{ background: rgba(255,79,121,.95); color: #fff; }
+  .card .body{ padding: 8px 10px 10px; display: flex; flex-direction: column; gap: 6px; }
+  .card .name{ font-weight: 600; font-size: 15px; line-height: 1.2; word-break: break-word; }
+  .card .cat{ font-size: 12px; color: var(--text-dim); }
+  .qty{ display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .qty button{
+    width: 36px; height: 34px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); font-size: 18px; line-height: 1;
+  }
+  .qty button:active{ background: rgba(124,92,255,.25); }
+  .qty span{ font-variant-numeric: tabular-nums; font-weight: 700; font-size: 17px; }
+  .qty span small{ font-weight: 500; color: var(--text-dim); font-size: 11px; margin-left: 2px; }
+
+  .empty{ text-align: center; color: var(--text-dim); padding: 50px 20px; line-height: 1.6; }
+  .empty b{ color: var(--text); }
+
+  .fab-row{
+    position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; justify-content: center;
+    padding: 12px 16px calc(14px + env(safe-area-inset-bottom));
+    background: linear-gradient(to top, rgba(5,6,13,.95) 50%, transparent);
+  }
+  .fab{
+    flex: 1; max-width: 220px; border: 0; border-radius: 16px; padding: 14px 10px;
+    font-size: 16px; font-weight: 700; color: #fff;
+    background: linear-gradient(135deg, var(--accent), #5a3fe0);
+    box-shadow: 0 8px 24px rgba(124,92,255,.35);
+  }
+  .fab.alt{ background: linear-gradient(135deg, #19b6d4, #1283a8); box-shadow: 0 8px 24px rgba(34,224,255,.25); }
+  .fab:active{ transform: scale(.98); }
+
+  /* modals */
+  .modal{
+    position: fixed; inset: 0; z-index: 50; background: rgba(2,3,8,.75);
+    display: none; align-items: flex-end; justify-content: center;
+    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  }
+  .modal.open{ display: flex; }
+  .sheet{
+    width: 100%; max-width: 560px; max-height: 92vh; overflow-y: auto;
+    background: var(--panel-solid); border: 1px solid var(--line); border-bottom: 0;
+    border-radius: 22px 22px 0 0; padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 640px){
+    .modal{ align-items: center; }
+    .sheet{ border-radius: 22px; border-bottom: 1px solid var(--line); }
+  }
+  .sheet-head{ display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sheet-head h2{ flex: 1; margin: 0; font-size: 18px; }
+  .close{ background: none; border: 0; font-size: 26px; color: var(--text-dim); line-height: 1; padding: 0 4px; }
+  label{ display: block; font-size: 12px; color: var(--text-dim); margin: 12px 0 5px; letter-spacing: .03em; }
+  .field{
+    width: 100%; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 16px; outline: none;
+  }
+  .field:focus{ border-color: var(--accent); }
+  textarea.field{ min-height: 64px; resize: vertical; }
+  .row{ display: flex; gap: 10px; }
+  .row > *{ flex: 1; min-width: 0; }
+  .inline{ display: flex; gap: 8px; }
+  .inline .field{ flex: 1; min-width: 0; }
+  .btn{
+    border: 1px solid var(--line); background: var(--panel); border-radius: 10px;
+    padding: 10px 14px; font-size: 14px; white-space: nowrap;
+  }
+  .btn.primary{ background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .btn.danger{ color: var(--danger); border-color: rgba(255,79,121,.4); }
+  .btn:active{ transform: scale(.98); }
+  .actions{ display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  .actions .grow{ flex: 1; }
+
+  .stepper{ display: flex; align-items: center; gap: 8px; }
+  .stepper button{ width: 44px; height: 42px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel); font-size: 20px; }
+  .stepper input{ text-align: center; flex: 1; min-width: 0; }
+
+  .photos{ display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+  .ph{
+    position: relative; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden;
+    background: var(--panel-raised) center / cover no-repeat; border: 2px solid transparent; padding: 0;
+  }
+  .ph.cover{ border-color: var(--accent2); }
+  .ph .x{
+    position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%;
+    background: rgba(0,0,0,.7); color: #fff; border: 0; font-size: 14px; line-height: 24px; padding: 0;
+  }
+  .ph .star{
+    position: absolute; left: 4px; bottom: 4px; font-size: 10px; background: rgba(0,0,0,.7);
+    color: var(--accent2); border-radius: 6px; padding: 2px 5px; font-weight: 700;
+  }
+  .add-ph{
+    aspect-ratio: 1/1; border-radius: 12px; border: 1.5px dashed var(--line); background: transparent;
+    color: var(--text-dim); font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  }
+  .add-ph b{ font-size: 24px; color: var(--text); font-weight: 400; }
+
+  /* scanner */
+  .scan-box{ position: relative; border-radius: 16px; overflow: hidden; background: #000; aspect-ratio: 3/4; max-height: 62vh; margin: 0 auto; }
+  .scan-box video{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-frame{
+    position: absolute; inset: 18%; border: 2px solid rgba(34,224,255,.85); border-radius: 18px;
+    box-shadow: 0 0 0 999px rgba(0,0,0,.35);
+  }
+  .scan-line{
+    position: absolute; left: 20%; right: 20%; height: 2px; background: var(--accent2);
+    box-shadow: 0 0 12px var(--accent2); animation: scanMove 2s ease-in-out infinite alternate; top: 20%;
+  }
+  @keyframes scanMove{ to{ top: 80%; } }
+  .scan-msg{ text-align: center; color: var(--text-dim); font-size: 13px; margin: 10px 0 0; min-height: 1.2em; }
+
+  .viewer{ position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.94); display: none; align-items: center; justify-content: center; }
+  .viewer.open{ display: flex; }
+  .viewer img{ max-width: 100%; max-height: 100%; object-fit: contain; }
+
+  .qr-label{ background: #fff; color: #000; border-radius: 14px; padding: 16px; text-align: center; margin: 0 auto; max-width: 260px; }
+  .qr-label img{ width: 100%; image-rendering: pixelated; display: block; }
+  .qr-label .ql-name{ font-weight: 700; font-size: 18px; margin-top: 8px; word-break: break-word; }
+  .qr-label .ql-code{ font-size: 11px; color: #555; margin-top: 2px; word-break: break-all; }
+
+  .menu-list{ display: flex; flex-direction: column; gap: 8px; }
+  .menu-list .btn{ text-align: left; padding: 13px 14px; }
+  .hint{ font-size: 12px; color: var(--text-faint); line-height: 1.5; margin-top: 10px; }
+
+  .toast{
+    position: fixed; left: 50%; bottom: calc(100px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+    background: var(--panel-raised); border: 1px solid var(--line); border-radius: 12px; padding: 10px 16px;
+    font-size: 14px; opacity: 0; transition: .25s; pointer-events: none; z-index: 90; max-width: 90vw; text-align: center;
+  }
+  .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media print{
+    body{ background: #fff; padding: 0; }
+    body::before, .wrap, .fab-row, .toast, .modal:not(#qrModal), #qrModal .sheet-head, #qrModal .actions, #qrModal .hint{ display: none !important; }
+    #qrModal{ position: static; display: block !important; background: none; backdrop-filter: none; }
+    #qrModal .sheet{ border: 0; background: none; max-height: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="icon-btn" href="../" title="Back to TP2List">←</a>
+    <h1>Home Stock<small id="subtitle">What's at home</small></h1>
+    <button class="icon-btn" id="menuBtn" title="Menu">⋯</button>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="all"><b id="nAll">0</b>All</button>
+    <button class="tab" data-tab="home"><b id="nHome">0</b>At home</button>
+    <button class="tab" data-tab="out"><b id="nOut">0</b>To buy</button>
+  </div>
+  <input class="search" id="search" type="search" placeholder="Search items…" autocomplete="off">
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
+</div>
+
+<div class="fab-row">
+  <button class="fab alt" id="scanBtn">▣ Scan QR</button>
+  <button class="fab" id="addBtn">+ Add item</button>
+</div>
+
+<!-- item editor -->
+<div class="modal" id="itemModal">
+  <form class="sheet" id="itemForm" autocomplete="off">
+    <div class="sheet-head">
+      <h2 id="itemTitle">New item</h2>
+      <button type="button" class="close" data-close>×</button>
+    </div>
+
+    <label>Photos</label>
+    <div class="photos" id="photoGrid"></div>
+    <input type="file" id="photoInput" accept="image/*" multiple hidden>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" hidden>
+
+    <label for="fName">Name</label>
+    <input class="field" id="fName" required placeholder="e.g. Olive oil">
+
+    <div class="row">
+      <div>
+        <label for="fCat">Category</label>
+        <input class="field" id="fCat" list="catList" placeholder="e.g. Pantry">
+        <datalist id="catList"></datalist>
+      </div>
+      <div>
+        <label for="fUnit">Unit</label>
+        <input class="field" id="fUnit" placeholder="pcs, bottles…">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label for="fQty">Quantity at home</label>
+        <div class="stepper">
+          <button type="button" data-step="-1">−</button>
+          <input class="field" id="fQty" type="number" min="0" step="1" inputmode="numeric" value="1">
+          <button type="button" data-step="1">+</button>
+        </div>
+      </div>
+      <div>
+        <label for="fMin">Low when ≤</label>
+        <input class="field" id="fMin" type="number" min="0" step="1" inputmode="numeric" value="0">
+      </div>
+    </div>
+
+    <label for="fCode">QR / barcode</label>
+    <div class="inline">
+      <input class="field" id="fCode" placeholder="Scan or type a code">
+      <button type="button" class="btn" id="scanCodeBtn">Scan</button>
+    </div>
+
+    <label for="fNotes">Notes</label>
+    <textarea class="field" id="fNotes" placeholder="Where it's kept, brand, shop…"></textarea>
+
+    <div class="actions">
+      <button type="button" class="btn danger" id="deleteBtn">Delete</button>
+      <button type="button" class="btn" id="labelBtn">QR label</button>
+      <span class="grow"></span>
+      <button type="submit" class="btn primary">Save</button>
+    </div>
+  </form>
+</div>
+
+<!-- scanner -->
+<div class="modal" id="scanModal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2 id="scanTitle">Scan a QR code</h2>
+      <button type="button" class="close" data-close>×</button>
+    </div>
+    <div class="scan-box">
+      <video id="video" playsinline muted></video>
+      <div class="scan-frame"></div>
+      <div class="scan-line"></div>
+    </div>
+    <p class="scan-msg" id="scanMsg">Point the camera at a QR code or barcode</p>
+    <div class="actions">
+      <button type="button" class="btn" id="scanPhotoBtn">Scan from photo</button>
+      <span class="grow"></span>
+      <button type="button" class="btn" id="manualCodeBtn">Type code</button>
+    </div>
+    <input type="file" id="scanFileInput" accept="image/*" hidden>
+  </div>
+</div>
+
+<!-- QR label -->
+<div class="modal" id="qrModal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>QR label</h2>
+      <button type="button" class="close" data-close>×</button>
+    </div>
+    <div class="qr-label">
+      <img id="qrImg" alt="QR code">
+      <div class="ql-name" id="qrName"></div>
+      <div class="ql-code" id="qrCode"></div>
+    </div>
+    <p class="hint">Stick this on a shelf or container. Scanning it opens the item straight away.</p>
+    <div class="actions">
+      <a class="btn" id="qrDownload" download="label.png">Save image</a>
+      <span class="grow"></span>
+      <button type="button" class="btn primary" onclick="window.print()">Print</button>
+    </div>
+  </div>
+</div>
+
+<!-- menu -->
+<div class="modal" id="menuModal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>Menu</h2>
+      <button type="button" class="close" data-close>×</button>
+    </div>
+    <div class="menu-list">
+      <button class="btn" id="copyListBtn">📋 Copy shopping list</button>
+      <button class="btn" id="exportBtn">⬇️ Export backup (with photos)</button>
+      <button class="btn" id="importBtn">⬆️ Import backup</button>
+    </div>
+    <input type="file" id="importInput" accept="application/json,.json" hidden>
+    <p class="hint">Items and photos are stored on this device. Use Export / Import to move them to another phone or keep a backup.</p>
+    <p class="hint" id="storageInfo"></p>
+  </div>
+</div>
+
+<div class="viewer" id="viewer"><img id="viewerImg" alt=""></div>
+<div class="toast" id="toast"></div>
+
+<script src="vendor/qrcode.js"></script>
+<script src="vendor/jsQR.js"></script>
+<script>
+'use strict';
+
+/* ---------- storage (IndexedDB: photos are too big for localStorage) ---------- */
+const DB_NAME = 'tp2stock', STORE = 'items';
+let dbp = null;
+function db(){
+  if(!dbp) dbp = new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(STORE, { keyPath: 'id' });
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function tx(mode, fn){
+  const d = await db();
+  return new Promise((res, rej) => {
+    const t = d.transaction(STORE, mode);
+    const out = fn(t.objectStore(STORE));
+    t.oncomplete = () => res(out && 'result' in out ? out.result : undefined);
+    t.onerror = () => rej(t.error);
+  });
+}
+const dbAll = () => tx('readonly', (s) => s.getAll());
+const dbPut = (item) => tx('readwrite', (s) => s.put(item));
+const dbDel = (id) => tx('readwrite', (s) => s.delete(id));
+
+/* ---------- state ---------- */
+let items = [];
+let tab = 'all', cat = '', query = '';
+let editing = null;          // item being edited (a copy)
+let scanTarget = 'lookup';   // 'lookup' = find/add item, 'field' = fill the code field
+
+const $ = (id) => document.getElementById(id);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const statusOf = (it) => it.qty <= 0 ? 'out' : (it.min > 0 && it.qty <= it.min ? 'low' : 'home');
+
+function toast(msg){
+  const t = $('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ---------- render ---------- */
+function render(){
+  const counts = { all: items.length, home: 0, out: 0 };
+  items.forEach((it) => { if(statusOf(it) === 'out') counts.out++; else counts.home++; });
+  $('nAll').textContent = counts.all;
+  $('nHome').textContent = counts.home;
+  $('nOut').textContent = counts.out;
+  $('subtitle').textContent = items.length
+    ? `${counts.home} at home · ${counts.out} to buy`
+    : "What's at home";
+
+  const cats = [...new Set(items.map((i) => i.category).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  if(cat && !cats.includes(cat)) cat = '';
+  $('chips').innerHTML = cats.length
+    ? [''].concat(cats).map((c) => `<button class="chip${c === cat ? ' active' : ''}" data-cat="${esc(c)}">${c ? esc(c) : 'All categories'}</button>`).join('')
+    : '';
+  $('catList').innerHTML = cats.map((c) => `<option value="${esc(c)}">`).join('');
+
+  const q = query.trim().toLowerCase();
+  const list = items.filter((it) => {
+    const s = statusOf(it);
+    if(tab === 'home' && s === 'out') return false;
+    if(tab === 'out' && s !== 'out') return false;
+    if(cat && it.category !== cat) return false;
+    if(q && !`${it.name} ${it.category} ${it.notes} ${it.code}`.toLowerCase().includes(q)) return false;
+    return true;
+  }).sort((a, b) => {
+    // in "All": things you need first, then by name
+    const rank = { out: 0, low: 1, home: 2 };
+    if(tab === 'all' && rank[statusOf(a)] !== rank[statusOf(b)]) return rank[statusOf(a)] - rank[statusOf(b)];
+    return a.name.localeCompare(b.name);
+  });
+
+  $('grid').innerHTML = list.map((it) => {
+    const s = statusOf(it);
+    const cover = it.photos[it.cover || 0];
+    const label = { home: 'At home', low: 'Low', out: 'To buy' }[s];
+    return `<div class="card ${s}" data-id="${it.id}">
+      <button class="photo" data-open style="${cover ? `background-image:url(${cover})` : ''}">${cover ? '' : '📦'}</button>
+      <span class="badge ${s}">${label}</span>
+      ${it.photos.length > 1 ? `<span class="count-pics">📷 ${it.photos.length}</span>` : ''}
+      <div class="body">
+        <div class="name" data-open>${esc(it.name)}</div>
+        ${it.category ? `<div class="cat">${esc(it.category)}</div>` : ''}
+        <div class="qty">
+          <button data-dq="-1" aria-label="One less">−</button>
+          <span>${it.qty}<small>${esc(it.unit || '')}</small></span>
+          <button data-dq="1" aria-label="One more">+</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const empty = $('empty');
+  if(list.length){ empty.hidden = true; }
+  else {
+    empty.hidden = false;
+    empty.innerHTML = !items.length
+      ? 'No items yet.<br>Tap <b>Scan QR</b> to add from a code, or <b>+ Add item</b> to add one by hand.'
+      : tab === 'out' && !q && !cat ? 'Nothing to buy. Everything is at home 🎉' : 'No matching items.';
+  }
+}
+
+async function load(){
+  items = (await dbAll()).map(normalize);
+  render();
+}
+
+function normalize(it){
+  return {
+    id: it.id || uid(),
+    name: String(it.name || 'Unnamed'),
+    category: String(it.category || ''),
+    unit: String(it.unit || ''),
+    qty: Math.max(0, parseInt(it.qty, 10) || 0),
+    min: Math.max(0, parseInt(it.min, 10) || 0),
+    code: String(it.code || ''),
+    notes: String(it.notes || ''),
+    photos: Array.isArray(it.photos) ? it.photos.filter((p) => typeof p === 'string') : [],
+    cover: Number.isInteger(it.cover) ? it.cover : 0,
+    created: it.created || Date.now(),
+    updated: it.updated || Date.now(),
+  };
+}
+
+async function save(it){
+  it.updated = Date.now();
+  if(it.cover >= it.photos.length) it.cover = 0;
+  await dbPut(it);
+  const i = items.findIndex((x) => x.id === it.id);
+  if(i >= 0) items[i] = it; else items.push(it);
+  render();
+}
+
+async function changeQty(id, d){
+  const it = items.find((x) => x.id === id);
+  if(!it) return;
+  const before = statusOf(it);
+  it.qty = Math.max(0, it.qty + d);
+  await save(it);
+  const after = statusOf(it);
+  if(before !== 'out' && after === 'out') toast(`${it.name} added to the shopping list`);
+  else if(before === 'out' && after !== 'out') toast(`${it.name} is back at home`);
+}
+
+/* ---------- list interactions ---------- */
+document.querySelectorAll('.tab').forEach((b) => b.onclick = () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll('.tab').forEach((x) => x.classList.toggle('active', x === b));
+  render();
+});
+$('search').oninput = (e) => { query = e.target.value; render(); };
+$('chips').onclick = (e) => {
+  const c = e.target.closest('.chip'); if(!c) return;
+  cat = c.dataset.cat; render();
+};
+$('grid').onclick = (e) => {
+  const card = e.target.closest('.card'); if(!card) return;
+  const dq = e.target.closest('[data-dq]');
+  if(dq){ changeQty(card.dataset.id, +dq.dataset.dq); return; }
+  if(e.target.closest('[data-open]')) openEditor(items.find((x) => x.id === card.dataset.id));
+};
+
+/* ---------- modals ---------- */
+function openModal(id){ $(id).classList.add('open'); }
+function closeModal(id){
+  $(id).classList.remove('open');
+  if(id === 'scanModal') stopScan();
+}
+document.querySelectorAll('.modal').forEach((m) => {
+  m.addEventListener('click', (e) => {
+    if(e.target === m || e.target.closest('[data-close]')) closeModal(m.id);
+  });
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Escape') return;
+  if($('viewer').classList.contains('open')){ $('viewer').classList.remove('open'); return; }
+  const top = [...document.querySelectorAll('.modal.open')].pop();
+  if(top) closeModal(top.id);
+});
+
+/* ---------- item editor ---------- */
+function openEditor(it, prefill){
+  const isNew = !it;
+  editing = isNew
+    ? normalize({ id: uid(), qty: 1, ...(prefill || {}) })
+    : { ...it, photos: it.photos.slice() };
+  $('itemTitle').textContent = isNew ? 'New item' : 'Edit item';
+  $('fName').value = isNew && !(prefill && prefill.name) ? '' : editing.name;
+  $('fCat').value = editing.category || (isNew && cat) || '';
+  $('fUnit').value = editing.unit;
+  $('fQty').value = editing.qty;
+  $('fMin').value = editing.min;
+  $('fCode').value = editing.code;
+  $('fNotes').value = editing.notes;
+  $('deleteBtn').hidden = isNew;
+  renderPhotos();
+  openModal('itemModal');
+  if(isNew && !$('fName').value) setTimeout(() => $('fName').focus(), 50);
+}
+
+function renderPhotos(){
+  const ph = editing.photos.map((p, i) => `<div class="ph${i === editing.cover ? ' cover' : ''}" data-i="${i}" style="background-image:url(${p})">
+      <button type="button" class="x" data-del="${i}" aria-label="Remove photo">×</button>
+      ${i === editing.cover ? '<span class="star">COVER</span>' : ''}
+    </div>`).join('');
+  $('photoGrid').innerHTML = ph +
+    `<button type="button" class="add-ph" data-add="camera"><b>📷</b>Camera</button>
+     <button type="button" class="add-ph" data-add="library"><b>🖼</b>Library</button>`;
+}
+
+$('photoGrid').onclick = (e) => {
+  const add = e.target.closest('[data-add]');
+  if(add){ (add.dataset.add === 'camera' ? $('cameraInput') : $('photoInput')).click(); return; }
+  const del = e.target.closest('[data-del]');
+  if(del){
+    const i = +del.dataset.del;
+    editing.photos.splice(i, 1);
+    if(editing.cover === i) editing.cover = 0;
+    else if(editing.cover > i) editing.cover--;
+    renderPhotos(); return;
+  }
+  const ph = e.target.closest('.ph');
+  if(ph){
+    const i = +ph.dataset.i;
+    if(i !== editing.cover){ editing.cover = i; renderPhotos(); toast('Set as cover photo'); }
+    else showImage(editing.photos[i]);
+  }
+};
+
+async function addPhotoFiles(files){
+  for(const f of files){
+    try { editing.photos.push(await shrinkImage(f)); }
+    catch { toast('Could not read that image'); }
+  }
+  renderPhotos();
+}
+$('photoInput').onchange = (e) => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
+$('cameraInput').onchange = (e) => { addPhotoFiles([...e.target.files]); e.target.value = ''; };
+
+// resize photos so a few hundred items still fit comfortably on the device
+function loadImage(src){
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => res(img); img.onerror = rej; img.src = src;
+  });
+}
+async function shrinkImage(fileOrUrl, max = 900){
+  const isFile = fileOrUrl instanceof Blob;
+  const src = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
+  try {
+    const img = await loadImage(src);
+    const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas');
+    c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', 0.78);
+  } finally { if(isFile) URL.revokeObjectURL(src); }
+}
+
+document.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => {
+  const f = $('fQty');
+  f.value = Math.max(0, (parseInt(f.value, 10) || 0) + +b.dataset.step);
+});
+
+async function saveForm(){
+  const code = $('fCode').value.trim();
+  const clash = code && items.find((x) => x.code === code && x.id !== editing.id);
+  if(clash){ toast(`That code already belongs to "${clash.name}"`); return false; }
+  Object.assign(editing, {
+    name: $('fName').value.trim() || 'Unnamed',
+    category: $('fCat').value.trim(),
+    unit: $('fUnit').value.trim(),
+    qty: Math.max(0, parseInt($('fQty').value, 10) || 0),
+    min: Math.max(0, parseInt($('fMin').value, 10) || 0),
+    code,
+    notes: $('fNotes').value.trim(),
+  });
+  await save(editing);
+  closeModal('itemModal');
+  return true;
+}
+$('itemForm').onsubmit = async (e) => {
+  e.preventDefault();
+  if(await saveForm()) toast('Saved');
+};
+
+$('deleteBtn').onclick = async () => {
+  if(!confirm(`Delete "${editing.name}"?`)) return;
+  await dbDel(editing.id);
+  items = items.filter((x) => x.id !== editing.id);
+  closeModal('itemModal');
+  render();
+  toast('Deleted');
+};
+
+$('scanCodeBtn').onclick = () => startScan('field');
+
+/* ---------- QR label ---------- */
+$('labelBtn').onclick = async () => {
+  if(!$('fName').value.trim()){ toast('Give the item a name first'); return; }
+  if(!$('fCode').value.trim()) $('fCode').value = 'TPS-' + editing.id.toUpperCase();
+  // save first so the label always matches a stored item
+  if(await saveForm()) showLabel(editing);
+};
+function showLabel(it){
+  const qr = qrcode(0, 'M');
+  qr.addData(it.code);
+  qr.make();
+  const url = qr.createDataURL(8, 2);
+  $('qrImg').src = url;
+  $('qrName').textContent = it.name;
+  $('qrCode').textContent = it.code;
+  $('qrDownload').href = url;
+  $('qrDownload').download = `${it.name.replace(/[^\w-]+/g, '_')}-qr.png`;
+  openModal('qrModal');
+}
+
+/* ---------- image viewer ---------- */
+function showImage(src){ $('viewerImg').src = src; $('viewer').classList.add('open'); }
+$('viewer').onclick = () => $('viewer').classList.remove('open');
+
+/* ---------- scanner ---------- */
+let stream = null, scanning = false, detector = null;
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+async function getDetector(){
+  if(detector !== null) return detector;
+  detector = false;
+  if('BarcodeDetector' in window){
+    try {
+      const fmts = await BarcodeDetector.getSupportedFormats();
+      if(fmts.length) detector = new BarcodeDetector({ formats: fmts });
+    } catch {}
+  }
+  return detector;
+}
+
+async function startScan(target){
+  scanTarget = target;
+  $('scanTitle').textContent = target === 'field' ? 'Scan code for this item' : 'Scan a QR code';
+  $('scanMsg').textContent = 'Starting camera…';
+  openModal('scanModal');
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false,
+    });
+  } catch {
+    $('scanMsg').textContent = 'Camera not available. Use "Scan from photo" or "Type code".';
+    return;
+  }
+  if(!$('scanModal').classList.contains('open')){ stopScan(); return; }
+  const v = $('video');
+  v.srcObject = stream;
+  await v.play().catch(() => {});
+  $('scanMsg').textContent = 'Point the camera at a QR code or barcode';
+  scanning = true;
+  await getDetector();
+  scanLoop();
+}
+
+function stopScan(){
+  scanning = false;
+  if(stream){ stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  $('video').srcObject = null;
+}
+
+async function decodeFrom(source, w, h){
+  const det = await getDetector();
+  if(det){
+    try {
+      const r = await det.detect(source);
+      if(r.length) return r[0].rawValue;
+    } catch {}
+  }
+  // jsQR fallback (QR codes only) — covers iOS Safari / Firefox
+  const s = Math.min(1, 800 / Math.max(w, h));
+  canvas.width = Math.round(w * s); canvas.height = Math.round(h * s);
+  ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
+  const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const q = jsQR(data.data, data.width, data.height, { inversionAttempts: 'attemptBoth' });
+  return q ? q.data : null;
+}
+
+async function scanLoop(){
+  if(!scanning) return;
+  const v = $('video');
+  if(v.readyState >= 2 && v.videoWidth){
+    const code = await decodeFrom(v, v.videoWidth, v.videoHeight);
+    if(code && scanning){
+      if(navigator.vibrate) navigator.vibrate(60);
+      closeModal('scanModal');
+      handleCode(code.trim());
+      return;
+    }
+  }
+  setTimeout(() => requestAnimationFrame(scanLoop), 120);
+}
+
+$('scanPhotoBtn').onclick = () => $('scanFileInput').click();
+$('scanFileInput').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  const url = URL.createObjectURL(f);
+  try {
+    const img = await loadImage(url);
+    const code = await decodeFrom(img, img.naturalWidth, img.naturalHeight);
+    if(code){ closeModal('scanModal'); handleCode(code.trim()); }
+    else $('scanMsg').textContent = 'No code found in that photo. Try a closer, sharper one.';
+  } finally { URL.revokeObjectURL(url); }
+};
+$('manualCodeBtn').onclick = () => {
+  const code = prompt('Enter the code');
+  if(code && code.trim()){ closeModal('scanModal'); handleCode(code.trim()); }
+};
+
+/* What a scanned code turns into:
+   - code already linked to an item → open that item
+   - JSON like {"name":"Milk","category":"Fridge","qty":2} → new item prefilled
+   - shop barcode (EAN/UPC digits) → look up name + photo on Open Food Facts
+   - any other text → new item, text used as the name (URLs kept only as the code) */
+async function handleCode(code){
+  if(scanTarget === 'field'){
+    $('fCode').value = code;
+    toast('Code added');
+    return;
+  }
+  const found = items.find((x) => x.code === code);
+  if(found){
+    openEditor(found);
+    toast(`Found: ${found.name}`);
+    return;
+  }
+
+  const prefill = { code };
+  try {
+    const j = JSON.parse(code);
+    if(j && typeof j === 'object'){
+      ['name', 'category', 'unit', 'notes'].forEach((k) => { if(j[k]) prefill[k] = String(j[k]); });
+      if(j.qty != null) prefill.qty = j.qty;
+      if(j.min != null) prefill.min = j.min;
+    }
+  } catch {
+    if(/^\d{8,14}$/.test(code)){
+      toast('Looking up product…');
+      const p = await lookupProduct(code);
+      if(p){ Object.assign(prefill, p); }
+    } else if(!/^(https?:)?\/\//i.test(code) && !/^TPS-/.test(code) && code.length <= 80){
+      prefill.name = code;
+    }
+  }
+  openEditor(null, prefill);
+  toast(prefill.name ? 'New item from code' : 'New code. Give it a name');
+}
+
+async function lookupProduct(code){
+  try {
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), 6000);
+    const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${code}.json?fields=product_name,brands,image_front_url,categories`, { signal: ctl.signal });
+    const j = await r.json();
+    if(j.status !== 1 || !j.product) return null;
+    const p = j.product;
+    const out = {};
+    const name = [p.brands && p.brands.split(',')[0], p.product_name].filter(Boolean).join(' ').trim();
+    if(name) out.name = name;
+    if(p.image_front_url){
+      try { out.photos = [await shrinkImage(p.image_front_url)]; } catch {}
+    }
+    return out;
+  } catch { return null; }
+}
+
+$('scanBtn').onclick = () => startScan('lookup');
+$('addBtn').onclick = () => openEditor(null);
+
+/* ---------- menu: shopping list + backup ---------- */
+$('menuBtn').onclick = async () => {
+  $('storageInfo').textContent = '';
+  if(navigator.storage && navigator.storage.estimate){
+    const e = await navigator.storage.estimate();
+    $('storageInfo').textContent = `Using ${(e.usage / 1048576).toFixed(1)} MB on this device.`;
+  }
+  openModal('menuModal');
+};
+
+$('copyListBtn').onclick = async () => {
+  const out = items.filter((i) => statusOf(i) === 'out');
+  const low = items.filter((i) => statusOf(i) === 'low');
+  if(!out.length && !low.length){ toast('Nothing to buy right now'); return; }
+  const text = ['Shopping list', ...out.map((i) => `• ${i.name}`), ...low.map((i) => `• ${i.name} (low)`)].join('\n');
+  try { await navigator.clipboard.writeText(text); toast('Shopping list copied'); }
+  catch { prompt('Copy your list:', text); }
+};
+
+$('exportBtn').onclick = () => {
+  const blob = new Blob([JSON.stringify({ app: 'tp2stock', version: 1, exported: new Date().toISOString(), items }, null, 0)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `home-stock-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+
+$('importBtn').onclick = () => $('importInput').click();
+$('importInput').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if(!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const incoming = (Array.isArray(data) ? data : data.items || []).map(normalize);
+    if(!incoming.length){ toast('No items in that file'); return; }
+    // merge by id, newest edit wins
+    let n = 0;
+    for(const it of incoming){
+      const cur = items.find((x) => x.id === it.id);
+      if(!cur || it.updated > cur.updated){ await dbPut(it); n++; }
+    }
+    await load();
+    closeModal('menuModal');
+    toast(`Imported ${n} item${n === 1 ? '' : 's'}`);
+  } catch { toast('That file is not a valid backup'); }
+};
+
+/* ---------- boot ---------- */
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => navigator.serviceWorker.register('../sw.js').catch(() => {}));
+}
+load().catch(() => {
+  $('empty').hidden = false;
+  $('empty').textContent = 'Storage is unavailable in this browser mode (private window?).';
+});
+</script>
+</body>
+</html>

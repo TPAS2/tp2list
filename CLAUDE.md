@@ -15,7 +15,7 @@ Firebase rules (must include both):
 Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
 
 ## Structure
-Four swipeable pages, all sized the same: **List, Calendar, Expenses, Other**.
+Four swipeable pages, all sized the same: **List, Calendar, ETracker, Other**.
 Phone and desktop use the same layout: one page at a time with swipe/tap navigation (the old desktop two-column layout was removed).
 
 - **List**: task list (shows nothing when empty: no placeholder text or divider) → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
@@ -23,11 +23,11 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   Today/Overdue collapse to a bare `(0)` when empty.
 - **Calendar**: Monday-first month grid; one-off, recurring and multi-day events; notes via a highlighter-style tag;
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
-- **Expenses**: euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
+- **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
 - **Other**: full-page view in two parts. "Shortcuts": SL (link to `stock/`) and 🎂 Birthdays (stacked on phones, side by side from 620px wide). "Lists": arbitrary categorized lists,
   shown as collapsed dropdowns (▸ name, open-item count); tap the header to expand. Which lists are open is per device
-  (`tpas2:other:open`, not synced). Drag a list by its ⠿ handle to reorder (`startOtherDrag`); items inside a list also drag via ⠿.
+  (`tpas2:other:open`, not synced). Drag a list by its ⠿ handle to reorder (`startOtherDrag`); items inside a list also drag via ⠿. Each item has a ⇪ button that moves it to the main List (`moveOtherItemToMain`).
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming
   birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. On the day, it also shows at the top of the List page's Today widget (🎂, tick box); ticking sets `doneYear` so it hides until next year. Not a calendar event. The Other card shows the next one.
 - **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.

@@ -1211,6 +1211,8 @@
   .resto-card.collapsed{ padding: 12px 14px; }
   .resto-card.collapsed .resto-card-head{ margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
   .resto-card-head{ cursor: pointer; align-items: center; }
+  .sub-item .to-main{ background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0 4px; flex-shrink: 0; }
+  .sub-item .to-main:hover{ color: var(--accent2); }
   .other-grip{ color: var(--text-faint); font-size: 1.05rem; line-height: 1; padding: 4px 6px 4px 0; cursor: grab; touch-action: none; flex-shrink: 0; }
   .resto-card.dragging-card{ opacity: .6; outline: 1px dashed var(--accent); }
   .other-chev{ color: var(--text-dim); width: 12px; flex-shrink: 0; }
@@ -1529,7 +1531,7 @@
 <div class="page-dots" id="pageDots">
   <span class="page-dot active" data-page="0">List</span>
   <span class="page-dot" data-page="1">Calendar</span>
-  <span class="page-dot" data-page="2">Expenses</span>
+  <span class="page-dot" data-page="2">ETracker</span>
   <button type="button" class="page-dot" id="otherNavBtn">Other</button>
 </div>
 
@@ -1565,7 +1567,7 @@
   <div class="page" id="page-expenses">
     <div class="section" id="section-expenses">
       <div class="section-head">
-        <div class="section-title">Expenses</div>
+        <div class="section-title">ETracker</div>
         <div class="expense-head-actions">
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
         </div>
@@ -3388,9 +3390,16 @@ function renderOther(){
         delItem.textContent = '✕';
         delItem.onclick = () => removeOtherItem(r.id, item.id);
 
+        const toMain = document.createElement('button');
+        toMain.className = 'to-main';
+        toMain.textContent = '⇪';
+        toMain.title = 'Move to main list';
+        toMain.onclick = () => moveOtherItemToMain(r.id, item.id);
+
         li.appendChild(handle);
         li.appendChild(box);
         li.appendChild(text);
+        li.appendChild(toMain);
         li.appendChild(delItem);
         subList.appendChild(li);
       });
@@ -3432,6 +3441,17 @@ function startOtherDrag(e, card){
   window.addEventListener('pointermove', move, { passive: false });
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', up);
+}
+
+// move an item out of an Other list onto the main List page
+function moveOtherItemToMain(otherId, itemId){
+  const r = data.other.find(r => r.id === otherId);
+  const item = r && r.items.find(i => i.id === itemId);
+  if(!item) return;
+  r.items = r.items.filter(i => i.id !== itemId);
+  data.list.push({ id: Date.now() + Math.random().toString(36).slice(2), text: item.text, done: false });
+  renderOther(); renderSection('list'); saveTasks();
+  showStatus('moved to main list');
 }
 
 function removeOther(id){

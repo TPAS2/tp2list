@@ -28,7 +28,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **Other**: full-page view in two parts. "Shortcuts": SL (link to `stock/`) and 🎂 Birthdays. "Lists": arbitrary categorized lists,
   reorderable with ▲/▼ on each list (items inside a list still drag via ⠿).
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming
-  birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. The Other card shows the next one.
+  birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. On the day, it also shows at the top of the List page's Today widget (🎂, tick box); ticking sets `doneYear` so it hides until next year. Not a calendar event. The Other card shows the next one.
 - **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.
   Items have an emoji icon (auto-guessed from the name, or picked by hand), qty, low threshold (no category or unit fields in the editor);
   each item is at Home or Apartment; three tabs At Home / At Apartment / To Buy, set via the "List" dropdown in the editor (To Buy = qty 0; the item keeps its place for when it is restocked). No category filter chips. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),

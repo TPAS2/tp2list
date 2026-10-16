@@ -1269,6 +1269,12 @@
   }
   #otherContainer > .resto-card{ flex: 0 0 min(82%, 320px); scroll-snap-align: start; align-self: stretch; height: auto; }
   #otherContainer > .empty-row{ flex: 1; }
+  /* laptop: use the full width and let the lists share it, so they're all visible at once
+     (each stays at least 240px wide; with more lists than fit, the row scrolls sideways) */
+  @media (min-width: 900px){
+    #otherPage{ max-width: none; }
+    #otherContainer > .resto-card{ flex: 1 1 0; min-width: 240px; }
+  }
   button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
   .bday-badge{ flex-shrink: 0; font-size: 0.95rem; line-height: 1; }
   .bday-list{ list-style: none; margin: 0; padding: 0; max-width: 480px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }

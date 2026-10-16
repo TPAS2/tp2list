@@ -1229,6 +1229,10 @@
     padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
     color: var(--text); text-decoration: none;
   }
+  /* shortcut cards: stacked on phones, side by side on wider screens */
+  .shortcuts{ display: grid; grid-template-columns: 1fr; gap: 10px; max-width: 480px; margin-bottom: 26px; }
+  .shortcuts .sl-link-card{ margin-bottom: 0; max-width: none; }
+  @media (min-width: 620px){ .shortcuts{ grid-template-columns: 1fr 1fr; max-width: 720px; } }
   button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
   .bday-badge{ flex-shrink: 0; font-size: 0.95rem; line-height: 1; }
   .bday-list{ list-style: none; margin: 0; padding: 0; max-width: 480px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -1654,7 +1658,8 @@
     <span class="count" id="tally-other">0 items</span>
   </div>
   <div class="other-section-title">Shortcuts</div>
-  <a class="sl-link-card" href="stock/" style="margin-bottom:10px">
+  <div class="shortcuts">
+  <a class="sl-link-card" href="stock/">
     <span class="sl-link-icon">🛒</span>
     <span class="sl-link-text"><b>SL</b><small>Home stock &amp; shopping list</small></span>
     <span class="sl-link-arrow">›</span>
@@ -1664,6 +1669,7 @@
     <span class="sl-link-text"><b>Birthdays</b><small id="birthdaysNext">Upcoming first</small></span>
     <span class="sl-link-arrow">›</span>
   </button>
+  </div>
   <div class="other-section-title">Lists</div>
   <form class="add-row restaurant-add" id="addOtherForm">
     <input type="text" id="otherInput" placeholder="Add a category…" autocomplete="off">

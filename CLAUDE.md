@@ -15,7 +15,7 @@ Firebase rules (must include both):
 Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
 
 ## Structure
-Four swipeable pages, all sized the same: **List, Calendar, ETracker, Other**.
+Swipeable pages, all sized the same: **List, Calendar, ETracker**, plus **Business** and **Other** as full-page views opened from the nav buttons.
 Phone and desktop use the same layout: one page at a time with swipe/tap navigation (the old desktop two-column layout was removed).
 
 - **List**: task list (shows nothing when empty: no placeholder text or divider) → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
@@ -29,6 +29,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   Below, a two-pane view: left = names of your lists (new-list box on top; ⠿ handle drags to reorder; each row shows the first line as a preview), right = the selected list as a big title (tap to rename, ✕ deletes, confirms if it has content)
   and one text box, one item per line, blank lines kept (lines are parsed back into `items` on input; unchanged lines keep id/done). The selected list is remembered per device (`tpas2:other:sel`).
   On phones (<700px) it's drill-down like the Notes app: the names fill the screen, tapping one opens it full screen with a "‹ Lists" link (`otherNoteOpen`, `#otherPage.note-open`).
+- **Business** (nav button before Other, `#businessPage`, data `data.businessTabs` = `[{id, name}]`): a Google-Sheets-style tab strip along the bottom with 7 sections, seeded once as "Section 1…7" (ids biz1…biz7; names are generic on purpose so no real business names live in the public source). `+` adds a section; each tab's ▾ menu has Rename / Move left / Move right / Delete. Selected tab is per device (`tpas2:biz:sel`). Section contents: blank for now.
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming
   birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. On the day, it also shows at the top of the List page's Today widget (🎂, tick box); ticking sets `doneYear` so it hides until next year. Not a calendar event. The Other card shows the next one.
 - **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.

@@ -21,7 +21,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **List**: task list (shows nothing when empty: no placeholder text or divider) → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
   → Overdue (missed calendar items, red date badges, tap to jump to that date).
   Today/Overdue collapse to a bare `(0)` when empty.
-- **Calendar**: Monday-first month grid; one-off, recurring and multi-day events; notes via a highlighter-style tag;
+- **Calendar**: Monday-first month grid with touching day cells (thin dividing lines, no gaps) that fill the full width, ~54px tall on phones and 64px on laptops; one-off, recurring and multi-day events; notes via a highlighter-style tag;
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
 - **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.

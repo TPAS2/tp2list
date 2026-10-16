@@ -25,9 +25,9 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
 - **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
-- **Other**: full-page view in two parts. "Shortcuts": SL (link to `stock/`) and 🎂 Birthdays (stacked on phones, side by side from 620px wide). "Lists": arbitrary categorized lists,
-  shown as collapsed dropdowns (▸ name, open-item count); tap the header to expand. Which lists are open is per device
-  (`tpas2:other:open`, not synced). Drag a list by its ⠿ handle to reorder (`startOtherDrag`); items inside a list also drag via ⠿. Each item has a ⇪ button that moves it to the main List (`moveOtherItemToMain`).
+- **Other**: full-page view. Back button + title sit top-left (no item count or divider line). Below: the "Shortcuts" row with SL (link to `stock/`) and 🎂 Birthdays as compact buttons side by side (phones too),
+  then "Lists": your arbitrary lists as cards side by side in a horizontally scrolling, snap-scrolling row (always open, each with its own add box). Drag a list by its ⠿ handle to reorder
+  (`startOtherDrag`; the row auto-scrolls when you hold near an edge); items inside a list also drag via ⠿. Each item has a ⇪ button that moves it to the main List (`moveOtherItemToMain`).
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming
   birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. On the day, it also shows at the top of the List page's Today widget (🎂, tick box); ticking sets `doneYear` so it hides until next year. Not a calendar event. The Other card shows the next one.
 - **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.

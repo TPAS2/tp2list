@@ -1115,6 +1115,10 @@
     box-sizing: border-box;
   }
   .restaurants-page.active{ display: block; }
+  /* Other page: Back + title tight in the top-left, no item count or divider line */
+  #otherPage{ padding-top: 8px; }
+  #otherPage .restaurants-page-header{ border-bottom: 0; padding-bottom: 0; margin-bottom: 16px; justify-content: flex-start; }
+  #otherPage .restaurants-page-header .count{ display: none; }
   .wrap.hidden{ display: none; }
   .restaurants-page-header{
     display:flex;
@@ -1231,10 +1235,22 @@
     padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
     color: var(--text); text-decoration: none;
   }
-  /* shortcut cards: stacked on phones, side by side on wider screens */
-  .shortcuts{ display: grid; grid-template-columns: 1fr; gap: 10px; max-width: 480px; margin-bottom: 26px; }
-  .shortcuts .sl-link-card{ margin-bottom: 0; max-width: none; }
-  @media (min-width: 620px){ .shortcuts{ grid-template-columns: 1fr 1fr; max-width: 720px; } }
+  /* shortcut buttons: compact, side by side at the top of the page */
+  .shortcuts{ display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; max-width: 720px; margin-bottom: 22px; }
+  .shortcuts .sl-link-card{ margin-bottom: 0; max-width: none; padding: 9px 10px; gap: 8px; }
+  .shortcuts .sl-link-icon{ font-size: 1.3rem; }
+  .shortcuts .sl-link-text b{ font-size: 0.95rem; }
+  .shortcuts .sl-link-text small{ font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .shortcuts .sl-link-text{ min-width: 0; }
+  .shortcuts .sl-link-arrow{ display: none; }
+  /* Other lists: one card per list, side by side, swipe/scroll horizontally */
+  #otherContainer{
+    display: flex; gap: 14px; overflow-x: auto; align-items: flex-start;
+    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+    padding-bottom: 12px; margin: 0 -18px; padding-left: 18px; padding-right: 18px; scroll-padding-left: 18px;
+  }
+  #otherContainer > .resto-card{ flex: 0 0 min(82%, 320px); scroll-snap-align: start; max-height: 70vh; overflow-y: auto; }
+  #otherContainer > .empty-row{ flex: 1; }
   button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
   .bday-badge{ flex-shrink: 0; font-size: 0.95rem; line-height: 1; }
   .bday-list{ list-style: none; margin: 0; padding: 0; max-width: 480px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
@@ -3276,7 +3292,7 @@ function renderOther(){
 
   others.forEach((r) => {
     const card = document.createElement('div');
-    const isOpen = otherOpen.has(r.id);
+    const isOpen = true;  // lists sit side by side in a horizontal scroller, always open
     card.className = 'resto-card' + (isOpen ? ' open' : ' collapsed');
 
     const head = document.createElement('div');
@@ -3315,15 +3331,8 @@ function renderOther(){
     count.className = 'other-count';
     const left = r.items.filter(it => !it.done).length;
     count.textContent = String(left);
-    head.onclick = (e) => {
-      if(e.target.closest('button, input, .other-grip')) return;
-      if(isOpen) otherOpen.delete(r.id); else otherOpen.add(r.id);
-      saveOtherOpen();
-      renderOther();
-    };
 
     head.appendChild(grip);
-    head.appendChild(chev);
     head.appendChild(name);
     head.appendChild(count);
     head.appendChild(del);
@@ -3417,6 +3426,9 @@ function startOtherDrag(e, card){
   document.body.style.touchAction = 'none';
   const move = (ev) => {
     ev.preventDefault();
+    const box = otherContainer.getBoundingClientRect();
+    if(ev.clientX < box.left + 40) otherContainer.scrollLeft -= 14;
+    else if(ev.clientX > box.right - 40) otherContainer.scrollLeft += 14;
     const over = document.elementFromPoint(ev.clientX, ev.clientY);
     const target = over && over.closest('#otherContainer .resto-card');
     if(!target || target === card) return;

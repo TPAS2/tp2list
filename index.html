@@ -1233,7 +1233,10 @@
   .bday-item .del{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 0.95rem; }
   .bday-form{ flex-wrap: wrap; }
   .bday-form input[type="text"]{ flex: 1 1 100%; min-width: 0; }
-  .bday-form input[type="date"]{ flex: 1 1 0; min-width: 0; }
+  .bday-form #birthdayDay, .bday-form select{ height: 40px; box-sizing: border-box; }
+  .bday-form #birthdayDay{ flex: 0 0 76px; min-width: 0; background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; }
+  .bday-form select{ flex: 1 1 0; height: 40px; min-width: 0; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; }
   .sl-link-card:active{ background: rgba(124,92,255,.18); }
   .sl-link-icon{ font-size: 1.6rem; line-height: 1; }
   .sl-link-text{ flex: 1; display: flex; flex-direction: column; gap: 2px; }
@@ -1669,7 +1672,8 @@
   </div>
   <form class="add-row restaurant-add bday-form" id="birthdayForm">
     <input type="text" id="birthdayName" placeholder="Name…" autocomplete="off">
-    <input type="date" id="birthdayDate" title="Birthday (year optional: any year works)">
+    <input type="number" id="birthdayDay" placeholder="Day" min="1" max="31" inputmode="numeric">
+    <select id="birthdayMonth" title="Month"><option value="">Month</option><option value="01">Jan</option><option value="02">Feb</option><option value="03">Mar</option><option value="04">Apr</option><option value="05">May</option><option value="06">Jun</option><option value="07">Jul</option><option value="08">Aug</option><option value="09">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
     <button type="button" class="add">Add</button>
   </form>
   <ul class="bday-list" id="birthdayList"></ul>
@@ -3532,10 +3536,12 @@ function onDragEnd(e){
 
 /* ---------- birthdays: { id, name, date: 'YYYY-MM-DD' }, listed soonest first ---------- */
 function nextBirthday(dateStr){
-  const [, m, d] = dateStr.split('-').map(Number);
+  const [m, d] = dateStr.split('-').slice(-2).map(Number);  // 'MM-DD' (no year); older 'YYYY-MM-DD' also works
   const today = new Date(); today.setHours(0, 0, 0, 0);
-  let next = new Date(today.getFullYear(), m - 1, d);
-  if(next < today) next = new Date(today.getFullYear() + 1, m - 1, d);
+  // 29 Feb falls on 28 Feb in non-leap years
+  const on = (y) => new Date(y, m - 1, (m === 2 && d === 29 && new Date(y, 1, 29).getMonth() !== 1) ? 28 : d);
+  let next = on(today.getFullYear());
+  if(next < today) next = on(today.getFullYear() + 1);
   return { next, days: Math.round((next - today) / 86400000) };
 }
 function renderBirthdays(){
@@ -3586,17 +3592,28 @@ function renderBirthdays(){
 }
 function addBirthday(){
   const nameEl = document.getElementById('birthdayName');
-  const dateEl = document.getElementById('birthdayDate');
+  const dayEl = document.getElementById('birthdayDay');
+  const monthEl = document.getElementById('birthdayMonth');
   const name = nameEl.value.trim();
-  if(!name || !dateEl.value) return;
-  data.birthdays.push({ id: Date.now() + Math.random().toString(36).slice(2), name, date: dateEl.value });
-  nameEl.value = ''; dateEl.value = '';
+  const day = parseInt(dayEl.value, 10);
+  const month = parseInt(monthEl.value, 10);
+  if(!name){ nameEl.focus(); return; }
+  if(!month){ monthEl.focus(); return; }
+  const maxDay = new Date(2000, month, 0).getDate();  // leap year, so 29 Feb is allowed
+  if(!day || day < 1 || day > maxDay){ dayEl.focus(); return; }
+  data.birthdays.push({ id: Date.now() + Math.random().toString(36).slice(2), name,
+    date: `${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}` });
+  nameEl.value = ''; dayEl.value = ''; monthEl.value = '';
   renderBirthdays(); saveTasks();
+  nameEl.focus();
 }
 document.getElementById('birthdayForm').addEventListener('submit', (e) => { e.preventDefault(); addBirthday(); });
 document.querySelector('#birthdayForm button.add').addEventListener('click', addBirthday);
-document.getElementById('birthdayName').addEventListener('keydown', (e) => {
-  if(e.key === 'Enter'){ e.preventDefault(); addBirthday(); }
+// Enter in any field adds the birthday
+['birthdayName', 'birthdayDay', 'birthdayMonth'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ e.preventDefault(); addBirthday(); }
+  });
 });
 
 /* ---------- dedicated full-page views (Other, Birthdays) ---------- */

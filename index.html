@@ -1177,6 +1177,8 @@
   .car-sum span{ color: var(--text-dim); }
   .car-body textarea.car-vnotes{ display: block; width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.9rem; line-height: 1.55; padding: 8px 10px; outline: none; }
   .car-body textarea.car-vnotes:focus{ border-color: var(--accent2); }
+  textarea.auto-grow{ overflow: hidden !important; resize: none !important; }
+  .biz-panel textarea.biz-notes-text{ flex: none; min-height: 200px; }
   .notes-head{ margin: 16px 0 6px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.18); }
   .car-notes{ display: block; width: 100%; box-sizing: border-box; min-height: 110px; resize: vertical; flex: none; overflow-y: auto; line-height: 1.6; font-size: 0.9rem; }
   @media (max-width: 520px){ .cars-totals{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -3792,6 +3794,16 @@ function sheetShown(sheet, ref){
 }
 
 /* --- car reselling sections: tab.cars = { vehicles: [{ id, name, bought, sold, expenses: [{ id, desc, amount }] }], notes } --- */
+// notes boxes grow to fit their text (no scrolling inside them)
+function autoGrow(ta){
+  ta.classList.add('auto-grow');
+  const fit = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; };
+  ta.addEventListener('input', fit);
+  requestAnimationFrame(fit);
+  setTimeout(fit, 60);   // again once laid out (e.g. fonts, panel just opened)
+  return ta;
+}
+window.addEventListener('resize', () => document.querySelectorAll('textarea.auto-grow').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }));
 const carNum = (x) => { const n = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isNaN(n) ? 0 : n; };
 const carCost = (v) => carNum(v.bought) + (v.expenses || []).reduce((sum, e) => sum + carNum(e.amount), 0);
 const carSold = (v) => String(v.sold == null ? '' : v.sold).trim() !== '';
@@ -3925,7 +3937,7 @@ function renderCarsPanel(cur){
       let vt = null;
       vn.addEventListener('input', () => { v.notes = vn.value; clearTimeout(vt); vt = setTimeout(saveTasks, 400); });
       vn.addEventListener('blur', () => { clearTimeout(vt); saveTasks(); });
-      body.appendChild(vn);
+      body.appendChild(vn); autoGrow(vn);
       card.appendChild(body);
     }
     refresh();
@@ -3975,7 +3987,7 @@ function renderCarsPanel(cur){
   let nt = null;
   notes.addEventListener('input', () => { cars.notes = notes.value; clearTimeout(nt); nt = setTimeout(saveTasks, 400); });
   notes.addEventListener('blur', () => { clearTimeout(nt); saveTasks(); });
-  scroll.append(notesHead, notes);
+  scroll.append(notesHead, notes); autoGrow(notes);
 
   bizPanelEl.appendChild(scroll);
   updateAll();
@@ -4015,7 +4027,8 @@ function renderBizPanel(cur){
     let timer = null;
     box.addEventListener('input', () => { cur.text = box.value; clearTimeout(timer); timer = setTimeout(saveTasks, 400); });
     box.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); });
-    bizPanelEl.appendChild(box);
+    box.classList.add('biz-notes-text');
+    bizPanelEl.appendChild(box); autoGrow(box);
     return;
   }
 
@@ -4157,7 +4170,7 @@ function hideAllPages(){
 }
 document.getElementById('otherNavBtn').addEventListener('click', () => showPage(otherPageEl));
 document.getElementById('otherBackBtn').addEventListener('click', hideAllPages);
-document.getElementById('businessNavBtn').addEventListener('click', () => { renderBusiness(); showPage(businessPageEl); });
+document.getElementById('businessNavBtn').addEventListener('click', () => { showPage(businessPageEl); renderBusiness(); });
 document.getElementById('businessBackBtn').addEventListener('click', hideAllPages);
 document.getElementById('birthdaysNavBtn').addEventListener('click', () => { renderBirthdays(); showPage(birthdaysPageEl); });
 document.getElementById('birthdaysBackBtn').addEventListener('click', () => showPage(otherPageEl));

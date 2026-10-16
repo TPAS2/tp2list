@@ -25,7 +25,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
 - **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
-- **Other** (Notes-style): one slim bar at the top-left with ← Back, the title and the SL / 🎂 Birthdays shortcut pills on the right (always visible, takes almost no space).
+- **Other** (Notes-style): one slim bar at the top-left with ← Back, the title and the SL / 🎂 Birthdays shortcut buttons on the right (bright gradient pills with a glowing outline; always visible, takes almost no space; wraps to a second row on very narrow screens).
   Below, a two-pane view: left = names of your lists (new-list box on top; ⠿ handle drags to reorder; each row shows the first line as a preview), right = the selected list as a big title (tap to rename, ✕ deletes, confirms if it has content)
   and one text box, one item per line, blank lines kept (lines are parsed back into `items` on input; unchanged lines keep id/done). The selected list is remembered per device (`tpas2:other:sel`).
   On phones (<700px) it's drill-down like the Notes app: the names fill the screen, tapping one opens it full screen with a "‹ Lists" link (`otherNoteOpen`, `#otherPage.note-open`).

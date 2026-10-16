@@ -1133,7 +1133,7 @@
   /* Other page: one slim bar at the top-left (Back, title, shortcuts), always visible; the lists take the rest */
   #otherPage{ max-width: none; padding: 8px 12px 12px; }
   #otherPage.active{ display: flex; flex-direction: column; }
-  .other-bar{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: nowrap; }
+  .other-bar{ display: flex; align-items: center; gap: 8px; row-gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
   .other-bar h2{
     margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
     background: linear-gradient(90deg, var(--text) 30%, var(--accent2) 60%, var(--accent) 100%);
@@ -1142,10 +1142,19 @@
   .other-bar .back-btn{ padding: 4px 9px; }
   .other-bar-gap{ flex: 1; }
   .bar-link{
-    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
-    background: var(--panel); color: var(--text); text-decoration: none; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 999px;
+    border: 1px solid var(--accent2); color: #fff; text-decoration: none; font: inherit; font-size: 0.95rem; font-weight: 700;
+    background: linear-gradient(135deg, rgba(124,92,255,.55), rgba(34,224,255,.35));
+    box-shadow: 0 0 14px -4px rgba(34,224,255,.7); cursor: pointer; white-space: nowrap;
   }
-  .bar-link:active{ background: rgba(124,92,255,.22); }
+  .bar-link span{ font-size: 1.15rem; line-height: 1; }
+  .bar-link:hover{ box-shadow: 0 0 18px -2px rgba(34,224,255,.95); }
+  @media (max-width: 460px){
+    .bar-link{ padding: 6px 10px; font-size: 0.85rem; gap: 5px; }
+    .bar-link span{ font-size: 1rem; }
+    .other-bar{ gap: 6px; }
+  }
+  .bar-link:active{ filter: brightness(1.25); }
   .wrap.hidden{ display: none; }
   .restaurants-page-header{
     display:flex;

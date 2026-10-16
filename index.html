@@ -1208,6 +1208,13 @@
     flex-shrink:0;
   }
   .resto-card-head .del:hover{ color: var(--danger); }
+  .resto-card.collapsed{ padding: 12px 14px; }
+  .resto-card.collapsed .resto-card-head{ margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+  .resto-card-head{ cursor: pointer; align-items: center; }
+  .other-grip{ color: var(--text-faint); font-size: 1.05rem; line-height: 1; padding: 4px 6px 4px 0; cursor: grab; touch-action: none; flex-shrink: 0; }
+  .resto-card.dragging-card{ opacity: .6; outline: 1px dashed var(--accent); }
+  .other-chev{ color: var(--text-dim); width: 12px; flex-shrink: 0; }
+  .other-count{ font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; flex-shrink: 0; }
   .resto-card-head .move{
     background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--text-dim);
     font-size: 0.75rem; line-height: 1; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
@@ -3241,6 +3248,11 @@ document.getElementById('calTodayBtn').addEventListener('click', () => {
 });
 
 /* ---------- other: nested sub-lists ---------- */
+// which Other lists are expanded (per device, not synced). All start closed
+const OTHER_OPEN_KEY = 'tpas2:other:open';
+const otherOpen = (() => { try{ return new Set(JSON.parse(localStorage.getItem(OTHER_OPEN_KEY) || '[]')); }catch(e){ return new Set(); } })();
+function saveOtherOpen(){ try{ localStorage.setItem(OTHER_OPEN_KEY, JSON.stringify([...otherOpen])); }catch(e){} }
+
 function renderOther(){
   const others = data.other;
   otherTally.textContent = `${others.length} item${others.length === 1 ? '' : 's'}`;
@@ -3254,9 +3266,10 @@ function renderOther(){
     return;
   }
 
-  others.forEach((r, idx) => {
+  others.forEach((r) => {
     const card = document.createElement('div');
-    card.className = 'resto-card';
+    const isOpen = otherOpen.has(r.id);
+    card.className = 'resto-card' + (isOpen ? ' open' : ' collapsed');
 
     const head = document.createElement('div');
     head.className = 'resto-card-head';
@@ -3264,7 +3277,10 @@ function renderOther(){
     const name = document.createElement('span');
     name.className = 'rname';
     name.textContent = r.name;
-    name.onclick = () => {
+    // collapsed: tap opens the list. Open: tap the name to rename it
+    name.onclick = (e) => {
+      if(!isOpen) return;
+      e.stopPropagation();
       startInlineEdit(name, r.name, (newVal) => {
         if(newVal !== null){ r.name = newVal; saveTasks(); }
         renderOther();
@@ -3276,21 +3292,35 @@ function renderOther(){
     del.textContent = '✕';
     del.onclick = () => removeOther(r.id);
 
-    // move the whole list up/down in the order
-    const up = document.createElement('button');
-    up.className = 'move'; up.textContent = '▲'; up.title = 'Move up';
-    up.disabled = idx === 0;
-    up.onclick = () => moveOther(idx, -1);
-    const down = document.createElement('button');
-    down.className = 'move'; down.textContent = '▼'; down.title = 'Move down';
-    down.disabled = idx === others.length - 1;
-    down.onclick = () => moveOther(idx, 1);
+    // drag the handle to reorder whole lists
+    const grip = document.createElement('span');
+    grip.className = 'other-grip';
+    grip.textContent = '⠿';
+    grip.title = 'Drag to reorder';
+    grip.addEventListener('pointerdown', (e) => startOtherDrag(e, card));
+    card.dataset.id = r.id;
 
+    const chev = document.createElement('span');
+    chev.className = 'other-chev';
+    chev.textContent = isOpen ? '▾' : '▸';
+    const count = document.createElement('span');
+    count.className = 'other-count';
+    const left = r.items.filter(it => !it.done).length;
+    count.textContent = String(left);
+    head.onclick = (e) => {
+      if(e.target.closest('button, input, .other-grip')) return;
+      if(isOpen) otherOpen.delete(r.id); else otherOpen.add(r.id);
+      saveOtherOpen();
+      renderOther();
+    };
+
+    head.appendChild(grip);
+    head.appendChild(chev);
     head.appendChild(name);
-    head.appendChild(up);
-    head.appendChild(down);
+    head.appendChild(count);
     head.appendChild(del);
     card.appendChild(head);
+    if(!isOpen){ otherContainer.appendChild(card); return; }
 
     const subForm = document.createElement('form');
     subForm.className = 'sub-add-row';
@@ -3365,12 +3395,37 @@ function renderOther(){
   });
 }
 
-function moveOther(idx, dir){
-  const to = idx + dir;
-  if(to < 0 || to >= data.other.length) return;
-  const [r] = data.other.splice(idx, 1);
-  data.other.splice(to, 0, r);
-  renderOther(); saveTasks();
+/* drag a whole list by its ⠿ handle: the card moves live in the grid, the new order is saved on release */
+function startOtherDrag(e, card){
+  e.preventDefault();
+  card.classList.add('dragging-card');
+  document.body.style.touchAction = 'none';
+  const move = (ev) => {
+    ev.preventDefault();
+    const over = document.elementFromPoint(ev.clientX, ev.clientY);
+    const target = over && over.closest('#otherContainer .resto-card');
+    if(!target || target === card) return;
+    const cards = [...otherContainer.querySelectorAll('.resto-card')];
+    const after = cards.indexOf(target) > cards.indexOf(card);
+    otherContainer.insertBefore(card, after ? target.nextSibling : target);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    document.body.style.touchAction = '';
+    card.classList.remove('dragging-card');
+    const order = [...otherContainer.querySelectorAll('.resto-card')].map(c => c.dataset.id);
+    const before = data.other.map(r => r.id).join();
+    if(order.join() !== before){
+      data.other.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      saveTasks();
+    }
+    renderOther();
+  };
+  window.addEventListener('pointermove', move, { passive: false });
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
 }
 
 function removeOther(id){

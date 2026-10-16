@@ -1226,6 +1226,12 @@
   .resto-card-head{ cursor: pointer; align-items: center; }
   .sub-item .to-main{ background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0 4px; flex-shrink: 0; }
   .sub-item .to-main:hover{ color: var(--accent2); }
+  .other-text{
+    width: 100%; box-sizing: border-box; min-height: 90px; resize: none; overflow: hidden;
+    background: transparent; color: var(--text); border: 0; outline: none;
+    font: inherit; font-size: 1rem; line-height: 1.7; padding: 2px 0;
+  }
+  .other-text::placeholder{ color: var(--text-faint); }
   .other-grip{ color: var(--text-faint); font-size: 1.05rem; line-height: 1; padding: 4px 6px 4px 0; cursor: grab; touch-action: none; flex-shrink: 0; }
   .resto-card.dragging-card{ opacity: .6; outline: 1px dashed var(--accent); }
   .other-chev{ color: var(--text-dim); width: 12px; flex-shrink: 0; }
@@ -3356,81 +3362,29 @@ function renderOther(){
     card.appendChild(head);
     if(!isOpen){ otherContainer.appendChild(card); return; }
 
-    const subForm = document.createElement('form');
-    subForm.className = 'sub-add-row';
-    const subInput = document.createElement('input');
-    subInput.type = 'text';
-    subInput.placeholder = 'Add item…';
-    subInput.autocomplete = 'off';
-    const subBtn = document.createElement('button');
-    subBtn.type = 'button';
-    subBtn.className = 'add';
-    subBtn.textContent = 'Add';
-    subForm.appendChild(subInput);
-    subForm.appendChild(subBtn);
-    function doSubAdd(){
-      const val = subInput.value.trim();
-      if(!val) return;
-      addOtherItem(r.id, val);
-    }
-    subBtn.addEventListener('click', doSubAdd);
-    subInput.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter'){ e.preventDefault(); doSubAdd(); }
-    });
-    subForm.addEventListener('submit', (e) => e.preventDefault());
-    card.appendChild(subForm);
-
-    if(r.items.length === 0){
-      const emptySub = document.createElement('div');
-      emptySub.className = 'empty-sub';
-      emptySub.textContent = 'nothing added yet';
-      card.appendChild(emptySub);
-    } else {
-      const subList = document.createElement('ul');
-      subList.className = 'sub-list';
-      r.items.forEach(item => {
-        const li = document.createElement('li');
-        li.className = 'sub-item' + (item.done ? ' done' : '');
-
-        const handle = document.createElement('div');
-        handle.className = 'sub-handle';
-        handle.textContent = '⠿';
-        handle.addEventListener('pointerdown', (e) => startSubItemDrag(e, r.items, item.id, renderOther));
-
-        const box = document.createElement('div');
-        box.className = 'box';
-        box.onclick = () => toggleOtherItem(r.id, item.id);
-
-        const text = document.createElement('div');
-        text.className = 'text';
-        text.textContent = item.text;
-        text.onclick = () => {
-          startInlineEdit(text, item.text, (newVal) => {
-            if(newVal !== null){ item.text = newVal; saveTasks(); }
-            renderOther();
-          });
-        };
-
-        const delItem = document.createElement('button');
-        delItem.className = 'del';
-        delItem.textContent = '✕';
-        delItem.onclick = () => removeOtherItem(r.id, item.id);
-
-        const toMain = document.createElement('button');
-        toMain.className = 'to-main';
-        toMain.textContent = '⇪';
-        toMain.title = 'Move to main list';
-        toMain.onclick = () => moveOtherItemToMain(r.id, item.id);
-
-        li.appendChild(handle);
-        li.appendChild(box);
-        li.appendChild(text);
-        li.appendChild(toMain);
-        li.appendChild(delItem);
-        subList.appendChild(li);
+    // the whole list is one text box: one item per line
+    const box = document.createElement('textarea');
+    box.className = 'other-text';
+    box.placeholder = 'One item per line…';
+    box.spellcheck = false;
+    box.value = r.items.map(it => it.text).join('\n');
+    const fit = () => { box.style.height = 'auto'; box.style.height = Math.max(box.scrollHeight, 90) + 'px'; };
+    let saveTimer = null;
+    box.addEventListener('input', () => {
+      fit();
+      // turn the lines back into items, keeping the id and done state of lines that didn't change
+      const pool = r.items.slice();
+      r.items = box.value.split('\n').map(l => l.trim()).filter(Boolean).map(text => {
+        const at = pool.findIndex(it => it.text === text);
+        return at >= 0 ? pool.splice(at, 1)[0] : { id: Date.now() + Math.random().toString(36).slice(2), text, done: false };
       });
-      card.appendChild(subList);
-    }
+      count.textContent = String(r.items.filter(it => !it.done).length);
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveTasks, 400);
+    });
+    box.addEventListener('blur', () => { clearTimeout(saveTimer); saveTasks(); });
+    card.appendChild(box);
+    requestAnimationFrame(fit);
 
     otherContainer.appendChild(card);
   });

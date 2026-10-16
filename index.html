@@ -1120,15 +1120,22 @@
   #birthdaysPage .bday-form{ max-width: 480px; }
   #birthdaysPage .bday-list{ width: 100%; }
   #birthdaysPage .empty-row{ max-width: 480px; margin: 0 auto; }
-  /* Other page: Back + title tight in the top-left, no item count or divider line */
-  #otherPage{ padding-top: 8px; padding-bottom: 14px; }
+  /* Other page: one slim bar at the top-left (Back, title, shortcuts), always visible; the lists take the rest */
+  #otherPage{ max-width: none; padding: 8px 12px 12px; }
   #otherPage.active{ display: flex; flex-direction: column; }
-  #otherPage .restaurants-page-header{ border-bottom: 0; padding-bottom: 0; margin-bottom: 16px; justify-content: center; }
-  /* centred: header, shortcuts, section labels and the add-list box */
-  #otherPage .other-section-title{ text-align: center; }
-  #otherPage .shortcuts{ margin-left: auto; margin-right: auto; }
-  #otherPage #addOtherForm{ margin-left: auto; margin-right: auto; }
-  #otherPage .restaurants-page-header .count{ display: none; }
+  .other-bar{ display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: nowrap; }
+  .other-bar h2{
+    margin: 0; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    background: linear-gradient(90deg, var(--text) 30%, var(--accent2) 60%, var(--accent) 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .other-bar .back-btn{ padding: 4px 9px; }
+  .other-bar-gap{ flex: 1; }
+  .bar-link{
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--panel); color: var(--text); text-decoration: none; font: inherit; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .bar-link:active{ background: rgba(124,92,255,.22); }
   .wrap.hidden{ display: none; }
   .restaurants-page-header{
     display:flex;
@@ -1173,109 +1180,47 @@
   .back-btn:hover{ border-color: var(--accent2); color: var(--accent2); }
   .restaurants-page form.add-row{ max-width: 480px; margin-bottom: 30px; }
 
-  .resto-grid{
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 18px;
+
+
+  /* Other lists, Notes-style: names on the left, the open list on the right */
+  #otherPage{ max-width: none; }
+  .notes-layout{
+    flex: 1; min-height: 280px; display: grid; grid-template-columns: 300px minmax(0, 1fr);
+    border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel);
   }
-  @media (min-width: 620px){
-    .resto-grid{ grid-template-columns: repeat(2, 1fr); }
-  }
-  @media (min-width: 940px){
-    .resto-grid{ grid-template-columns: repeat(3, 1fr); }
-  }
-  .resto-card{
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 16px 16px 14px;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-  }
-  .resto-card-head{
-    display:flex;
-    align-items:flex-start;
-    gap: 10px;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--line);
-  }
-  .resto-card-head .rname{
-    flex:1;
-    font-family: -apple-system, 'SF Pro Display', system-ui, 'Segoe UI', sans-serif;
-    font-weight: 600;
-    font-size: 1.1rem;
-    letter-spacing: 0.02em;
-    color: var(--text);
-    min-width: 0;
-    word-break: break-word;
-  }
-  .resto-card-head .del{
-    background:none;
-    border:none;
-    color: var(--text-faint);
-    font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
-    font-size: 0.95rem;
-    cursor:pointer;
-    padding: 0 2px;
-    flex-shrink:0;
-  }
-  .resto-card-head .del:hover{ color: var(--danger); }
-  .resto-card.collapsed{ padding: 12px 14px; }
-  .resto-card.collapsed .resto-card-head{ margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
-  .resto-card-head{ cursor: pointer; align-items: center; }
-  .sub-item .to-main{ background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0 4px; flex-shrink: 0; }
-  .sub-item .to-main:hover{ color: var(--accent2); }
+  .notes-side{ display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); padding: 12px 10px 10px; }
+  #otherPage .notes-add{ max-width: none; margin: 0 0 10px; }
+  #otherPage .notes-add input{ min-width: 0; flex: 1 1 0; }
+  #otherPage .notes-add .add{ flex: none; }
+  .notes-names{ flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .notes-row{ display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 10px; cursor: pointer; }
+  .notes-row.sel{ background: rgba(124,92,255,.24); }
+  .notes-row.dragging-row{ opacity: .6; outline: 1px dashed var(--accent); }
+  .notes-row .rtext{ flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .notes-row .rname{ font-weight: 700; font-size: 1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .notes-row .rprev{ color: var(--text-dim); font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.1em; }
+  .other-grip{ color: var(--text-faint); font-size: 1.05rem; line-height: 1; padding: 4px 4px 4px 0; cursor: grab; touch-action: none; flex-shrink: 0; }
+  .notes-main{ display: flex; flex-direction: column; min-height: 0; padding: 14px 18px; }
+  .notes-main-head{ display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .notes-title{ flex: 1; min-width: 0; margin: 0; font-size: 1.5rem; font-weight: 700; cursor: text; word-break: break-word; }
+  .notes-main-head .del{ background: none; border: none; color: var(--text-faint); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
+  .notes-main-head .del:hover{ color: var(--danger); }
+  .notes-back{ background: none; border: none; color: var(--accent2); font: inherit; cursor: pointer; padding: 4px 6px 4px 0; }
   .other-text{
-    width: 100%; box-sizing: border-box; resize: none; overflow-y: auto;
-    flex: 1; min-height: 0;  /* fills the card; scrolls inside when the list is longer */
+    flex: 1; min-height: 0; width: 100%; box-sizing: border-box; resize: none; overflow-y: auto;
     background: transparent; color: var(--text); border: 0; outline: none;
-    font: inherit; font-size: 1rem; line-height: 1.7; padding: 2px 0;
+    font: inherit; font-size: 1.05rem; line-height: 1.7; padding: 2px 0;
   }
   .other-text::placeholder{ color: var(--text-faint); }
-  .other-grip{ color: var(--text-faint); font-size: 1.05rem; line-height: 1; padding: 4px 6px 4px 0; cursor: grab; touch-action: none; flex-shrink: 0; }
-  .resto-card.dragging-card{ opacity: .6; outline: 1px dashed var(--accent); }
-  .other-chev{ color: var(--text-dim); width: 12px; flex-shrink: 0; }
-  .other-count{ font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; flex-shrink: 0; }
-  .resto-card-head .move{
-    background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--text-dim);
-    font-size: 0.75rem; line-height: 1; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
+  @media (min-width: 700px){ .notes-back{ display: none; } }
+  @media (max-width: 699px){
+    /* phone: the names fill the screen; tapping one opens it full screen, with a back link */
+    .notes-layout{ grid-template-columns: minmax(0, 1fr); }
+    .notes-side{ border-right: 0; }
+    #otherPage:not(.note-open) .notes-main{ display: none; }
+    #otherPage.note-open .notes-side{ display: none; }
+    #otherPage.note-open .notes-layout{ border: 0; background: transparent; }
   }
-  .resto-card-head .move:disabled{ opacity: .25; cursor: default; }
-  .other-section-title{
-    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--text-dim); margin: 6px 0 10px;
-  }
-  .sl-link-card{
-    display: flex; align-items: center; gap: 12px; max-width: 480px; margin-bottom: 26px;
-    padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
-    color: var(--text); text-decoration: none;
-  }
-  /* shortcut buttons: compact, side by side at the top of the page */
-  .shortcuts{ display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; max-width: 720px; margin-bottom: 22px; }
-  .shortcuts .sl-link-card{ margin-bottom: 0; max-width: none; padding: 9px 10px; gap: 8px; }
-  .shortcuts .sl-link-icon{ font-size: 1.3rem; }
-  .shortcuts .sl-link-text b{ font-size: 0.95rem; }
-  .shortcuts .sl-link-text small{ font-size: 0.72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .shortcuts .sl-link-text{ min-width: 0; }
-  .shortcuts .sl-link-arrow{ display: none; }
-  /* Other lists: one card per list, side by side, swipe/scroll horizontally */
-  #otherContainer{
-    display: flex; gap: 14px; overflow-x: auto; align-items: stretch;
-    flex: 1; min-height: 280px;  /* the lists take all the page height left under the shortcuts */
-    scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
-    padding-bottom: 12px; margin: 0 -18px; padding-left: 18px; padding-right: 18px; scroll-padding-left: 18px;
-  }
-  #otherContainer > .resto-card{ flex: 0 0 min(82%, 320px); scroll-snap-align: start; align-self: stretch; height: auto; }
-  #otherContainer > .empty-row{ flex: 1; }
-  /* laptop: use the full width and let the lists share it, so they're all visible at once
-     (each stays at least 240px wide; with more lists than fit, the row scrolls sideways) */
-  @media (min-width: 900px){
-    #otherPage{ max-width: none; }
-    #otherContainer > .resto-card{ flex: 1 1 0; min-width: 240px; }
-  }
-  button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
   .bday-badge{ flex-shrink: 0; font-size: 0.95rem; line-height: 1; }
   .bday-list{ list-style: none; margin: 0; padding: 0; max-width: 480px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .bday-item{ display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
@@ -1291,11 +1236,6 @@
   .bday-form #birthdayDay{ flex: 0 0 76px; min-width: 0; background: var(--panel); color: var(--text);
     border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; }
   .bday-form select{ flex: 1 1 0; height: 40px; min-width: 0; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: inherit; }
-  .sl-link-card:active{ background: rgba(124,92,255,.18); }
-  .sl-link-icon{ font-size: 1.6rem; line-height: 1; }
-  .sl-link-text{ flex: 1; display: flex; flex-direction: column; gap: 2px; }
-  .sl-link-text small{ color: var(--text-dim); font-size: 0.8rem; }
-  .sl-link-arrow{ color: var(--text-dim); font-size: 1.4rem; }
 
   /* card/sub-item styles shared by Other and Calendar */
   .sub-add-row{
@@ -1694,30 +1634,24 @@
 
 
 <div class="restaurants-page" id="otherPage">
-  <div class="restaurants-page-header">
+  <div class="other-bar">
     <button type="button" class="back-btn" id="otherBackBtn">← Back</button>
     <h2>Other</h2>
-    <span class="count" id="tally-other">0 items</span>
+    <span class="count" id="tally-other" hidden></span>
+    <span class="other-bar-gap"></span>
+    <a class="bar-link" href="stock/" title="Home stock &amp; shopping list"><span>🛒</span> SL</a>
+    <button type="button" class="bar-link" id="birthdaysNavBtn" title="Birthdays"><span>🎂</span> Birthdays<small id="birthdaysNext" hidden></small></button>
   </div>
-  <div class="other-section-title">Shortcuts</div>
-  <div class="shortcuts">
-  <a class="sl-link-card" href="stock/">
-    <span class="sl-link-icon">🛒</span>
-    <span class="sl-link-text"><b>SL</b><small>Home stock &amp; shopping list</small></span>
-    <span class="sl-link-arrow">›</span>
-  </a>
-  <button type="button" class="sl-link-card" id="birthdaysNavBtn">
-    <span class="sl-link-icon">🎂</span>
-    <span class="sl-link-text"><b>Birthdays</b><small id="birthdaysNext">Upcoming first</small></span>
-    <span class="sl-link-arrow">›</span>
-  </button>
+  <div class="notes-layout" id="notesLayout">
+    <aside class="notes-side">
+      <form class="add-row notes-add" id="addOtherForm">
+        <input type="text" id="otherInput" placeholder="New list…" autocomplete="off">
+        <button type="button" class="add">Add</button>
+      </form>
+      <div class="notes-names" id="otherContainer"></div>
+    </aside>
+    <section class="notes-main" id="otherDetail"></section>
   </div>
-  <div class="other-section-title">Lists</div>
-  <form class="add-row restaurant-add" id="addOtherForm">
-    <input type="text" id="otherInput" placeholder="Add a category…" autocomplete="off">
-    <button type="button" class="add">Add</button>
-  </form>
-  <div class="resto-grid" id="otherContainer"></div>
 </div>
 
 <div class="restaurants-page" id="birthdaysPage">
@@ -3295,125 +3229,144 @@ document.getElementById('calTodayBtn').addEventListener('click', () => {
   renderCalendar();
 });
 
-/* ---------- other: nested sub-lists ---------- */
-// which Other lists are expanded (per device, not synced). All start closed
-const OTHER_OPEN_KEY = 'tpas2:other:open';
-const otherOpen = (() => { try{ return new Set(JSON.parse(localStorage.getItem(OTHER_OPEN_KEY) || '[]')); }catch(e){ return new Set(); } })();
-function saveOtherOpen(){ try{ localStorage.setItem(OTHER_OPEN_KEY, JSON.stringify([...otherOpen])); }catch(e){} }
+/* ---------- other: lists, Notes-style (names on the left, the open list on the right) ----------
+   Each list is { id, name, items: [{ id, text, done }] }. The text box shows one line per item, blank lines included. */
+const OTHER_SEL_KEY = 'tpas2:other:sel';
+let otherSel = (() => { try{ return localStorage.getItem(OTHER_SEL_KEY) || ''; }catch(e){ return ''; } })();
+let otherNoteOpen = false;   // phone only: showing the open list full screen instead of the names
+let otherJustDragged = false;
+const otherDetail = document.getElementById('otherDetail');
+const otherPageEl2 = document.getElementById('otherPage');
+
+function setOtherSel(id){
+  otherSel = id;
+  try{ localStorage.setItem(OTHER_SEL_KEY, id || ''); }catch(e){}
+}
+function otherPreview(r){
+  const first = r.items.find(it => it.text.trim());
+  return first ? first.text.trim() : '';
+}
 
 function renderOther(){
   const others = data.other;
   otherTally.textContent = `${others.length} item${others.length === 1 ? '' : 's'}`;
+  if(!others.some(r => r.id === otherSel)) setOtherSel(others.length ? others[0].id : '');
+  if(!others.length) otherNoteOpen = false;
+  otherPageEl2.classList.toggle('note-open', otherNoteOpen);
+
   otherContainer.innerHTML = '';
+  others.forEach(r => {
+    const row = document.createElement('div');
+    row.className = 'notes-row' + (r.id === otherSel ? ' sel' : '');
+    row.dataset.id = r.id;
 
-  if(others.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'empty-row';
-    empty.textContent = 'nothing here yet';
-    otherContainer.appendChild(empty);
-    return;
-  }
-
-  others.forEach((r) => {
-    const card = document.createElement('div');
-    const isOpen = true;  // lists sit side by side in a horizontal scroller, always open
-    card.className = 'resto-card' + (isOpen ? ' open' : ' collapsed');
-
-    const head = document.createElement('div');
-    head.className = 'resto-card-head';
-
-    const name = document.createElement('span');
-    name.className = 'rname';
-    name.textContent = r.name;
-    // collapsed: tap opens the list. Open: tap the name to rename it
-    name.onclick = (e) => {
-      if(!isOpen) return;
-      e.stopPropagation();
-      startInlineEdit(name, r.name, (newVal) => {
-        if(newVal !== null){ r.name = newVal; saveTasks(); }
-        renderOther();
-      });
-    };
-
-    const del = document.createElement('button');
-    del.className = 'del';
-    del.textContent = '✕';
-    del.onclick = () => removeOther(r.id);
-
-    // drag the handle to reorder whole lists
     const grip = document.createElement('span');
     grip.className = 'other-grip';
     grip.textContent = '⠿';
     grip.title = 'Drag to reorder';
-    grip.addEventListener('pointerdown', (e) => startOtherDrag(e, card));
-    card.dataset.id = r.id;
+    grip.addEventListener('pointerdown', (e) => startOtherDrag(e, row));
 
-    const chev = document.createElement('span');
-    chev.className = 'other-chev';
-    chev.textContent = isOpen ? '▾' : '▸';
-    const count = document.createElement('span');
-    count.className = 'other-count';
-    const left = r.items.filter(it => !it.done).length;
-    count.textContent = String(left);
+    const text = document.createElement('div');
+    text.className = 'rtext';
+    const name = document.createElement('div');
+    name.className = 'rname';
+    name.textContent = r.name;
+    const prev = document.createElement('div');
+    prev.className = 'rprev';
+    prev.textContent = otherPreview(r);
+    text.append(name, prev);
 
-    head.appendChild(grip);
-    head.appendChild(name);
-    head.appendChild(count);
-    head.appendChild(del);
-    card.appendChild(head);
-    if(!isOpen){ otherContainer.appendChild(card); return; }
-
-    // the whole list is one text box: one item per line
-    const box = document.createElement('textarea');
-    box.className = 'other-text';
-    box.placeholder = 'One item per line…';
-    box.spellcheck = false;
-    box.value = r.items.map(it => it.text).join('\n');
-    let saveTimer = null;
-    box.addEventListener('input', () => {
-      // turn the lines back into items, keeping the id and done state of lines that didn't change
-      const pool = r.items.slice();
-      r.items = box.value.split('\n').map(l => l.trim()).filter(Boolean).map(text => {
-        const at = pool.findIndex(it => it.text === text);
-        return at >= 0 ? pool.splice(at, 1)[0] : { id: Date.now() + Math.random().toString(36).slice(2), text, done: false };
-      });
-      count.textContent = String(r.items.filter(it => !it.done).length);
-      clearTimeout(saveTimer);
-      saveTimer = setTimeout(saveTasks, 400);
+    row.append(grip, text);
+    row.addEventListener('click', () => {
+      if(otherJustDragged) return;
+      setOtherSel(r.id);
+      otherNoteOpen = true;
+      renderOther();
     });
-    box.addEventListener('blur', () => { clearTimeout(saveTimer); saveTasks(); });
-    card.appendChild(box);
-
-    otherContainer.appendChild(card);
+    otherContainer.appendChild(row);
   });
+  renderOtherDetail();
 }
 
-/* drag a whole list by its ⠿ handle: the card moves live in the grid, the new order is saved on release */
-function startOtherDrag(e, card){
+function renderOtherDetail(){
+  otherDetail.innerHTML = '';
+  const r = data.other.find(x => x.id === otherSel);
+  if(!r) return;
+
+  const head = document.createElement('div');
+  head.className = 'notes-main-head';
+  const back = document.createElement('button');
+  back.type = 'button';
+  back.className = 'notes-back';
+  back.textContent = '‹ Lists';
+  back.onclick = () => { otherNoteOpen = false; renderOther(); };
+  const title = document.createElement('h3');
+  title.className = 'notes-title';
+  title.textContent = r.name;
+  title.onclick = () => startInlineEdit(title, r.name, (v) => {
+    if(v !== null && v.trim()){ r.name = v.trim(); saveTasks(); }
+    renderOther();
+  });
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'del';
+  del.textContent = '✕';
+  del.title = 'Delete this list';
+  del.onclick = () => removeOther(r.id);
+  head.append(back, title, del);
+
+  const box = document.createElement('textarea');
+  box.className = 'other-text';
+  box.placeholder = 'One item per line…';
+  box.spellcheck = false;
+  box.value = r.items.map(it => it.text).join('\n');
+  let saveTimer = null;
+  box.addEventListener('input', () => {
+    // turn the lines back into items, keeping the id and done state of lines that didn't change
+    const lines = box.value.split('\n').map(l => l.replace(/\s+$/, ''));
+    while(lines.length && lines[lines.length - 1] === '') lines.pop();
+    const pool = r.items.slice();
+    r.items = lines.map(text => {
+      const at = pool.findIndex(it => it.text === text);
+      return at >= 0 ? pool.splice(at, 1)[0] : { id: Date.now() + Math.random().toString(36).slice(2), text, done: false };
+    });
+    const prevEl = otherContainer.querySelector(`.notes-row[data-id="${r.id}"] .rprev`);
+    if(prevEl) prevEl.textContent = otherPreview(r);
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveTasks, 400);
+  });
+  box.addEventListener('blur', () => { clearTimeout(saveTimer); saveTasks(); });
+  otherDetail.append(head, box);
+}
+
+/* drag a list by its ⠿ handle to reorder the names; the new order is saved on release */
+function startOtherDrag(e, row){
   e.preventDefault();
-  card.classList.add('dragging-card');
+  e.stopPropagation();
+  row.classList.add('dragging-row');
   document.body.style.touchAction = 'none';
   const move = (ev) => {
     ev.preventDefault();
     const box = otherContainer.getBoundingClientRect();
-    if(ev.clientX < box.left + 40) otherContainer.scrollLeft -= 14;
-    else if(ev.clientX > box.right - 40) otherContainer.scrollLeft += 14;
+    if(ev.clientY < box.top + 36) otherContainer.scrollTop -= 12;
+    else if(ev.clientY > box.bottom - 36) otherContainer.scrollTop += 12;
     const over = document.elementFromPoint(ev.clientX, ev.clientY);
-    const target = over && over.closest('#otherContainer .resto-card');
-    if(!target || target === card) return;
-    const cards = [...otherContainer.querySelectorAll('.resto-card')];
-    const after = cards.indexOf(target) > cards.indexOf(card);
-    otherContainer.insertBefore(card, after ? target.nextSibling : target);
+    const target = over && over.closest('#otherContainer .notes-row');
+    if(!target || target === row) return;
+    const rows = [...otherContainer.querySelectorAll('.notes-row')];
+    const after = rows.indexOf(target) > rows.indexOf(row);
+    otherContainer.insertBefore(row, after ? target.nextSibling : target);
   };
   const up = () => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
     window.removeEventListener('pointercancel', up);
     document.body.style.touchAction = '';
-    card.classList.remove('dragging-card');
-    const order = [...otherContainer.querySelectorAll('.resto-card')].map(c => c.dataset.id);
-    const before = data.other.map(r => r.id).join();
-    if(order.join() !== before){
+    row.classList.remove('dragging-row');
+    otherJustDragged = true;
+    setTimeout(() => { otherJustDragged = false; }, 50);
+    const order = [...otherContainer.querySelectorAll('.notes-row')].map(c => c.dataset.id);
+    if(order.join() !== data.other.map(r => r.id).join()){
       data.other.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
       saveTasks();
     }
@@ -3424,55 +3377,32 @@ function startOtherDrag(e, card){
   window.addEventListener('pointercancel', up);
 }
 
-// move an item out of an Other list onto the main List page
-function moveOtherItemToMain(otherId, itemId){
-  const r = data.other.find(r => r.id === otherId);
-  const item = r && r.items.find(i => i.id === itemId);
-  if(!item) return;
-  r.items = r.items.filter(i => i.id !== itemId);
-  data.list.push({ id: Date.now() + Math.random().toString(36).slice(2), text: item.text, done: false });
-  renderOther(); renderSection('list'); saveTasks();
-  showStatus('moved to main list');
-}
-
 function removeOther(id){
-  data.other = data.other.filter(r => r.id !== id);
+  const r = data.other.find(x => x.id === id);
+  if(!r) return;
+  if(r.items.some(it => it.text.trim()) && !confirm(`Delete "${r.name}" and everything in it?`)) return;
+  const at = data.other.indexOf(r);
+  data.other = data.other.filter(x => x.id !== id);
+  // select a neighbour, and on a phone go back to the names
+  const next = data.other[at] || data.other[at - 1];
+  setOtherSel(next ? next.id : '');
+  otherNoteOpen = false;
   renderOther(); saveTasks();
   showStatus('removed');
-}
-
-function addOtherItem(otherId, text){
-  const r = data.other.find(r => r.id === otherId);
-  if(!r) return;
-  r.items.push({ id: Date.now() + Math.random().toString(36).slice(2), text, done: false });
-  renderOther(); saveTasks();
-}
-
-function toggleOtherItem(otherId, itemId){
-  const r = data.other.find(r => r.id === otherId);
-  if(!r) return;
-  const item = r.items.find(i => i.id === itemId);
-  if(item){ item.done = !item.done; renderOther(); saveTasks(); }
-}
-
-function removeOtherItem(otherId, itemId){
-  const r = data.other.find(r => r.id === otherId);
-  if(!r) return;
-  r.items = r.items.filter(i => i.id !== itemId);
-  renderOther(); saveTasks();
 }
 
 function addOther(){
   const inputEl = document.getElementById('otherInput');
   const val = inputEl.value.trim();
   if(!val) return;
-  data.other.push({
-    id: Date.now() + Math.random().toString(36).slice(2),
-    name: val,
-    items: []
-  });
+  const id = Date.now() + Math.random().toString(36).slice(2);
+  data.other.push({ id, name: val, items: [] });
   inputEl.value = '';
+  setOtherSel(id);
+  otherNoteOpen = true;
   renderOther(); saveTasks();
+  const ta = otherDetail.querySelector('textarea');
+  if(ta) ta.focus();
 }
 document.getElementById('addOtherForm').addEventListener('submit', (e) => e.preventDefault());
 document.querySelector('#addOtherForm button.add').addEventListener('click', addOther);

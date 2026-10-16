@@ -1223,6 +1223,7 @@
     color: var(--text); text-decoration: none;
   }
   button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
+  .bday-badge{ flex-shrink: 0; font-size: 0.95rem; line-height: 1; }
   .bday-list{ list-style: none; margin: 0; padding: 0; max-width: 480px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
   .bday-item{ display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
   .bday-item:last-child{ border-bottom: 0; }
@@ -2977,8 +2978,17 @@ function renderTodayCalendar(){
     }
   });
 
+  // birthdays today: their own rows, not calendar events. Ticking hides it until next year
+  const year = new Date().getFullYear();
+  (data.birthdays || []).forEach(b => {
+    if(nextBirthday(b.date).days === 0){
+      items.push({ key: todayKey, kind: 'birthday', ref: b, text: `${b.name}'s birthday`, time: null, done: b.doneYear === year });
+    }
+  });
+
   const visibleItems = items.filter(i => !i.done);
   visibleItems.sort((a, b) => {
+    if((a.kind === 'birthday') !== (b.kind === 'birthday')) return a.kind === 'birthday' ? -1 : 1;
     if(a.time && b.time) return a.time.localeCompare(b.time);
     if(a.time && !b.time) return -1;
     if(!a.time && b.time) return 1;
@@ -3000,7 +3010,8 @@ function renderTodayCalendar(){
     box.onclick = () => {
       li.classList.add('completing');
       setTimeout(() => {
-        if(kind === 'normal') toggleCalendarItem(key, ref.id);
+        if(kind === 'birthday'){ ref.doneYear = new Date().getFullYear(); saveTasks(); renderTodayCalendar(); }
+        else if(kind === 'normal') toggleCalendarItem(key, ref.id);
         else if(kind === 'recurring') toggleRecurringOccurrence(ref.id, key);
         else toggleSpanOccurrence(ref.id, key);
       }, 380);
@@ -3013,7 +3024,12 @@ function renderTodayCalendar(){
       timeBadge.textContent = formatTime12h(time);
       li.appendChild(timeBadge);
     }
-    if(kind !== 'normal'){
+    if(kind === 'birthday'){
+      const kindBadge = document.createElement('div');
+      kindBadge.className = 'bday-badge';
+      kindBadge.textContent = '🎂';
+      li.appendChild(kindBadge);
+    } else if(kind !== 'normal'){
       const kindBadge = document.createElement('div');
       kindBadge.className = kind === 'recurring' ? 'repeat-badge' : 'span-badge';
       kindBadge.textContent = kind === 'recurring' ? '↻' : '↔';
@@ -3023,7 +3039,7 @@ function renderTodayCalendar(){
     const textEl = document.createElement('div');
     textEl.className = 'text';
     textEl.textContent = text;
-    textEl.onclick = () => {
+    textEl.onclick = kind === 'birthday' ? () => { renderBirthdays(); showPage(birthdaysPageEl); } : () => {
       calSelectedKey = key;
       calViewDate = new Date();
       renderCalendar();
@@ -3545,6 +3561,7 @@ function nextBirthday(dateStr){
   return { next, days: Math.round((next - today) / 86400000) };
 }
 function renderBirthdays(){
+  renderTodayCalendar();  // keep the Today widget in step with birthday changes
   const listEl = document.getElementById('birthdayList');
   const items = data.birthdays
     .map(b => ({ b, ...nextBirthday(b.date) }))

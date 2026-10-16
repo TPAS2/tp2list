@@ -1227,7 +1227,8 @@
   .sub-item .to-main{ background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1rem; padding: 0 4px; flex-shrink: 0; }
   .sub-item .to-main:hover{ color: var(--accent2); }
   .other-text{
-    width: 100%; box-sizing: border-box; min-height: 90px; resize: none; overflow: hidden;
+    width: 100%; box-sizing: border-box; resize: none; overflow-y: auto;
+    height: calc(5 * 1.7em + 4px);  /* 5 lines visible, scroll for the rest */
     background: transparent; color: var(--text); border: 0; outline: none;
     font: inherit; font-size: 1rem; line-height: 1.7; padding: 2px 0;
   }
@@ -3367,11 +3368,10 @@ function renderOther(){
     box.className = 'other-text';
     box.placeholder = 'One item per line…';
     box.spellcheck = false;
+    box.rows = 5;
     box.value = r.items.map(it => it.text).join('\n');
-    const fit = () => { box.style.height = 'auto'; box.style.height = Math.max(box.scrollHeight, 90) + 'px'; };
     let saveTimer = null;
     box.addEventListener('input', () => {
-      fit();
       // turn the lines back into items, keeping the id and done state of lines that didn't change
       const pool = r.items.slice();
       r.items = box.value.split('\n').map(l => l.trim()).filter(Boolean).map(text => {
@@ -3384,7 +3384,6 @@ function renderOther(){
     });
     box.addEventListener('blur', () => { clearTimeout(saveTimer); saveTasks(); });
     card.appendChild(box);
-    requestAnimationFrame(fit);
 
     otherContainer.appendChild(card);
   });

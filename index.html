@@ -1602,7 +1602,7 @@
     align-items: center; justify-content: center; padding: 16px;
     -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
   .ds-modal.open{ display: flex; }
-  .ds-sheet{ width: 100%; max-width: 420px; background: var(--panel-solid); border: 1px solid var(--line);
+  .ds-sheet{ max-height: 92vh; overflow-y: auto; width: 100%; max-width: 420px; background: var(--panel-solid); border: 1px solid var(--line);
     border-radius: 20px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
   .ds-head{ display: flex; align-items: center; margin-bottom: 12px; }
   .ds-head h3{ flex: 1; margin: 0; font-size: 1.05rem; }
@@ -1615,6 +1615,8 @@
   .ds-btn.big{ width: 100%; padding: 13px; font-size: 1rem; }
   .ds-btn:disabled{ opacity: .5; }
   .ds-hint{ font-size: .78rem; color: var(--text-faint); line-height: 1.5; margin: 10px 0 0; }
+  .ds-backup{ margin-top: 6px; }
+  .ds-backup select.ds-input{ padding: 9px 10px; font-size: .82rem; letter-spacing: 0; text-transform: none; text-align: left; }
   .ds-or{ display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: .75rem; margin: 16px 0 8px; }
   .ds-or::before, .ds-or::after{ content: ""; flex: 1; height: 1px; background: var(--line); }
   .ds-row{ display: flex; gap: 8px; }
@@ -1846,6 +1848,20 @@
         <span class="grow"></span>
         <button type="button" class="ds-btn danger" id="dsLeave">Disconnect</button>
       </div>
+    </div>
+    <div class="ds-backup">
+      <div class="ds-or">Backup</div>
+      <div class="ds-actions">
+        <button type="button" class="ds-btn" id="dsExport">Download backup</button>
+        <button type="button" class="ds-btn" id="dsImport">Restore from file…</button>
+        <input type="file" id="dsFile" accept=".json,application/json" hidden>
+      </div>
+      <p class="ds-hint" id="dsBackupInfo" style="margin-top:6px"></p>
+      <div class="ds-row">
+        <select class="ds-input" id="dsSafety"></select>
+        <button type="button" class="ds-btn" id="dsRestoreSafety">Restore</button>
+      </div>
+      <p class="ds-hint">Safety copies are saved on this device every day, and just before a sync update or a restore replaces your data.</p>
     </div>
     <p class="ds-hint">This is only for your own devices. It's separate from the SL shopping list code, which never gives access to this data.</p>
   </div>
@@ -4358,6 +4374,8 @@ async function fbSync(){
     }
 
     if(Object.keys(incoming).length){
+      // keep a copy of this device's data first (always on the first sync after joining, otherwise at most every 15 min)
+      takeSafetyCopy('before sync update', Object.keys(st.known).length ? 15 * 60 * 1000 : 0);
       const scrollY = window.scrollY;
       for(const k in incoming){
         data[k] = JSON.parse(incoming[k].v);
@@ -4420,7 +4438,95 @@ function fbRenderSheet(){
   document.getElementById('dsStatus').textContent = !navigator.onLine ? '📴 Offline. Changes sync when you reconnect'
     : fbSyncing ? 'Syncing…' : fbLastOk ? `✓ Live · up to date ${t}` : 'Connecting…';
 }
-syncBtn.addEventListener('click', () => { fbRenderSheet(); dsModal.classList.add('open'); });
+/* ---------- backups and safety copies ---------- */
+const SAFETY_KEY = 'tpas2:safety';
+const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore' };
+function readSafety(){ try{ const l = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
+function writeSafety(list){
+  while(list.length){ try{ localStorage.setItem(SAFETY_KEY, JSON.stringify(list)); return; }catch(e){ list.shift(); } }   // storage full: drop the oldest until it fits
+  try{ localStorage.removeItem(SAFETY_KEY); }catch(e){}
+}
+function dataHasContent(d){
+  return !!(d && ((d.list || []).length || (d.expenses || []).length || (d.birthdays || []).length || (d.recurringEvents || []).length || (d.spanEvents || []).length ||
+    (d.other || []).some(o => (o.items || []).length) || Object.keys(d.calendar || {}).length ||
+    (d.businessTabs || []).some(t => t.type || t.sheet || t.cars || t.text)));
+}
+// keep a snapshot of the current data (at most 8, newest last); minGapMs limits how often the same reason is saved
+function takeSafetyCopy(reason, minGapMs){
+  if(!dataHasContent(data)) return;
+  const list = readSafety();
+  const last = [...list].reverse().find(c => c.reason === reason);
+  if(minGapMs && last && Date.now() - last.t < minGapMs) return;
+  const json = JSON.stringify(data);
+  if(list.length && list[list.length - 1].json === json) return;
+  list.push({ t: Date.now(), reason, json });
+  while(list.length > 8) list.shift();
+  writeSafety(list);
+}
+function restoreData(d){
+  const fresh = JSON.parse(JSON.stringify(d));
+  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
+  if(!fresh.calendar || typeof fresh.calendar !== 'object' || Array.isArray(fresh.calendar)) fresh.calendar = {};
+  if(!Array.isArray(fresh.businessTabs)) fresh.businessTabs = Array.from({ length: BIZ_DEFAULT_COUNT }, (_, i) => ({ id: 'biz' + (i + 1), name: 'Section ' + (i + 1) }));
+  data = fresh;
+  renderAll();
+  saveTasks();   // also queues it for sync, and the undo button can step back
+}
+function fillSafetyList(){
+  const sel = document.getElementById('dsSafety'), btn = document.getElementById('dsRestoreSafety');
+  const list = readSafety();
+  sel.innerHTML = '';
+  if(!list.length){ sel.appendChild(new Option('No safety copies yet', '')); btn.disabled = true; return; }
+  btn.disabled = false;
+  list.slice().reverse().forEach(c => {
+    const when = new Date(c.t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    sel.appendChild(new Option(`${when} · ${SAFETY_REASONS[c.reason] || c.reason}`, String(c.t)));
+  });
+  let last = ''; try{ last = localStorage.getItem('tpas2:lastBackup') || ''; }catch(e){}
+  document.getElementById('dsBackupInfo').textContent = last ? 'Last backup downloaded: ' + new Date(+last).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No backup downloaded yet.';
+}
+document.getElementById('dsExport').addEventListener('click', () => {
+  const payload = { app: 'tp2list', version: 1, exportedAt: new Date().toISOString(), data };
+  const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'tp2list-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  try{ localStorage.setItem('tpas2:lastBackup', String(Date.now())); }catch(e){}
+  fillSafetyList();
+  showStatus('backup downloaded');
+});
+document.getElementById('dsImport').addEventListener('click', () => document.getElementById('dsFile').click());
+document.getElementById('dsFile').addEventListener('change', async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  let obj = null;
+  try{ obj = JSON.parse(await file.text()); }catch(err){}
+  const d = obj && obj.app === 'tp2list' && obj.data && typeof obj.data === 'object' ? obj.data : null;
+  if(!d){ alert("That file isn't a TP2List backup."); return; }
+  const when = obj.exportedAt ? new Date(obj.exportedAt).toLocaleString() : 'an unknown date';
+  if(!confirm(`Replace everything on this device with the backup from ${when}?\n\nA safety copy of your current data is kept first.`)) return;
+  takeSafetyCopy('before restore');
+  restoreData(d);
+  dsModal.classList.remove('open');
+  showStatus('backup restored');
+});
+document.getElementById('dsRestoreSafety').addEventListener('click', () => {
+  const t = document.getElementById('dsSafety').value;
+  const copy = readSafety().find(c => String(c.t) === t);
+  if(!copy) return;
+  if(!confirm('Restore this safety copy? Your current data is saved as a new safety copy first.')) return;
+  takeSafetyCopy('before restore');
+  let d = null; try{ d = JSON.parse(copy.json); }catch(e){}
+  if(!d){ alert("That safety copy couldn't be read."); return; }
+  restoreData(d);
+  dsModal.classList.remove('open');
+  showStatus('safety copy restored');
+});
+
+syncBtn.addEventListener('click', () => { fbRenderSheet(); fillSafetyList(); dsModal.classList.add('open'); });
 document.getElementById('dsClose').addEventListener('click', () => dsModal.classList.remove('open'));
 dsModal.addEventListener('click', (e) => { if(e.target === dsModal) dsModal.classList.remove('open'); });
 
@@ -4506,6 +4612,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('load', () => {
   window.scrollTo(0, 0);
   pullFromSync();
+  setTimeout(() => takeSafetyCopy('daily', 20 * 3600 * 1000), 3000);   // one automatic copy a day
 });
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ pullFromSync(); }

@@ -1148,6 +1148,10 @@
   .cars-stat.pos{ border-color: rgba(42,245,176,.5); } .cars-stat.pos b{ color: var(--success); }
   .cars-stat.neg{ border-color: rgba(255,79,121,.5); } .cars-stat.neg b{ color: var(--danger); }
   .car-add{ max-width: none; margin: 0 0 12px; }
+  .car-group{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 14px 0 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.18); }
+  .car-group-title{ font-size: 0.85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .car-group-info{ color: var(--text-dim); font-size: 0.85rem; }
+  .car-group-info.pos{ color: var(--success); } .car-group-info.neg{ color: var(--danger); }
   .car-card{ border: 1px solid var(--line); border-radius: 12px; background: var(--panel-solid); margin-bottom: 8px; overflow: hidden; }
   .car-head{ display: flex; align-items: center; gap: 8px; padding: 11px 12px; cursor: pointer; }
   .car-chev{ color: var(--text-dim); width: 12px; flex: none; }
@@ -3810,6 +3814,7 @@ function renderCarsPanel(cur){
   scroll.appendChild(totals);
 
   const summaries = {};   // vehicle id -> function that refreshes that card's numbers
+  const curInfo = el('span', 'car-group-info'), soldInfo = el('span', 'car-group-info');
   const updateAll = () => {
     const sold = cars.vehicles.filter(carSold);
     tSpent.textContent = carMoney(cars.vehicles.reduce((s, v) => s + carCost(v), 0));
@@ -3819,6 +3824,9 @@ function renderCarsPanel(cur){
     tProfitBox.classList.toggle('pos', profit > 0);
     tProfitBox.classList.toggle('neg', profit < 0);
     tCount.textContent = `${cars.vehicles.length} (${sold.length} sold)`;
+    curInfo.textContent = carMoney(cars.vehicles.filter(v => !carSold(v)).reduce((s, v) => s + carCost(v), 0)) + ' invested';
+    soldInfo.textContent = (profit >= 0 ? '+' : '') + carMoney(profit) + ' profit';
+    soldInfo.className = 'car-group-info ' + (profit > 0 ? 'pos' : profit < 0 ? 'neg' : '');
     Object.values(summaries).forEach(fn => fn());
   };
 
@@ -3839,8 +3847,9 @@ function renderCarsPanel(cur){
   form.append(nameIn, addBtn);
   scroll.appendChild(form);
 
-  // one card per vehicle
-  cars.vehicles.forEach(v => {
+  // one card per vehicle (shown under Current cars or Sold cars)
+  const renderCard = (v) => {
+    const wasSold = carSold(v);
     if(!Array.isArray(v.expenses)) v.expenses = [];
     const open = cur.openCar === v.id;
     const card = el('div', 'car-card' + (open ? ' open' : ''));
@@ -3871,10 +3880,11 @@ function renderCarsPanel(cur){
 
     if(open){
       const body = el('div', 'car-body');
-      const field = (label, value, onInput) => {
+      const field = (label, value, onInput, onCommit) => {
         const row = el('label', 'car-field'); row.appendChild(el('span', null, label));
         const inp = el('input'); inp.type = 'text'; inp.inputMode = 'decimal'; inp.placeholder = '0.00'; inp.autocomplete = 'off'; inp.value = value == null ? '' : value;
         inp.addEventListener('input', () => { onInput(inp.value); updateAll(); save(); });
+        if(onCommit) inp.addEventListener('change', onCommit);
         row.appendChild(inp); return row;
       };
       body.appendChild(field('Bought for (€)', v.bought, (x) => { v.bought = x; }));
@@ -3897,7 +3907,7 @@ function renderCarsPanel(cur){
         const rows = bizPanelEl.querySelectorAll('.car-card.open .car-exp'); const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
       body.appendChild(addEx);
 
-      body.appendChild(field('Sale price (€)', v.sold, (x) => { v.sold = x; }));
+      body.appendChild(field('Sale price (€)', v.sold, (x) => { v.sold = x; }, () => { if(carSold(v) !== wasSold){ saveTasks(); redraw(); } }));
 
       const sum = el('div', 'car-sum');
       const l1 = el('div'); l1.append(el('span', null, 'Total cost'), card._cost = el('b'));
@@ -3907,7 +3917,16 @@ function renderCarsPanel(cur){
     }
     refresh();
     scroll.appendChild(card);
-  });
+  };
+
+  const group = (title, list, infoEl) => {
+    const gh = el('div', 'car-group');
+    gh.append(el('span', 'car-group-title', `${title} (${list.length})`), infoEl);
+    scroll.appendChild(gh);
+    list.forEach(renderCard);
+  };
+  group('Current cars', cars.vehicles.filter(v => !carSold(v)), curInfo);
+  group('Sold cars', cars.vehicles.filter(carSold), soldInfo);
 
   // notes under everything
   const notesHead = el('div', 'car-sub notes-head', 'Notes');

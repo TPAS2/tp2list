@@ -15,7 +15,7 @@ Firebase rules (must include both):
 Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
 
 ## Structure
-Four swipeable pages, all sized the same: **List, Calendar, ETracker, Other**.
+Swipeable pages, all sized the same: **List, Calendar, ETracker**, plus **Business** and **Other** as full-page views opened from the nav buttons.
 Phone and desktop use the same layout: one page at a time with swipe/tap navigation (the old desktop two-column layout was removed).
 
 - **List**: task list (shows nothing when empty: no placeholder text or divider) → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
@@ -28,6 +28,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **Other**: full-page view. Back button + title are centred (no item count or divider line); the Shortcuts row, section labels and add-list box are centred too. Below: the "Shortcuts" row with SL (link to `stock/`) and 🎂 Birthdays as compact buttons side by side (phones too),
   then "Lists": your arbitrary lists as cards side by side in a horizontally scrolling, snap-scrolling row (always open, each with its own add box). Drag a list by its ⠿ handle to reorder
   (`startOtherDrag`; the row auto-scrolls when you hold near an edge); items inside a list also drag via ⠿. Each item has a ⇪ button that moves it to the main List (`moveOtherItemToMain`).
+- **Business** (nav button before Other, `#businessPage`): empty placeholder page for now (Back button + title); the user will say what it should do.
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming
   birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. On the day, it also shows at the top of the List page's Today widget (🎂, tick box); ticking sets `doneYear` so it hides until next year. Not a calendar event. The Other card shows the next one.
 - **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.

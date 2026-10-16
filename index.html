@@ -1121,7 +1121,8 @@
   #birthdaysPage .bday-list{ width: 100%; }
   #birthdaysPage .empty-row{ max-width: 480px; margin: 0 auto; }
   /* Other page: Back + title tight in the top-left, no item count or divider line */
-  #otherPage{ padding-top: 8px; }
+  #otherPage{ padding-top: 8px; padding-bottom: 14px; }
+  #otherPage.active{ display: flex; flex-direction: column; }
   #otherPage .restaurants-page-header{ border-bottom: 0; padding-bottom: 0; margin-bottom: 16px; justify-content: center; }
   /* centred: header, shortcuts, section labels and the add-list box */
   #otherPage .other-section-title{ text-align: center; }
@@ -1228,7 +1229,7 @@
   .sub-item .to-main:hover{ color: var(--accent2); }
   .other-text{
     width: 100%; box-sizing: border-box; resize: none; overflow-y: auto;
-    height: calc(5 * 1.7em + 4px);  /* 5 lines visible, scroll for the rest */
+    flex: 1; min-height: 0;  /* fills the card; scrolls inside when the list is longer */
     background: transparent; color: var(--text); border: 0; outline: none;
     font: inherit; font-size: 1rem; line-height: 1.7; padding: 2px 0;
   }
@@ -1261,11 +1262,12 @@
   .shortcuts .sl-link-arrow{ display: none; }
   /* Other lists: one card per list, side by side, swipe/scroll horizontally */
   #otherContainer{
-    display: flex; gap: 14px; overflow-x: auto; align-items: flex-start;
+    display: flex; gap: 14px; overflow-x: auto; align-items: stretch;
+    flex: 1; min-height: 280px;  /* the lists take all the page height left under the shortcuts */
     scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
     padding-bottom: 12px; margin: 0 -18px; padding-left: 18px; padding-right: 18px; scroll-padding-left: 18px;
   }
-  #otherContainer > .resto-card{ flex: 0 0 min(82%, 320px); scroll-snap-align: start; max-height: 70vh; overflow-y: auto; }
+  #otherContainer > .resto-card{ flex: 0 0 min(82%, 320px); scroll-snap-align: start; align-self: stretch; height: auto; }
   #otherContainer > .empty-row{ flex: 1; }
   button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
   .bday-badge{ flex-shrink: 0; font-size: 0.95rem; line-height: 1; }
@@ -3360,7 +3362,6 @@ function renderOther(){
     box.className = 'other-text';
     box.placeholder = 'One item per line…';
     box.spellcheck = false;
-    box.rows = 5;
     box.value = r.items.map(it => it.text).join('\n');
     let saveTimer = null;
     box.addEventListener('input', () => {

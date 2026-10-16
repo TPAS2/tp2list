@@ -1175,6 +1175,8 @@
   .car-sum{ display: flex; flex-direction: column; gap: 4px; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); }
   .car-sum div{ display: flex; justify-content: space-between; }
   .car-sum span{ color: var(--text-dim); }
+  .car-body textarea.car-vnotes{ display: block; width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.9rem; line-height: 1.55; padding: 8px 10px; outline: none; }
+  .car-body textarea.car-vnotes:focus{ border-color: var(--accent2); }
   .notes-head{ margin: 16px 0 6px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.18); }
   .car-notes{ display: block; width: 100%; box-sizing: border-box; min-height: 110px; resize: vertical; flex: none; overflow-y: auto; line-height: 1.6; font-size: 0.9rem; }
   @media (max-width: 520px){ .cars-totals{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -3809,24 +3811,27 @@ function renderCarsPanel(cur){
   // totals for all vehicles
   const totals = el('div', 'cars-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); const lab = el('small', null, label); const val = el('b', null, ''); box.append(lab, val); totals.appendChild(box); return val; };
-  const tSpent = stat('Total spent'), tSales = stat('Total sales'), tProfit = stat('Total profit'), tCount = stat('Vehicles');
+  const tSpent = stat('Total spent'), tSales = stat('Total sales'), tOther = stat('Other expenses'), tProfit = stat('Total profit');
   const tProfitBox = tProfit.parentElement;
   scroll.appendChild(totals);
 
   const summaries = {};   // vehicle id -> function that refreshes that card's numbers
-  const curInfo = el('span', 'car-group-info'), soldInfo = el('span', 'car-group-info');
+  const curInfo = el('span', 'car-group-info'), soldInfo = el('span', 'car-group-info'), otherInfo = el('span', 'car-group-info');
   const updateAll = () => {
     const sold = cars.vehicles.filter(carSold);
-    tSpent.textContent = carMoney(cars.vehicles.reduce((s, v) => s + carCost(v), 0));
+    const otherTotal = (cars.otherExpenses || []).reduce((s, e) => s + carNum(e.amount), 0);
+    tSpent.textContent = carMoney(cars.vehicles.reduce((s, v) => s + carCost(v), 0) + otherTotal);   // vehicle costs + other expenses
     tSales.textContent = carMoney(sold.reduce((s, v) => s + carNum(v.sold), 0));
-    const profit = sold.reduce((s, v) => s + carProfit(v), 0);
+    tOther.textContent = carMoney(otherTotal);
+    const carProfitSum = sold.reduce((s, v) => s + carProfit(v), 0);
+    const profit = carProfitSum - otherTotal;   // total profit = profit on sold cars minus the other expenses
     tProfit.textContent = carMoney(profit);
     tProfitBox.classList.toggle('pos', profit > 0);
     tProfitBox.classList.toggle('neg', profit < 0);
-    tCount.textContent = `${cars.vehicles.length} (${sold.length} sold)`;
+    otherInfo.textContent = carMoney(otherTotal);
     curInfo.textContent = carMoney(cars.vehicles.filter(v => !carSold(v)).reduce((s, v) => s + carCost(v), 0)) + ' invested';
-    soldInfo.textContent = (profit >= 0 ? '+' : '') + carMoney(profit) + ' profit';
-    soldInfo.className = 'car-group-info ' + (profit > 0 ? 'pos' : profit < 0 ? 'neg' : '');
+    soldInfo.textContent = (carProfitSum >= 0 ? '+' : '') + carMoney(carProfitSum) + ' profit';
+    soldInfo.className = 'car-group-info ' + (carProfitSum > 0 ? 'pos' : carProfitSum < 0 ? 'neg' : '');
     Object.values(summaries).forEach(fn => fn());
   };
 
@@ -3913,6 +3918,14 @@ function renderCarsPanel(cur){
       const l1 = el('div'); l1.append(el('span', null, 'Total cost'), card._cost = el('b'));
       const l2 = el('div'); l2.append(el('span', null, 'Profit'), card._profit = el('b'));
       sum.append(l1, l2); body.appendChild(sum);
+      // notes for this vehicle
+      body.appendChild(el('div', 'car-sub', 'Notes'));
+      const vn = el('textarea', 'car-vnotes');
+      vn.placeholder = 'Notes about this car…'; vn.spellcheck = false; vn.value = v.notes || '';
+      let vt = null;
+      vn.addEventListener('input', () => { v.notes = vn.value; clearTimeout(vt); vt = setTimeout(saveTasks, 400); });
+      vn.addEventListener('blur', () => { clearTimeout(vt); saveTasks(); });
+      body.appendChild(vn);
       card.appendChild(body);
     }
     refresh();
@@ -3927,6 +3940,33 @@ function renderCarsPanel(cur){
   };
   group('Current cars', cars.vehicles.filter(v => !carSold(v)), curInfo);
   group('Sold cars', cars.vehicles.filter(carSold), soldInfo);
+
+  // other expenses: costs that aren't tied to one car (fuel, adverts, insurance…)
+  if(!Array.isArray(cars.otherExpenses)) cars.otherExpenses = [];
+  const oh = el('div', 'car-group');
+  oh.append(el('span', 'car-group-title', `Other expenses (${cars.otherExpenses.length})`), otherInfo);
+  scroll.appendChild(oh);
+  const ocard = el('div', 'car-card'), obody = el('div', 'car-body');
+  const olist = el('div', 'car-exps');
+  cars.otherExpenses.forEach(ex => {
+    const row = el('div', 'car-exp');
+    const d = el('input'); d.type = 'text'; d.placeholder = 'What for…'; d.value = ex.desc || ''; d.autocomplete = 'off';
+    d.addEventListener('input', () => { ex.desc = d.value; save(); });
+    const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = ex.amount == null ? '' : ex.amount; a.autocomplete = 'off';
+    a.addEventListener('input', () => { ex.amount = a.value; updateAll(); save(); });
+    const x = el('button', 'car-del', '✕'); x.type = 'button';
+    x.onclick = () => { cars.otherExpenses = cars.otherExpenses.filter(e => e.id !== ex.id); saveTasks(); redraw(); };
+    row.append(d, a, x); olist.appendChild(row);
+  });
+  obody.appendChild(olist);
+  const oadd = el('button', 'car-add-exp', '+ Add expense'); oadd.type = 'button';
+  oadd.onclick = () => { cars.otherExpenses.push({ id: carUid(), desc: '', amount: '' }); saveTasks(); redraw();
+    const rows = bizPanelEl.querySelectorAll('.car-other .car-exp'); const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
+  obody.appendChild(oadd);
+  obody.style.borderTop = '0';
+  ocard.classList.add('car-other');
+  ocard.appendChild(obody);
+  scroll.appendChild(ocard);
 
   // notes under everything
   const notesHead = el('div', 'car-sub notes-head', 'Notes');

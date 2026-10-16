@@ -1142,45 +1142,49 @@
   .biz-choose small{ color: var(--text-dim); }
   .cars-wrap{ flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 2px; }
   .cars-totals{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
-  .cars-stat{ display: flex; flex-direction: column; gap: 2px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-solid); min-width: 0; }
-  .cars-stat small{ color: var(--text-dim); font-size: 0.7rem; letter-spacing: .04em; text-transform: uppercase; }
-  .cars-stat b{ font-size: 1.05rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cars-stat{ display: flex; flex-direction: column; gap: 2px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-solid); min-width: 0; }
+  .cars-stat small{ color: var(--text-dim); font-size: 0.62rem; letter-spacing: .04em; text-transform: uppercase; }
+  .cars-stat b{ font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .cars-stat.pos{ border-color: rgba(42,245,176,.5); } .cars-stat.pos b{ color: var(--success); }
   .cars-stat.neg{ border-color: rgba(255,79,121,.5); } .cars-stat.neg b{ color: var(--danger); }
-  .car-add{ max-width: none; margin: 0 0 12px; }
+  .car-add{ max-width: none; margin: 0 0 10px; }
+  .car-add input{ font-size: 0.85rem; padding: 7px 10px; }
+  .car-add .add{ font-size: 0.78rem; padding: 7px 14px; }
+  .biz-panel h3.compact{ font-size: 1.1rem; margin-bottom: 8px; padding-bottom: 8px; }
   .car-group{ display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 14px 0 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,.18); }
-  .car-group-title{ font-size: 0.85rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-  .car-group-info{ color: var(--text-dim); font-size: 0.85rem; }
+  .car-group-title{ font-size: 0.72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+  .car-group-info{ color: var(--text-dim); font-size: 0.74rem; }
   .car-group-info.pos{ color: var(--success); } .car-group-info.neg{ color: var(--danger); }
   .car-card{ border: 1px solid var(--line); border-radius: 12px; background: var(--panel-solid); margin-bottom: 8px; overflow: hidden; }
   .car-head{ display: flex; align-items: center; gap: 8px; padding: 11px 12px; cursor: pointer; }
   .car-chev{ color: var(--text-dim); width: 12px; flex: none; }
-  .car-name{ flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .car-status{ color: var(--text-dim); font-size: 0.85rem; white-space: nowrap; }
+  .car-name{ flex: 1; min-width: 0; font-size: 0.88rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .car-status{ color: var(--text-dim); font-size: 0.74rem; white-space: nowrap; }
   .car-status.pos, .car-sum .pos{ color: var(--success); font-weight: 700; }
   .car-status.neg, .car-sum .neg{ color: var(--danger); font-weight: 700; }
   .car-del{ background: none; border: 0; color: var(--text-faint); cursor: pointer; font-size: 0.95rem; padding: 2px 6px; }
   .car-del:hover{ color: var(--danger); }
   .car-body{ padding: 4px 12px 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
   .car-field{ display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
-  .car-field span{ color: var(--text-dim); font-size: 0.9rem; }
-  .car-body input, .car-notes{ background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.95rem; padding: 7px 10px; min-width: 0; outline: none; }
+  .car-field span{ color: var(--text-dim); font-size: 0.78rem; }
+  .car-body input, .car-notes{ background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.82rem; padding: 6px 9px; min-width: 0; outline: none; }
   .car-body input:focus{ border-color: var(--accent2); }
   .car-body .car-field input{ width: 150px; flex: none; text-align: right; }
-  .car-sub{ color: var(--text-dim); font-size: 0.78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+  .car-sub{ color: var(--text-dim); font-size: 0.68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
   .car-exp{ display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
   .car-exp input:first-child{ flex: 1; }
   .car-body .car-exp .amt{ width: 110px; text-align: right; flex: none; }
-  .car-add-exp{ align-self: flex-start; background: none; border: 1px dashed var(--line); border-radius: 8px; color: var(--accent2); font: inherit; font-size: 0.85rem; padding: 5px 12px; cursor: pointer; }
-  .car-sum{ display: flex; flex-direction: column; gap: 4px; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); }
+  .car-add-exp{ align-self: flex-start; background: none; border: 1px dashed var(--line); border-radius: 8px; color: var(--accent2); font: inherit; font-size: 0.76rem; padding: 4px 10px; cursor: pointer; }
+  .car-sum{ font-size: 0.84rem; display: flex; flex-direction: column; gap: 3px; padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--line); }
   .car-sum div{ display: flex; justify-content: space-between; }
   .car-sum span{ color: var(--text-dim); }
-  .car-body textarea.car-vnotes{ display: block; width: 100%; box-sizing: border-box; min-height: 84px; resize: vertical; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.9rem; line-height: 1.55; padding: 8px 10px; outline: none; }
+  .car-body textarea.car-vnotes{ display: block; width: 100%; box-sizing: border-box; min-height: 70px; resize: vertical; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.8rem; line-height: 1.5; padding: 8px 10px; outline: none; }
   .car-body textarea.car-vnotes:focus{ border-color: var(--accent2); }
+  .biz-panel textarea.car-notes{ font-size: 0.8rem; line-height: 1.5; }
   textarea.auto-grow{ overflow: hidden !important; resize: none !important; }
   .biz-panel textarea.biz-notes-text{ flex: none; min-height: 200px; }
   .notes-head{ margin: 16px 0 6px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.18); }
-  .car-notes{ display: block; width: 100%; box-sizing: border-box; min-height: 110px; resize: vertical; flex: none; overflow-y: auto; line-height: 1.6; font-size: 0.9rem; }
+  .car-notes{ display: block; width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical; flex: none; overflow-y: auto; line-height: 1.5; font-size: 0.8rem; }
   @media (max-width: 520px){ .cars-totals{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .sheet-bar{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
   .sheet-bar button{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 0.8rem; padding: 4px 10px; cursor: pointer; }
@@ -4016,7 +4020,7 @@ function renderBizPanel(cur){
     return;
   }
 
-  if(cur.type === 'cars'){ renderCarsPanel(cur); return; }
+  if(cur.type === 'cars'){ h.classList.add('compact'); renderCarsPanel(cur); return; }
 
   if(cur.type === 'notes'){
     const box = document.createElement('textarea');

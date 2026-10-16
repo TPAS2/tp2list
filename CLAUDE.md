@@ -25,7 +25,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
 - **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
-- **Other**: full-page view. Back button + title sit top-left (no item count or divider line). Below: the "Shortcuts" row with SL (link to `stock/`) and 🎂 Birthdays as compact buttons side by side (phones too),
+- **Other**: full-page view. Back button + title are centred (no item count or divider line); the Shortcuts row, section labels and add-list box are centred too. Below: the "Shortcuts" row with SL (link to `stock/`) and 🎂 Birthdays as compact buttons side by side (phones too),
   then "Lists": your arbitrary lists as cards side by side in a horizontally scrolling, snap-scrolling row (always open, each with its own add box). Drag a list by its ⠿ handle to reorder
   (`startOtherDrag`; the row auto-scrolls when you hold near an edge); items inside a list also drag via ⠿. Each item has a ⇪ button that moves it to the main List (`moveOtherItemToMain`).
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming

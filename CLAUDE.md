@@ -29,7 +29,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - **Stock / SL** (`stock/index.html`, the "SL" nav tab before Other): separate home-stock + shopping list app.
   Items have an emoji icon (auto-guessed from the name, or picked by hand), qty, low threshold (no category or unit fields in the editor);
   each item is at Home or Apartment; three tabs At Home / At Apartment / To Buy, set via the "List" dropdown in the editor (To Buy = qty 0; the item keeps its place for when it is restocked). No category filter chips. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),
-  printable QR labels per item. Stored in IndexedDB on the device; JSON export/import in the menu.
+  printable QR labels per item. Items show as a compact list (one row each: icon, name, LOW tag, − qty +). Stored in IndexedDB on the device; JSON export/import in the menu.
   **Sharing** is separate from TP2List's own sync code: "Share" gives a 6-character code, and other phones join by typing it.
   The code is remembered on each phone (`tp2stock:share:code`). The header button shows "Synced" (not the code) once joined; the code is shown inside the Share sheet. Backend is a Firebase Realtime Database
   (REST + EventSource, no SDK) at `/lists/<CODE>/{created,items/<id>,deleted/<id>}`, set via `SHARE_DB` in stock/index.html (project `tp2-list`, europe-west1).

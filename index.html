@@ -1134,8 +1134,25 @@
   #otherPage, #businessPage{ max-width: none; padding: 8px 12px 12px; }
   #otherPage.active, #businessPage.active{ display: flex; flex-direction: column; }
   /* Business: a blank panel per section, with a Google-Sheets-style tab strip along the bottom */
-  .biz-panel{ flex: 1; min-height: 200px; border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--panel); padding: 14px 18px; overflow-y: auto; }
-  .biz-panel h3{ margin: 0; font-size: 1.4rem; font-weight: 700; }
+  .biz-panel{ display: flex; flex-direction: column; flex: 1; min-height: 200px; border: 1px solid var(--line); border-bottom: 0; border-radius: 12px 12px 0 0; background: var(--panel); padding: 14px 18px; overflow-y: auto; }
+  .biz-panel h3{ margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,.18); font-size: 1.4rem; font-weight: 700; }
+  .biz-choose{ display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; max-width: 520px; }
+  .biz-choose button{ display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; padding: 14px; border: 1px solid var(--accent2); border-radius: 12px; background: linear-gradient(135deg, rgba(124,92,255,.3), rgba(34,224,255,.15)); color: var(--text); font: inherit; cursor: pointer; }
+  .biz-choose .ico{ font-size: 1.6rem; line-height: 1; }
+  .biz-choose small{ color: var(--text-dim); }
+  .sheet-bar{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .sheet-bar button{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 0.8rem; padding: 4px 10px; cursor: pointer; }
+  .sheet-bar button:disabled{ opacity: .35; cursor: default; }
+  .sheet-hint{ color: var(--text-faint); font-size: 0.72rem; margin-left: auto; }
+  @media (max-width: 520px){ .sheet-hint{ display: none; } }
+  .sheet-wrap{ flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
+  .sheet-grid{ border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+  .sheet-grid th{ position: sticky; top: 0; z-index: 2; background: var(--panel-solid); color: var(--text-dim); font-size: 0.72rem; font-weight: 600; padding: 4px 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .sheet-grid tbody th{ position: sticky; left: 0; top: auto; z-index: 1; min-width: 34px; text-align: center; }
+  .sheet-grid thead th:first-child{ left: 0; z-index: 3; }
+  .sheet-grid td{ padding: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .sheet-grid td input{ display: block; width: 110px; box-sizing: border-box; background: transparent; color: var(--text); border: 0; outline: none; font: inherit; font-size: 0.9rem; padding: 8px 8px; }
+  .sheet-grid td input:focus{ background: rgba(34,224,255,.1); box-shadow: inset 0 0 0 2px var(--accent2); }
   .sheet-tabs{
     display: flex; align-items: stretch; overflow-x: auto; -webkit-overflow-scrolling: touch;
     border: 1px solid var(--line); border-radius: 0 0 12px 12px; background: var(--panel-solid);
@@ -3683,6 +3700,143 @@ const bizPanelEl = document.getElementById('bizPanel');
 function closeSheetMenu(){ document.querySelectorAll('.sheet-menu').forEach(m => m.remove()); }
 document.addEventListener('click', (e) => { if(!e.target.closest('.sheet-menu, .tab-menu')) closeSheetMenu(); });
 
+/* --- spreadsheet sections: tab.sheet = { rows, cols, cells: { 'A1': 'text or =formula' } } --- */
+const colName = (i) => String.fromCharCode(65 + i);
+function newSheet(){ return { rows: 20, cols: 8, cells: {} }; }
+function refParts(ref){ const m = /^([A-Z])([0-9]{1,3})$/.exec(ref); return m ? { c: m[1].charCodeAt(0) - 65, r: +m[2] } : null; }
+// value of one cell: a number, or text; formulas are worked out here
+function sheetCell(sheet, ref, seen){
+  const raw = String(sheet.cells[ref] == null ? '' : sheet.cells[ref]).trim();
+  if(raw === '') return '';
+  if(raw[0] !== '='){ const n = Number(raw.replace(/,/g, '')); return raw !== '' && !isNaN(n) ? n : raw; }
+  if(seen.has(ref)) throw new Error('CIRC');
+  seen.add(ref);
+  let expr = raw.slice(1).toUpperCase();
+  const nums = (arg) => {
+    arg = arg.trim();
+    const range = /^([A-Z][0-9]{1,3}):([A-Z][0-9]{1,3})$/.exec(arg);
+    const out = [];
+    if(range){
+      const a = refParts(range[1]), b = refParts(range[2]);
+      for(let r = Math.min(a.r, b.r); r <= Math.max(a.r, b.r); r++)
+        for(let c = Math.min(a.c, b.c); c <= Math.max(a.c, b.c); c++){
+          const v = sheetCell(sheet, colName(c) + r, new Set(seen));
+          if(typeof v === 'number') out.push(v);
+        }
+    } else if(refParts(arg)){ const v = sheetCell(sheet, arg, new Set(seen)); if(typeof v === 'number') out.push(v); }
+    else if(arg !== '' && !isNaN(Number(arg))) out.push(Number(arg));
+    return out;
+  };
+  expr = expr.replace(/(SUM|AVERAGE|AVG|MIN|MAX|COUNT)\(([^)]*)\)/g, (_, fn, args) => {
+    const v = args.split(',').flatMap(nums);
+    if(fn === 'COUNT') return v.length;
+    if(!v.length) return 0;
+    if(fn === 'SUM') return v.reduce((x, y) => x + y, 0);
+    if(fn === 'MIN') return Math.min(...v);
+    if(fn === 'MAX') return Math.max(...v);
+    return v.reduce((x, y) => x + y, 0) / v.length;
+  });
+  expr = expr.replace(/\b([A-Z][0-9]{1,3})\b/g, (_, r) => { const v = sheetCell(sheet, r, new Set(seen)); return typeof v === 'number' ? '(' + v + ')' : '0'; });
+  if(!/^[0-9+\-*/().%\s]*$/.test(expr)) throw new Error('ERR');
+  const v = Function('"use strict";return (' + (expr || '0') + ')')();
+  if(typeof v !== 'number' || !isFinite(v)) throw new Error('ERR');
+  return Math.round(v * 1e10) / 1e10;
+}
+function sheetShown(sheet, ref){
+  try{ const v = sheetCell(sheet, ref, new Set()); return typeof v === 'number' ? String(v) : v; }
+  catch(e){ return e.message === 'CIRC' ? '#CIRC' : '#ERR'; }
+}
+
+function renderBizPanel(cur){
+  bizPanelEl.innerHTML = '';
+  if(!cur) return;
+  const h = document.createElement('h3');
+  h.textContent = cur.name;
+  bizPanelEl.appendChild(h);
+
+  if(!cur.type){
+    // not chosen yet: ask what kind of section this is
+    const ask = document.createElement('div');
+    ask.className = 'biz-choose';
+    const mk = (icon, title, text, type) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.innerHTML = `<span class="ico">${icon}</span><b>${title}</b><small>${text}</small>`;
+      b.onclick = () => { cur.type = type; if(type === 'sheet' && !cur.sheet) cur.sheet = newSheet(); renderBusiness(); saveTasks(); };
+      return b;
+    };
+    ask.append(mk('▦', 'Spreadsheet', 'Grid of cells with formulas, like Google Sheets', 'sheet'), mk('📝', 'Notes', 'A plain text page', 'notes'));
+    bizPanelEl.appendChild(ask);
+    return;
+  }
+
+  if(cur.type === 'notes'){
+    const box = document.createElement('textarea');
+    box.className = 'other-text';
+    box.placeholder = 'Type here…';
+    box.spellcheck = false;
+    box.value = cur.text || '';
+    let timer = null;
+    box.addEventListener('input', () => { cur.text = box.value; clearTimeout(timer); timer = setTimeout(saveTasks, 400); });
+    box.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); });
+    bizPanelEl.appendChild(box);
+    return;
+  }
+
+  // spreadsheet
+  if(!cur.sheet) cur.sheet = newSheet();
+  const sh = cur.sheet;
+  const bar = document.createElement('div');
+  bar.className = 'sheet-bar';
+  const btn = (text, fn, disabled) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.disabled = !!disabled; b.onclick = fn; bar.appendChild(b); };
+  btn('+ Row', () => { sh.rows = Math.min(200, sh.rows + 1); renderBizPanel(cur); saveTasks(); });
+  btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++) delete sh.cells[colName(c) + sh.rows]; sh.rows = Math.max(1, sh.rows - 1); renderBizPanel(cur); saveTasks(); } }, sh.rows <= 1);
+  btn('+ Column', () => { sh.cols = Math.min(26, sh.cols + 1); renderBizPanel(cur); saveTasks(); }, sh.cols >= 26);
+  btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++) delete sh.cells[colName(sh.cols - 1) + r]; sh.cols = Math.max(1, sh.cols - 1); renderBizPanel(cur); saveTasks(); } }, sh.cols <= 1);
+  const hint = document.createElement('span');
+  hint.className = 'sheet-hint';
+  hint.textContent = 'Formulas: =A1+B1, =SUM(A1:A5), =AVERAGE(…), MIN, MAX, COUNT';
+  bar.appendChild(hint);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'sheet-wrap';
+  const table = document.createElement('table');
+  table.className = 'sheet-grid';
+  const head = table.createTHead().insertRow();
+  head.appendChild(document.createElement('th'));
+  for(let c = 0; c < sh.cols; c++){ const th = document.createElement('th'); th.textContent = colName(c); head.appendChild(th); }
+  const body = table.createTBody();
+  const inputs = {};
+  const refresh = (except) => { for(const ref in inputs) if(inputs[ref] !== except) inputs[ref].value = sheetShown(sh, ref); };
+  for(let r = 1; r <= sh.rows; r++){
+    const tr = body.insertRow();
+    const rh = document.createElement('th'); rh.textContent = r; tr.appendChild(rh);
+    for(let c = 0; c < sh.cols; c++){
+      const ref = colName(c) + r;
+      const td = tr.insertCell();
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false;
+      inp.value = sheetShown(sh, ref);
+      inputs[ref] = inp;
+      let timer = null;
+      inp.addEventListener('focus', () => { inp.value = sh.cells[ref] == null ? '' : sh.cells[ref]; });   // show the formula while editing
+      inp.addEventListener('input', () => {
+        if(inp.value === '') delete sh.cells[ref]; else sh.cells[ref] = inp.value;
+        refresh(inp);
+        clearTimeout(timer); timer = setTimeout(saveTasks, 500);
+      });
+      inp.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); inp.value = sheetShown(sh, ref); });
+      inp.addEventListener('keydown', (e) => {
+        const move = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
+        if(move){ e.preventDefault(); const nxt = inputs[colName(c) + (r + move[0])]; if(nxt){ nxt.focus(); nxt.select(); } }
+      });
+      td.appendChild(inp);
+    }
+  }
+  wrap.appendChild(table);
+  bizPanelEl.append(bar, wrap);
+}
+
 function renderBusiness(){
   const tabs = data.businessTabs || [];
   if(!tabs.some(t => t.id === bizSel)){
@@ -3720,6 +3874,8 @@ function renderBusiness(){
       });
       if(i > 0) item('Move left', () => { tabs.splice(i, 1); tabs.splice(i - 1, 0, t); renderBusiness(); saveTasks(); });
       if(i < tabs.length - 1) item('Move right', () => { tabs.splice(i, 1); tabs.splice(i + 1, 0, t); renderBusiness(); saveTasks(); });
+      if(t.type === 'sheet') item('Switch to notes', () => { t.type = 'notes'; renderBusiness(); saveTasks(); });
+      else if(t.type === 'notes') item('Switch to spreadsheet', () => { t.type = 'sheet'; renderBusiness(); saveTasks(); });
       item('Delete', () => {
         if(!confirm(`Delete the section "${t.name}"?`)) return;
         data.businessTabs = tabs.filter(x => x.id !== t.id);
@@ -3734,9 +3890,7 @@ function renderBusiness(){
     tab.onclick = () => { bizSel = t.id; try{ localStorage.setItem(BIZ_SEL_KEY, t.id); }catch(e){} renderBusiness(); };
     bizTabsEl.appendChild(tab);
   });
-  const cur = tabs.find(t => t.id === bizSel);
-  bizPanelEl.innerHTML = '';
-  if(cur){ const h = document.createElement('h3'); h.textContent = cur.name; bizPanelEl.appendChild(h); }
+  renderBizPanel(tabs.find(t => t.id === bizSel));
   const selTab = bizTabsEl.querySelector('.sheet-tab.sel');
   if(selTab) selTab.scrollIntoView({ block: 'nearest', inline: 'nearest' });
 }

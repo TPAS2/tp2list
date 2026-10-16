@@ -1121,8 +1121,8 @@
   #birthdaysPage .bday-list{ width: 100%; }
   #birthdaysPage .empty-row{ max-width: 480px; margin: 0 auto; }
   /* Other page: Back + title tight in the top-left, no item count or divider line */
-  #otherPage, #businessPage{ padding-top: 8px; }
-  #otherPage .restaurants-page-header, #businessPage .restaurants-page-header{ border-bottom: 0; padding-bottom: 0; margin-bottom: 16px; justify-content: center; }
+  #otherPage{ padding-top: 8px; }
+  #otherPage .restaurants-page-header{ border-bottom: 0; padding-bottom: 0; margin-bottom: 16px; justify-content: center; }
   /* centred: header, shortcuts, section labels and the add-list box */
   #otherPage .other-section-title{ text-align: center; }
   #otherPage .shortcuts{ margin-left: auto; margin-right: auto; }
@@ -1564,7 +1564,6 @@
   <span class="page-dot active" data-page="0">List</span>
   <span class="page-dot" data-page="1">Calendar</span>
   <span class="page-dot" data-page="2">ETracker</span>
-  <button type="button" class="page-dot" id="businessNavBtn">Business</button>
   <button type="button" class="page-dot" id="otherNavBtn">Other</button>
 </div>
 
@@ -1685,13 +1684,6 @@
 
 </div>
 
-
-<div class="restaurants-page" id="businessPage">
-  <div class="restaurants-page-header">
-    <button type="button" class="back-btn" id="businessBackBtn">← Back</button>
-    <h2>Business</h2>
-  </div>
-</div>
 
 <div class="restaurants-page" id="otherPage">
   <div class="restaurants-page-header">
@@ -3699,8 +3691,7 @@ document.querySelector('#birthdayForm button.add').addEventListener('click', add
 /* ---------- dedicated full-page views (Other, Birthdays) ---------- */
 const otherPageEl = document.getElementById('otherPage');
 const birthdaysPageEl = document.getElementById('birthdaysPage');
-const businessPageEl = document.getElementById('businessPage');
-const allPages = [otherPageEl, birthdaysPageEl, businessPageEl];
+const allPages = [otherPageEl, birthdaysPageEl];
 
 function showPage(pageEl){
   allPages.forEach(p => p.classList.remove('active'));
@@ -3717,8 +3708,6 @@ function hideAllPages(){
 }
 document.getElementById('otherNavBtn').addEventListener('click', () => showPage(otherPageEl));
 document.getElementById('otherBackBtn').addEventListener('click', hideAllPages);
-document.getElementById('businessNavBtn').addEventListener('click', () => showPage(businessPageEl));
-document.getElementById('businessBackBtn').addEventListener('click', hideAllPages);
 document.getElementById('birthdaysNavBtn').addEventListener('click', () => { renderBirthdays(); showPage(birthdaysPageEl); });
 document.getElementById('birthdaysBackBtn').addEventListener('click', () => showPage(otherPageEl));
 

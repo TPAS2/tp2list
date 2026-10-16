@@ -18,15 +18,18 @@ Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
 Four swipeable pages, all sized the same: **List, Calendar, Expenses, Other**.
 Phone and desktop use the same layout: one page at a time with swipe/tap navigation (the old desktop two-column layout was removed).
 
-- **List**: task list → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
+- **List**: task list (shows nothing when empty: no placeholder text or divider) → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
   → Overdue (missed calendar items, red date badges, tap to jump to that date).
   Today/Overdue collapse to a bare `(0)` when empty.
 - **Calendar**: Monday-first month grid; one-off, recurring and multi-day events; notes via a highlighter-style tag;
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
 - **Expenses**: euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
-- **Other**: separate full-page view for arbitrary categorized lists.
-- **Stock / SL** (`stock/index.html`, the "SL" nav tab before Other): separate home-stock + shopping list app.
+- **Other**: full-page view in two parts. "Shortcuts": SL (link to `stock/`) and 🎂 Birthdays. "Lists": arbitrary categorized lists,
+  reorderable with ▲/▼ on each list (items inside a list still drag via ⠿).
+- **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'YYYY-MM-DD'}`): simple list sorted by next upcoming
+  birthday, showing date and "Today / Tomorrow / N days". The Other card shows the next one.
+- **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.
   Items have an emoji icon (auto-guessed from the name, or picked by hand), qty, low threshold (no category or unit fields in the editor);
   each item is at Home or Apartment; three tabs At Home / At Apartment / To Buy, set via the "List" dropdown in the editor (To Buy = qty 0; the item keeps its place for when it is restocked). No category filter chips. QR/barcode scan to find or add items (BarcodeDetector, falls back to vendored jsQR),
   printable QR labels per item. Items show as a compact list (one row each: icon, name, LOW tag, − qty +). Stored in IndexedDB on the device; JSON export/import in the menu.

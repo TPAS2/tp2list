@@ -484,7 +484,7 @@
     transition: background .15s ease, box-shadow .15s ease;
     min-height: 46px;
   }
-  #todayCalList, #overdueList2{ min-height: 0; }
+  #todayCalList, #overdueList2, #list-list{ min-height: 0; }
   .list.drop-hover{
     background: var(--panel);
     box-shadow: inset 0 0 0 1.5px dashed var(--accent2);
@@ -1208,6 +1208,37 @@
     flex-shrink:0;
   }
   .resto-card-head .del:hover{ color: var(--danger); }
+  .resto-card-head .move{
+    background: none; border: 1px solid var(--line); border-radius: 6px; color: var(--text-dim);
+    font-size: 0.75rem; line-height: 1; padding: 4px 6px; cursor: pointer; flex-shrink: 0;
+  }
+  .resto-card-head .move:disabled{ opacity: .25; cursor: default; }
+  .other-section-title{
+    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-dim); margin: 6px 0 10px;
+  }
+  .sl-link-card{
+    display: flex; align-items: center; gap: 12px; max-width: 480px; margin-bottom: 26px;
+    padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel);
+    color: var(--text); text-decoration: none;
+  }
+  button.sl-link-card{ width: 100%; font: inherit; text-align: left; cursor: pointer; }
+  .bday-list{ list-style: none; margin: 0; padding: 0; max-width: 480px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .bday-item{ display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .bday-item:last-child{ border-bottom: 0; }
+  .bday-item .bname{ flex: 1; min-width: 0; font-weight: 600; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bday-item .bdate{ color: var(--text-dim); font-size: 0.85rem; white-space: nowrap; }
+  .bday-item .bwhen{ font-size: 0.75rem; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(124,92,255,.18); white-space: nowrap; }
+  .bday-item.today .bwhen{ background: rgba(42,245,176,.9); color: #032; }
+  .bday-item .del{ background: none; border: none; color: var(--text-faint); cursor: pointer; font-size: 0.95rem; }
+  .bday-form{ flex-wrap: wrap; }
+  .bday-form input[type="text"]{ flex: 1 1 100%; min-width: 0; }
+  .bday-form input[type="date"]{ flex: 1 1 0; min-width: 0; }
+  .sl-link-card:active{ background: rgba(124,92,255,.18); }
+  .sl-link-icon{ font-size: 1.6rem; line-height: 1; }
+  .sl-link-text{ flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .sl-link-text small{ color: var(--text-dim); font-size: 0.8rem; }
+  .sl-link-arrow{ color: var(--text-dim); font-size: 1.4rem; }
 
   /* card/sub-item styles shared by Other and Calendar */
   .sub-add-row{
@@ -1484,7 +1515,6 @@
   <span class="page-dot active" data-page="0">List</span>
   <span class="page-dot" data-page="1">Calendar</span>
   <span class="page-dot" data-page="2">Expenses</span>
-  <a class="page-dot" href="stock/" title="Stock / shopping list" style="text-decoration:none">SL</a>
   <button type="button" class="page-dot" id="otherNavBtn">Other</button>
 </div>
 
@@ -1612,11 +1642,37 @@
     <h2>Other</h2>
     <span class="count" id="tally-other">0 items</span>
   </div>
+  <div class="other-section-title">Shortcuts</div>
+  <a class="sl-link-card" href="stock/" style="margin-bottom:10px">
+    <span class="sl-link-icon">🛒</span>
+    <span class="sl-link-text"><b>SL</b><small>Home stock &amp; shopping list</small></span>
+    <span class="sl-link-arrow">›</span>
+  </a>
+  <button type="button" class="sl-link-card" id="birthdaysNavBtn">
+    <span class="sl-link-icon">🎂</span>
+    <span class="sl-link-text"><b>Birthdays</b><small id="birthdaysNext">Upcoming first</small></span>
+    <span class="sl-link-arrow">›</span>
+  </button>
+  <div class="other-section-title">Lists</div>
   <form class="add-row restaurant-add" id="addOtherForm">
     <input type="text" id="otherInput" placeholder="Add a category…" autocomplete="off">
     <button type="button" class="add">Add</button>
   </form>
   <div class="resto-grid" id="otherContainer"></div>
+</div>
+
+<div class="restaurants-page" id="birthdaysPage">
+  <div class="restaurants-page-header">
+    <button type="button" class="back-btn" id="birthdaysBackBtn">← Back</button>
+    <h2>Birthdays</h2>
+    <span class="count" id="tally-birthdays">0</span>
+  </div>
+  <form class="add-row restaurant-add bday-form" id="birthdayForm">
+    <input type="text" id="birthdayName" placeholder="Name…" autocomplete="off">
+    <input type="date" id="birthdayDate" title="Birthday (year optional: any year works)">
+    <button type="button" class="add">Add</button>
+  </form>
+  <ul class="bday-list" id="birthdayList"></ul>
 </div>
 
 <div class="ds-modal" id="dataSyncModal">
@@ -1671,7 +1727,7 @@ if('scrollRestoration' in history){ history.scrollRestoration = 'manual'; }
 window.scrollTo(0, 0);
 
 const STORAGE_KEY = 'tpas2:tasks';
-let data = { list: [], calendar: {}, other: [], expenses: [], recurringEvents: [], spanEvents: [], ledger: [] };
+let data = { list: [], calendar: {}, other: [], expenses: [], recurringEvents: [], spanEvents: [], ledger: [], birthdays: [] };
 let undoStack = [];
 let lastSavedSnapshot = null;
 
@@ -1732,6 +1788,7 @@ async function loadTasks(){
   if(!data.recurringEvents) data.recurringEvents = [];
   if(!data.spanEvents) data.spanEvents = [];
   if(!data.ledger) data.ledger = [];
+  if(!Array.isArray(data.birthdays)) data.birthdays = [];
   // (the one-time ledger seed has been removed from source — it already ran once
   // and your existing data carries it forward via the flag below, so there's no
   // need to keep the real values sitting in a public file anymore)
@@ -1806,6 +1863,7 @@ function renderAll(){
     () => renderSection('list'),
     () => renderCalendar(),
     () => renderOther(),
+    () => renderBirthdays(),
     () => renderExpenses()
   ];
   steps.forEach(step => {
@@ -1820,13 +1878,7 @@ function renderSection(section){
   const open = tasks.filter(t => !t.done).length;
   tallyEls[section].textContent = `${tasks.length} total`;
 
-  if(tasks.length === 0){
-    const empty = document.createElement('div');
-    empty.className = 'empty-row';
-    empty.textContent = 'list is empty';
-    container.appendChild(empty);
-    return;
-  }
+  if(tasks.length === 0) return;  // an empty list shows nothing, not even a placeholder line
 
   tasks.forEach((t) => {
     const li = document.createElement('li');
@@ -3182,7 +3234,7 @@ function renderOther(){
     return;
   }
 
-  others.forEach(r => {
+  others.forEach((r, idx) => {
     const card = document.createElement('div');
     card.className = 'resto-card';
 
@@ -3204,7 +3256,19 @@ function renderOther(){
     del.textContent = '✕';
     del.onclick = () => removeOther(r.id);
 
+    // move the whole list up/down in the order
+    const up = document.createElement('button');
+    up.className = 'move'; up.textContent = '▲'; up.title = 'Move up';
+    up.disabled = idx === 0;
+    up.onclick = () => moveOther(idx, -1);
+    const down = document.createElement('button');
+    down.className = 'move'; down.textContent = '▼'; down.title = 'Move down';
+    down.disabled = idx === others.length - 1;
+    down.onclick = () => moveOther(idx, 1);
+
     head.appendChild(name);
+    head.appendChild(up);
+    head.appendChild(down);
     head.appendChild(del);
     card.appendChild(head);
 
@@ -3279,6 +3343,14 @@ function renderOther(){
 
     otherContainer.appendChild(card);
   });
+}
+
+function moveOther(idx, dir){
+  const to = idx + dir;
+  if(to < 0 || to >= data.other.length) return;
+  const [r] = data.other.splice(idx, 1);
+  data.other.splice(to, 0, r);
+  renderOther(); saveTasks();
 }
 
 function removeOther(id){
@@ -3458,9 +3530,79 @@ function onDragEnd(e){
   dragState = null;
 }
 
-/* ---------- dedicated full-page views (Other) ---------- */
+/* ---------- birthdays: { id, name, date: 'YYYY-MM-DD' }, listed soonest first ---------- */
+function nextBirthday(dateStr){
+  const [, m, d] = dateStr.split('-').map(Number);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  let next = new Date(today.getFullYear(), m - 1, d);
+  if(next < today) next = new Date(today.getFullYear() + 1, m - 1, d);
+  return { next, days: Math.round((next - today) / 86400000) };
+}
+function renderBirthdays(){
+  const listEl = document.getElementById('birthdayList');
+  const items = data.birthdays
+    .map(b => ({ b, ...nextBirthday(b.date) }))
+    .sort((a, z) => a.days - z.days || a.b.name.localeCompare(z.b.name));
+  document.getElementById('tally-birthdays').textContent = String(items.length);
+  const first = items[0];
+  document.getElementById('birthdaysNext').textContent = first
+    ? `Next: ${first.b.name} · ${first.days === 0 ? 'today 🎉' : first.days === 1 ? 'tomorrow' : 'in ' + first.days + ' days'}`
+    : 'Upcoming first';
+  listEl.innerHTML = '';
+  if(!items.length){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'no birthdays yet';
+    listEl.appendChild(empty);
+    return;
+  }
+  items.forEach(({ b, next, days }) => {
+    const li = document.createElement('li');
+    li.className = 'bday-item' + (days === 0 ? ' today' : '');
+    const name = document.createElement('span');
+    name.className = 'bname';
+    name.textContent = b.name;
+    name.onclick = () => startInlineEdit(name, b.name, (v) => {
+      if(v !== null && v.trim()){ b.name = v.trim(); saveTasks(); }
+      renderBirthdays();
+    });
+    const date = document.createElement('span');
+    date.className = 'bdate';
+    date.textContent = next.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const when = document.createElement('span');
+    when.className = 'bwhen';
+    when.textContent = days === 0 ? 'Today 🎉' : days === 1 ? 'Tomorrow' : `${days} days`;
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => {
+      data.birthdays = data.birthdays.filter(x => x.id !== b.id);
+      renderBirthdays(); saveTasks();
+      showStatus('removed');
+    };
+    li.append(name, date, when, del);
+    listEl.appendChild(li);
+  });
+}
+function addBirthday(){
+  const nameEl = document.getElementById('birthdayName');
+  const dateEl = document.getElementById('birthdayDate');
+  const name = nameEl.value.trim();
+  if(!name || !dateEl.value) return;
+  data.birthdays.push({ id: Date.now() + Math.random().toString(36).slice(2), name, date: dateEl.value });
+  nameEl.value = ''; dateEl.value = '';
+  renderBirthdays(); saveTasks();
+}
+document.getElementById('birthdayForm').addEventListener('submit', (e) => { e.preventDefault(); addBirthday(); });
+document.querySelector('#birthdayForm button.add').addEventListener('click', addBirthday);
+document.getElementById('birthdayName').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){ e.preventDefault(); addBirthday(); }
+});
+
+/* ---------- dedicated full-page views (Other, Birthdays) ---------- */
 const otherPageEl = document.getElementById('otherPage');
-const allPages = [otherPageEl];
+const birthdaysPageEl = document.getElementById('birthdaysPage');
+const allPages = [otherPageEl, birthdaysPageEl];
 
 function showPage(pageEl){
   allPages.forEach(p => p.classList.remove('active'));
@@ -3477,6 +3619,8 @@ function hideAllPages(){
 }
 document.getElementById('otherNavBtn').addEventListener('click', () => showPage(otherPageEl));
 document.getElementById('otherBackBtn').addEventListener('click', hideAllPages);
+document.getElementById('birthdaysNavBtn').addEventListener('click', () => { renderBirthdays(); showPage(birthdaysPageEl); });
+document.getElementById('birthdaysBackBtn').addEventListener('click', () => showPage(otherPageEl));
 
 /* ---------- sync button ---------- */
 const syncBtn = document.getElementById('syncBtn');
@@ -3620,7 +3764,7 @@ async function fbSync(){
         st.ts[k] = incoming[k].t;
       }
       // fill in anything older data may be missing, same defaults as loadTasks
-      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
       if(!data.calendar || typeof data.calendar !== 'object') data.calendar = {};
       data.updatedAt = now;
       try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}

@@ -291,10 +291,12 @@
     margin-top: 4px;
   }
   .header-right .save-badge{ margin-top: 0; }
-  /* phones: the extra theme button needs room, so the Saved badge shows just its dot, and very narrow screens wrap */
+  /* phones: tighter gaps, the header wraps when it can't fit, and on very narrow screens the Saved badge shows just its dot */
   @media (max-width: 480px){
     .header-row{ flex-wrap: wrap; row-gap: 6px; }
     .header-right{ gap: 6px; }
+  }
+  @media (max-width: 389px){
     #saveBadgeText{ display: none; }
     .header-right .save-badge{ padding: 8px; gap: 0; }
   }
@@ -1249,6 +1251,8 @@
   }
   .sheet-add{ flex: none; background: none; border: 0; border-right: 1px solid var(--line); color: var(--text-dim); font-size: 1.4rem; padding: 0 14px; cursor: pointer; }
   .sheet-tab{ flex: none; display: flex; align-items: center; gap: 8px; padding: 11px 6px 11px 16px; color: var(--text-dim); font-weight: 600; cursor: pointer; white-space: nowrap; border-bottom: 3px solid transparent; }
+  .sheet-tab{ user-select: none; -webkit-user-select: none; }
+  .sheet-tab.dragging-tab{ opacity: .6; box-shadow: inset 0 0 0 1px var(--accent2); }
   .sheet-tab.sel{ color: var(--accent2); background: rgba(34,224,255,.1); border-bottom-color: var(--accent2); }
   .sheet-tab .tab-menu{ background: none; border: 0; color: inherit; font-size: 0.8rem; padding: 4px 8px; cursor: pointer; }
   .sheet-menu{ position: fixed; z-index: 60; min-width: 150px; background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; padding: 4px; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
@@ -1642,7 +1646,6 @@
       </div>
       <div class="header-right">
         <button type="button" class="undo-btn" id="undoBtn" title="Undo last change" disabled>↩</button>
-        <button type="button" class="sync-refresh-btn" id="syncRefreshBtn" title="Refresh sync">↻</button>
         <button type="button" class="sync-refresh-btn theme-btn" id="themeBtn" title="Switch light / dark mode">☀</button>
         <button type="button" class="sync-btn" id="syncBtn">🔄 Sync</button>
         <button type="button" class="save-badge" id="saveBadge"><span class="dot"></span><span id="saveBadgeText">Saved</span></button>
@@ -4150,6 +4153,64 @@ function renderBizPanel(cur){
   bizPanelEl.append(bar, wrap);
 }
 
+/* drag a tab sideways to reorder: mouse = drag after a few pixels, touch = press and hold, then drag */
+let bizJustDragged = false;
+function startBizTabDrag(e, tabEl){
+  if(e.target.closest('.tab-menu')) return;
+  if(e.pointerType === 'mouse' && e.button !== 0) return;
+  const isMouse = e.pointerType === 'mouse';
+  const startX = e.clientX, startY = e.clientY;
+  let dragging = false, timer = null;
+  const stopTouchScroll = (ev) => { if(dragging) ev.preventDefault(); };
+  const begin = () => {
+    dragging = true;
+    tabEl.classList.add('dragging-tab');
+    if(navigator.vibrate) navigator.vibrate(10);
+  };
+  const cleanup = () => {
+    clearTimeout(timer);
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    window.removeEventListener('touchmove', stopTouchScroll);
+  };
+  const move = (ev) => {
+    if(!dragging){
+      const far = Math.abs(ev.clientX - startX) > (isMouse ? 5 : 10) || Math.abs(ev.clientY - startY) > 10;
+      if(!far) return;
+      if(isMouse) begin(); else { cleanup(); return; }   // touch moved before the hold finished: it's a normal scroll
+    }
+    ev.preventDefault();
+    const sr = bizTabsEl.getBoundingClientRect();
+    if(ev.clientX < sr.left + 44) bizTabsEl.scrollLeft -= 12;
+    else if(ev.clientX > sr.right - 44) bizTabsEl.scrollLeft += 12;
+    const over = document.elementFromPoint(ev.clientX, ev.clientY);
+    const target = over && over.closest('#bizTabs .sheet-tab');
+    if(!target || target === tabEl) return;
+    const all = [...bizTabsEl.querySelectorAll('.sheet-tab')];
+    bizTabsEl.insertBefore(tabEl, all.indexOf(target) > all.indexOf(tabEl) ? target.nextSibling : target);
+  };
+  const up = () => {
+    const wasDragging = dragging;
+    cleanup();
+    if(!wasDragging) return;
+    tabEl.classList.remove('dragging-tab');
+    bizJustDragged = true;
+    setTimeout(() => { bizJustDragged = false; }, 60);
+    const order = [...bizTabsEl.querySelectorAll('.sheet-tab')].map(el => el.dataset.id);
+    if(order.join() !== data.businessTabs.map(x => x.id).join()){
+      data.businessTabs.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      saveTasks();
+    }
+    renderBusiness();
+  };
+  if(!isMouse) timer = setTimeout(begin, 320);
+  window.addEventListener('pointermove', move, { passive: false });
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
+  window.addEventListener('touchmove', stopTouchScroll, { passive: false });
+}
+
 function renderBusiness(){
   const tabs = data.businessTabs || [];
   // Section 2 is the car reselling tracker unless it was set up as something else (also covers synced older data)
@@ -4203,7 +4264,9 @@ function renderBusiness(){
       menu.style.top = Math.max(8, r.top - menu.offsetHeight - 6) + 'px';
     };
     tab.append(label, arrow);
-    tab.onclick = () => { bizSel = t.id; try{ localStorage.setItem(BIZ_SEL_KEY, t.id); }catch(e){} renderBusiness(); };
+    tab.dataset.id = t.id;
+    tab.addEventListener('pointerdown', (e) => startBizTabDrag(e, tab));
+    tab.onclick = () => { if(bizJustDragged) return; bizSel = t.id; try{ localStorage.setItem(BIZ_SEL_KEY, t.id); }catch(e){} renderBusiness(); };
     bizTabsEl.appendChild(tab);
   });
   renderBizPanel(tabs.find(t => t.id === bizSel));
@@ -4257,17 +4320,6 @@ function setSyncBtnState(state){
     syncBtn.textContent = '🔄 Sync';
   }
 }
-
-const syncRefreshBtn = document.getElementById('syncRefreshBtn');
-syncRefreshBtn.addEventListener('click', async () => {
-  if(!fbCode()){
-    showStatus('sync not set up yet — tap Sync first');
-    return;
-  }
-  syncRefreshBtn.classList.add('spinning');
-  await pullFromSync();
-  syncRefreshBtn.classList.remove('spinning');
-});
 
 /* ---------- device sync via Firebase (the Sync button) ----------
    Laptop and phone share a sync code. Data lives at /sync/<CODE>/sections/<name> = { v: JSON text, t: time },

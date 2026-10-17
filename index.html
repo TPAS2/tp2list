@@ -1242,8 +1242,8 @@
   .sheet-grid th{ position: sticky; top: 0; z-index: 2; background: var(--panel-solid); color: var(--text-dim); font-size: 0.72rem; font-weight: 600; padding: 4px 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .sheet-grid tbody th{ position: sticky; left: 0; top: auto; z-index: 1; min-width: 34px; text-align: center; }
   .sheet-grid thead th:first-child{ left: 0; z-index: 3; }
-  .sheet-grid td{ padding: 0; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .sheet-grid td input{ display: block; width: 110px; box-sizing: border-box; background: transparent; color: var(--text); border: 0; outline: none; font: inherit; font-size: 0.9rem; padding: 8px 8px; }
+  .sheet-grid td{ padding: 0; min-width: 110px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .sheet-grid td input{ display: block; width: 100%; min-width: 110px; border-radius: 0; box-sizing: border-box; background: transparent; color: var(--text); border: 0; outline: none; font: inherit; font-size: 0.9rem; padding: 8px 8px; }
   .sheet-grid td input:focus{ background: rgba(34,224,255,.1); box-shadow: inset 0 0 0 2px var(--accent2); }
   .sheet-tabs{
     display: flex; align-items: stretch; overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -1350,6 +1350,13 @@
   .notes-title{ flex: 1; min-width: 0; margin: 0; font-size: 1.5rem; font-weight: 700; cursor: text; word-break: break-word; }
   .notes-main-head .del{ background: none; border: none; color: var(--text-faint); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
   .notes-main-head .del:hover{ color: var(--danger); }
+  .notes-photos{ display: flex; gap: 8px; overflow-x: auto; padding: 2px 0 12px; }
+  .notes-photos .photo{ position: relative; flex: none; }
+  .notes-photos img{ display: block; height: 104px; width: auto; max-width: 70vw; border-radius: 10px; border: 1px solid var(--line); cursor: zoom-in; }
+  .photo-x{ position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: .7rem; cursor: pointer; line-height: 1; }
+  .notes-main-head .cam-btn{ font-size: 1.05rem; }
+  .lightbox{ position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; cursor: zoom-out; }
+  .lightbox img{ max-width: 96vw; max-height: 94vh; border-radius: 8px; }
   .notes-back{ background: none; border: none; color: var(--accent2); font: inherit; cursor: pointer; padding: 4px 6px 4px 0; }
   .other-text{
     flex: 1; min-height: 0; width: 100%; box-sizing: border-box; resize: none; overflow-y: auto;
@@ -3424,7 +3431,46 @@ function setOtherSel(id){
 }
 function otherPreview(r){
   const first = r.items.find(it => it.text.trim());
-  return first ? first.text.trim() : '';
+  const n = (r.images || []).length;
+  return (n ? '📷 ' + n + (first ? '  ' : '') : '') + (first ? first.text.trim() : '');
+}
+
+/* photos on a list: pasted (or added with the 📷 button), shrunk to fit, kept in r.images = [{ id, img: dataURL }] and synced */
+async function shrinkImage(file, maxDim, quality){
+  let bmp;
+  if(window.createImageBitmap){ bmp = await createImageBitmap(file); }
+  else {
+    bmp = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = URL.createObjectURL(file); });
+  }
+  const w = bmp.width || bmp.naturalWidth, h = bmp.height || bmp.naturalHeight;
+  const k = Math.min(1, maxDim / Math.max(w, h));
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);   // transparent PNGs get a white background
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', quality);
+}
+async function addListPhotos(r, files){
+  let added = 0;
+  for(const f of files){
+    if(!f.type || !f.type.startsWith('image/')) continue;
+    let img;
+    try{ img = await shrinkImage(f, 1200, 0.75); if(img.length > 450000) img = await shrinkImage(f, 900, 0.6); }
+    catch(e){ alert("Couldn't read that image."); continue; }
+    if(JSON.stringify(data).length + img.length > 4200000){ alert('Storage is nearly full, so this photo was not added. Remove some photos first.'); break; }
+    (r.images || (r.images = [])).push({ id: Date.now() + Math.random().toString(36).slice(2), img });
+    added++;
+  }
+  if(added){ saveTasks(); renderOther(); showStatus(added === 1 ? 'photo added' : added + ' photos added'); }
+}
+function openLightbox(src){
+  const o = document.createElement('div');
+  o.className = 'lightbox';
+  const im = document.createElement('img'); im.src = src;
+  o.appendChild(im);
+  o.onclick = () => o.remove();
+  document.body.appendChild(o);
 }
 
 function renderOther(){
@@ -3493,7 +3539,29 @@ function renderOtherDetail(){
   del.textContent = '✕';
   del.title = 'Delete this list';
   del.onclick = () => removeOther(r.id);
-  head.append(back, title, del);
+  const cam = document.createElement('button');
+  cam.type = 'button';
+  cam.className = 'del cam-btn';
+  cam.textContent = '📷';
+  cam.title = 'Add a photo (you can also paste one into the text)';
+  const camFile = document.createElement('input');
+  camFile.type = 'file'; camFile.accept = 'image/*'; camFile.multiple = true; camFile.hidden = true;
+  cam.onclick = () => camFile.click();
+  camFile.onchange = () => { const fs = [...camFile.files]; camFile.value = ''; addListPhotos(r, fs); };
+  head.append(back, title, cam, camFile, del);
+
+  // photos above the text
+  const strip = document.createElement('div');
+  strip.className = 'notes-photos';
+  (r.images || []).forEach(im => {
+    const wrap = document.createElement('div');
+    wrap.className = 'photo';
+    const pic = document.createElement('img'); pic.src = im.img; pic.alt = 'photo';
+    pic.onclick = () => openLightbox(im.img);
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'photo-x'; x.textContent = '✕'; x.title = 'Remove this photo';
+    x.onclick = (e) => { e.stopPropagation(); if(confirm('Remove this photo?')){ r.images = r.images.filter(i => i.id !== im.id); saveTasks(); renderOther(); } };
+    wrap.append(pic, x); strip.appendChild(wrap);
+  });
 
   const box = document.createElement('textarea');
   box.className = 'other-text';
@@ -3516,7 +3584,15 @@ function renderOtherDetail(){
     saveTimer = setTimeout(saveTasks, 400);
   });
   box.addEventListener('blur', () => { clearTimeout(saveTimer); saveTasks(); });
-  otherDetail.append(head, box);
+  box.addEventListener('paste', (e) => {
+    const files = [...((e.clipboardData && e.clipboardData.files) || [])].filter(f => f.type && f.type.startsWith('image/'));
+    if(!files.length) return;
+    e.preventDefault();
+    addListPhotos(r, files);
+  });
+  otherDetail.append(head);
+  if((r.images || []).length) otherDetail.append(strip);
+  otherDetail.append(box);
 }
 
 /* drag a list by its ⠿ handle to reorder the names; the new order is saved on release */
@@ -4509,7 +4585,7 @@ function takeSafetyCopy(reason, minGapMs){
   const list = readSafety();
   const last = [...list].reverse().find(c => c.reason === reason);
   if(minGapMs && last && Date.now() - last.t < minGapMs) return;
-  const json = JSON.stringify(data);
+  const json = JSON.stringify(data, (k, v) => (k === 'img' && typeof v === 'string' && v.startsWith('data:')) ? '' : v);   // photos are left out so copies stay small
   if(list.length && list[list.length - 1].json === json) return;
   list.push({ t: Date.now(), reason, json });
   while(list.length > 8) list.shift();

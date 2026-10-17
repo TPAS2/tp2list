@@ -1250,6 +1250,10 @@
   .sheet-grid th.sel{ background: rgba(34,224,255,.24); color: var(--text); }
   .sheet-grid td input.cached-val{ font-style: italic; }
   .sheet-grid th{ cursor: pointer; }
+  .rz{ position: absolute; z-index: 4; touch-action: none; }
+  .rz-x{ top: 0; right: -5px; width: 12px; height: 100%; cursor: col-resize; }
+  .rz-y{ left: 0; bottom: -5px; height: 12px; width: 100%; cursor: row-resize; }
+  .rz:hover, .rz:active{ background: var(--accent2); opacity: .5; }
   .sheet-bar{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
   .sheet-bar button{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 0.8rem; padding: 4px 10px; cursor: pointer; }
   .sheet-bar button:disabled{ opacity: .35; cursor: default; }
@@ -4910,6 +4914,33 @@ function renderBizPanel(cur){
   };
   const setSel = (r1, c1, r2, c2) => { sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
 
+  // column widths / row heights: sh.colW[c], sh.rowH[r] in px (drag the edge of a header; double-click resets)
+  const applyColW = (c, w) => {
+    const v = w ? w + 'px' : '';
+    colTh[c].style.minWidth = v; colTh[c].style.width = v;
+    for(let r = 1; r <= sh.rows; r++){ const i = inputs[colName(c) + r]; if(!i) continue; i.style.minWidth = v; i.parentNode.style.minWidth = v; i.parentNode.style.width = v; }
+  };
+  const applyRowH = (r, h) => {
+    const v = h ? h + 'px' : '';
+    rowTh[r].style.height = v;
+    for(let c = 0; c < sh.cols; c++){ const i = inputs[colName(c) + r]; if(i) i.style.height = v; }
+  };
+  const grip = (cls, th, getCur, set, axis) => {
+    const g = mk('span', 'rz ' + cls);
+    g.onclick = ev => ev.stopPropagation();
+    g.ondblclick = ev => { ev.stopPropagation(); set(0); saveTasks(); };
+    g.onpointerdown = ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      g.setPointerCapture(ev.pointerId);
+      const start = axis === 'x' ? ev.clientX : ev.clientY, base = getCur();
+      g.onpointermove = e => set(Math.max(axis === 'x' ? 40 : 24, Math.min(axis === 'x' ? 600 : 400, Math.round(base + (axis === 'x' ? e.clientX : e.clientY) - start))));
+      g.onpointerup = g.onpointercancel = () => { g.onpointermove = g.onpointerup = g.onpointercancel = null; saveTasks(); };
+    };
+    th.appendChild(g);
+  };
+  const setColW = (c, w) => { sh.colW = sh.colW || {}; if(w) sh.colW[c] = w; else delete sh.colW[c]; if(!Object.keys(sh.colW).length) delete sh.colW; applyColW(c, w); };
+  const setRowH = (r, h) => { sh.rowH = sh.rowH || {}; if(h) sh.rowH[r] = h; else delete sh.rowH[r]; if(!Object.keys(sh.rowH).length) delete sh.rowH; applyRowH(r, h); };
+
   const wrap = mk('div', 'sheet-wrap');
   const table = mk('table', 'sheet-grid');
   const head = table.createTHead().insertRow();
@@ -4918,6 +4949,7 @@ function renderBizPanel(cur){
   for(let c = 0; c < sh.cols; c++){
     const th = mk('th', null, colName(c)); colTh[c] = th;
     th.onclick = () => { anchor = { r: 1, c }; setSel(1, c, sh.rows, c); if(document.activeElement) document.activeElement.blur(); };
+    grip('rz-x', th, () => th.offsetWidth, w => setColW(c, w), 'x');
     head.appendChild(th);
   }
   const body = table.createTBody();
@@ -4925,6 +4957,7 @@ function renderBizPanel(cur){
     const tr = body.insertRow();
     const rh = mk('th', null, String(r)); rowTh[r] = rh;
     rh.onclick = () => { anchor = { r, c: 0 }; setSel(r, 0, r, sh.cols - 1); if(document.activeElement) document.activeElement.blur(); };
+    grip('rz-y', rh, () => rh.offsetHeight, h => setRowH(r, h), 'y');
     tr.appendChild(rh);
     for(let c = 0; c < sh.cols; c++){
       const ref = colName(c) + r;
@@ -4969,6 +5002,8 @@ function renderBizPanel(cur){
   }
   { const memo = new Map(); for(const ref in inputs) showCell(ref, sheetShownInfo(sh, ref, memo)); }
   wrap.appendChild(table);
+  if(sh.colW) for(const c in sh.colW) if(colTh[c]) applyColW(+c, sh.colW[c]);
+  if(sh.rowH) for(const r in sh.rowH) if(rowTh[r]) applyRowH(+r, sh.rowH[r]);
   bizPanelEl.append(bar, fbar, wrap);
   updateBar();
 }

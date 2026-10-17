@@ -1884,6 +1884,7 @@
     <div class="ds-backup">
       <div class="ds-or">Backup</div>
       <div class="ds-actions">
+        <button type="button" class="ds-btn" id="dsBackupNow">Backup now</button>
         <button type="button" class="ds-btn" id="dsExport">Download backup</button>
         <button type="button" class="ds-btn" id="dsImport">Restore from file…</button>
         <input type="file" id="dsFile" accept=".json,application/json" hidden>
@@ -5369,7 +5370,7 @@ function fbRenderSheet(){
 }
 /* ---------- backups and safety copies ---------- */
 const SAFETY_KEY = 'tpas2:safety';
-const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', 'before paste': 'before a spreadsheet paste' };
+const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', manual: 'backup now', 'before paste': 'before a spreadsheet paste' };
 function readSafety(){ try{ const l = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
 function writeSafety(list){
   while(list.length){ try{ localStorage.setItem(SAFETY_KEY, JSON.stringify(list)); return; }catch(e){ list.shift(); } }   // storage full: drop the oldest until it fits
@@ -5414,6 +5415,12 @@ function fillSafetyList(){
   let last = ''; try{ last = localStorage.getItem('tpas2:lastBackup') || ''; }catch(e){}
   document.getElementById('dsBackupInfo').textContent = last ? 'Last backup downloaded: ' + new Date(+last).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No backup downloaded yet.';
 }
+document.getElementById('dsBackupNow').addEventListener('click', (e) => {
+  const b = e.currentTarget;
+  if(!dataHasContent(data)){ b.textContent = 'Nothing to back up'; }
+  else { takeSafetyCopy('manual'); fillSafetyList(); b.textContent = 'Saved ✓'; }
+  setTimeout(() => { b.textContent = 'Backup now'; }, 1800);
+});
 document.getElementById('dsExport').addEventListener('click', () => {
   const payload = { app: 'tp2list', version: 1, exportedAt: new Date().toISOString(), data };
   const blob = new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' });

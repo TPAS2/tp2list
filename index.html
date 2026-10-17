@@ -4993,6 +4993,27 @@ function renderBizPanel(cur){
         refresh(inp);
         clearTimeout(timer); timer = setTimeout(saveTasks, 500);
       });
+      inp.addEventListener('paste', (e) => {   // paste a block copied from Google Sheets / Excel (tab-separated) into the grid
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        if(!/[\t\n]/.test(text.replace(/\r?\n$/, ''))) return;   // a single value: normal paste
+        e.preventDefault();
+        const rows = parseDelimited(text, '\t');
+        while(rows.length > 1 && rows[rows.length - 1].every(v => v === '')) rows.pop();
+        const r0 = sel ? sel.r1 : r, c0 = sel ? sel.c1 : c;
+        let cut = false;
+        takeSafetyCopy('before paste');
+        rows.forEach((cells, i) => cells.forEach((v, j) => {
+          const rr = r0 + i, cc = c0 + j;
+          if(rr > SHEET_MAX_ROWS || cc >= SHEET_MAX_COLS){ cut = true; return; }
+          const k = colName(cc) + rr;
+          if(v === '') delete sh.cells[k]; else sh.cells[k] = v;
+          if(sh.cache) delete sh.cache[k];
+          sh.rows = Math.max(sh.rows, rr); sh.cols = Math.max(sh.cols, cc + 1);
+        }));
+        saveTasks();
+        renderBizPanel(cur);
+        if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
+      });
       inp.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
       inp.addEventListener('keydown', (e) => {
         const move = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
@@ -5348,7 +5369,7 @@ function fbRenderSheet(){
 }
 /* ---------- backups and safety copies ---------- */
 const SAFETY_KEY = 'tpas2:safety';
-const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import' };
+const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', 'before paste': 'before a spreadsheet paste' };
 function readSafety(){ try{ const l = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
 function writeSafety(list){
   while(list.length){ try{ localStorage.setItem(SAFETY_KEY, JSON.stringify(list)); return; }catch(e){ list.shift(); } }   // storage full: drop the oldest until it fits

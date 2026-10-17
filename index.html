@@ -1232,6 +1232,24 @@
   .notes-head{ margin: 18px 0 6px; padding-top: 0; border-top: 0; }
   .car-notes{ display: block; width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical; flex: none; overflow-y: auto; line-height: 1.5; font-size: 0.8rem; }
   @media (max-width: 520px){ .cars-totals{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .biz-head{ display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--divider); }
+  .biz-head h3{ margin: 0; padding: 0; border: 0; flex: 1; min-width: 0; }
+  .sheet-io{ display: flex; gap: 6px; flex: none; }
+  .sheet-mini{ background: var(--fill); border: 0; border-radius: 8px; color: var(--text); font: inherit; font-size: .74rem; font-weight: 600; padding: 5px 9px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; }
+  .sheet-mini:hover{ box-shadow: inset 0 0 0 1px var(--accent2); }
+  .fmt-btn{ min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: .82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+  .fmt-btn.on{ background: rgba(34,224,255,.18); border-color: var(--accent2); }
+  .fmt-sep{ width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
+  .fmt-size{ min-width: 24px; text-align: center; font-size: .82rem; }
+  .swatch{ width: 14px; height: 14px; border-radius: 3px; border: 1px solid var(--line); display: inline-block; }
+  .fmt-a{ font-weight: 700; border-bottom: 3px solid var(--text); line-height: 1; }
+  .palette{ display: grid; grid-template-columns: repeat(10, 22px); gap: 4px; padding: 8px; }
+  .palette .chip{ width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(128,128,128,.45); cursor: pointer; padding: 0; }
+  .palette-actions{ display: flex; gap: 6px; padding: 0 8px 8px; }
+  .sheet-grid td.sel input{ background: rgba(34,224,255,.13); }
+  .sheet-grid th.sel{ background: rgba(34,224,255,.24); color: var(--text); }
+  .sheet-grid td input.cached-val{ font-style: italic; }
+  .sheet-grid th{ cursor: pointer; }
   .sheet-bar{ display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
   .sheet-bar button{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 0.8rem; padding: 4px 10px; cursor: pointer; }
   .sheet-bar button:disabled{ opacity: .35; cursor: default; }
@@ -3887,53 +3905,610 @@ let bizSel = (() => { try{ return localStorage.getItem(BIZ_SEL_KEY) || ''; }catc
 const bizTabsEl = document.getElementById('bizTabs');
 const bizPanelEl = document.getElementById('bizPanel');
 function closeSheetMenu(){ document.querySelectorAll('.sheet-menu').forEach(m => m.remove()); }
-document.addEventListener('click', (e) => { if(!e.target.closest('.sheet-menu, .tab-menu')) closeSheetMenu(); });
+document.addEventListener('click', (e) => { if(!e.target.closest('.sheet-menu, .tab-menu, .fmt-pop-btn')) closeSheetMenu(); });
 
-/* --- spreadsheet sections: tab.sheet = { rows, cols, cells: { 'A1': 'text or =formula' } } --- */
-const colName = (i) => String.fromCharCode(65 + i);
+/* --- spreadsheet sections: tab.sheet = { rows, cols, cells: { 'A1': 'text or =formula' }, cache?: { 'B2': value } }
+   `cache` keeps the value a file import carried for formulas this app can't work out itself (VLOOKUP, other sheets…), so they still show. --- */
+const SHEET_MAX_ROWS = 500, SHEET_MAX_COLS = 52;
+const colName = (i) => { let n = i + 1, s = ''; while(n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+const colFromLetters = (L) => { let n = 0; for(const ch of L.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
 function newSheet(){ return { rows: 20, cols: 8, cells: {} }; }
-function refParts(ref){ const m = /^([A-Z])([0-9]{1,3})$/.exec(ref); return m ? { c: m[1].charCodeAt(0) - 65, r: +m[2] } : null; }
-// value of one cell: a number, or text; formulas are worked out here
-function sheetCell(sheet, ref, seen){
-  const raw = String(sheet.cells[ref] == null ? '' : sheet.cells[ref]).trim();
-  if(raw === '') return '';
-  if(raw[0] !== '='){ const n = Number(raw.replace(/,/g, '')); return raw !== '' && !isNaN(n) ? n : raw; }
-  if(seen.has(ref)) throw new Error('CIRC');
-  seen.add(ref);
-  let expr = raw.slice(1).toUpperCase();
-  const nums = (arg) => {
-    arg = arg.trim();
-    const range = /^([A-Z][0-9]{1,3}):([A-Z][0-9]{1,3})$/.exec(arg);
-    const out = [];
-    if(range){
-      const a = refParts(range[1]), b = refParts(range[2]);
-      for(let r = Math.min(a.r, b.r); r <= Math.max(a.r, b.r); r++)
-        for(let c = Math.min(a.c, b.c); c <= Math.max(a.c, b.c); c++){
-          const v = sheetCell(sheet, colName(c) + r, new Set(seen));
-          if(typeof v === 'number') out.push(v);
-        }
-    } else if(refParts(arg)){ const v = sheetCell(sheet, arg, new Set(seen)); if(typeof v === 'number') out.push(v); }
-    else if(arg !== '' && !isNaN(Number(arg))) out.push(Number(arg));
-    return out;
-  };
-  expr = expr.replace(/(SUM|AVERAGE|AVG|MIN|MAX|COUNT)\(([^)]*)\)/g, (_, fn, args) => {
-    const v = args.split(',').flatMap(nums);
-    if(fn === 'COUNT') return v.length;
-    if(!v.length) return 0;
-    if(fn === 'SUM') return v.reduce((x, y) => x + y, 0);
-    if(fn === 'MIN') return Math.min(...v);
-    if(fn === 'MAX') return Math.max(...v);
-    return v.reduce((x, y) => x + y, 0) / v.length;
-  });
-  expr = expr.replace(/\b([A-Z][0-9]{1,3})\b/g, (_, r) => { const v = sheetCell(sheet, r, new Set(seen)); return typeof v === 'number' ? '(' + v + ')' : '0'; });
-  if(!/^[0-9+\-*/().%\s]*$/.test(expr)) throw new Error('ERR');
-  const v = Function('"use strict";return (' + (expr || '0') + ')')();
-  if(typeof v !== 'number' || !isFinite(v)) throw new Error('ERR');
-  return Math.round(v * 1e10) / 1e10;
+function refParts(ref){ const m = /^\$?([A-Za-z]{1,3})\$?([0-9]{1,5})$/.exec(ref); return m ? { c: colFromLetters(m[1]), r: +m[2] } : null; }
+
+let sheetCacheUsed = 0;   // goes up whenever a value had to come from the imported file instead of being worked out here
+class SheetError extends Error{ constructor(code){ super(code); this.code = code; } }
+const sErr = (code) => new SheetError(code);
+const SHEET_ERROR_RE = /^#(DIV\/0!|N\/A|VALUE!|REF!|NAME\?|NUM!|NULL!|CIRC|ERR)$/;
+
+// "12", "1,249.50", "-3.5e2", "$5", "15%" → number, otherwise null
+function sheetNumberFromText(t){
+  const m = /^([-+]?)[€$£]?([-+]?)(\d[\d,]*(?:\.\d*)?|\.\d+)(?:e([-+]?\d+))?(%?)$/i.exec(t);
+  if(!m) return null;
+  let n = parseFloat(m[3].replace(/,/g, '') + (m[4] ? 'e' + m[4] : ''));
+  if(isNaN(n)) return null;
+  if(m[5]) n /= 100;
+  return ((m[1] === '-') !== (m[2] === '-')) ? -n : n;
 }
-function sheetShown(sheet, ref){
-  try{ const v = sheetCell(sheet, ref, new Set()); return typeof v === 'number' ? String(v) : v; }
-  catch(e){ return e.message === 'CIRC' ? '#CIRC' : '#ERR'; }
+const sheetRaw = (sheet, ref) => { const v = sheet.cells[ref]; return v == null ? '' : String(v); };
+function sheetFormat(v){
+  if(typeof v === 'number') return String(Math.round(v * 1e10) / 1e10);
+  if(typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+  return String(v);
+}
+const sToNum = (v) => {
+  if(typeof v === 'number') return v;
+  if(typeof v === 'boolean') return v ? 1 : 0;
+  if(v === '') return 0;
+  const n = sheetNumberFromText(String(v).trim());
+  if(n === null) throw sErr('#VALUE!');
+  return n;
+};
+const sToBool = (v) => {
+  if(typeof v === 'boolean') return v;
+  if(typeof v === 'number') return v !== 0;
+  const u = String(v).toUpperCase();
+  if(u === 'TRUE') return true;
+  if(u === 'FALSE') return false;
+  throw sErr('#VALUE!');
+};
+const sText = (v) => typeof v === 'string' ? v : sheetFormat(v);
+const sFinite = (n) => { if(typeof n !== 'number' || !isFinite(n)) throw sErr('#NUM!'); return n; };
+function sCompare(a, b){
+  if(a === '' && typeof b === 'number') a = 0;
+  if(b === '' && typeof a === 'number') b = 0;
+  if(typeof a === 'string' && typeof b === 'string'){ a = a.toLowerCase(); b = b.toLowerCase(); }
+  else if(typeof a !== typeof b){ const rank = (x) => typeof x === 'number' ? 0 : typeof x === 'string' ? 1 : 2; return rank(a) - rank(b); }
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/* ---- the value of one cell. memo = a Map shared by one refresh so each cell is worked out once ---- */
+const sheetAstCache = new Map();
+function sheetParseCached(src){
+  let hit = sheetAstCache.get(src);
+  if(!hit){
+    try{ hit = { ast: sheetParse(src) }; }catch(e){ hit = { err: e instanceof SheetError ? e : sErr('#ERR') }; }
+    if(sheetAstCache.size > 3000) sheetAstCache.clear();
+    sheetAstCache.set(src, hit);
+  }
+  if(hit.err) throw hit.err;
+  return hit.ast;
+}
+function sheetCellValue(sheet, ref, seen, memo){
+  if(memo && memo.has(ref)){ const m = memo.get(ref); if(m.cached) sheetCacheUsed++; if(m.e) throw m.e; return m.v; }
+  const raw = sheetRaw(sheet, ref), t = raw.trim();
+  if(t === '') return '';
+  if(t[0] !== '='){
+    let v;
+    if(SHEET_ERROR_RE.test(t)) { const e = sErr(t); if(memo) memo.set(ref, { e }); throw e; }
+    const n = sheetNumberFromText(t);
+    if(n !== null) v = n;
+    else { const u = t.toUpperCase(); v = u === 'TRUE' ? true : u === 'FALSE' ? false : raw; }
+    if(memo) memo.set(ref, { v });
+    return v;
+  }
+  if(seen.has(ref)) throw sErr('#CIRC');
+  const before = sheetCacheUsed;
+  const next = new Set(seen); next.add(ref);
+  let res;
+  try{ res = { v: sheetEval(sheetParseCached(t.slice(1)), { sheet, seen: next, memo }) }; }
+  catch(e){
+    if(e instanceof SheetError && e.code === '#UNSUP' && sheet.cache && Object.prototype.hasOwnProperty.call(sheet.cache, ref)){
+      sheetCacheUsed++;
+      const c = sheet.cache[ref];
+      res = (typeof c === 'string' && SHEET_ERROR_RE.test(c)) ? { e: sErr(c) } : { v: c };
+    } else res = { e: e instanceof SheetError ? e : sErr('#ERR') };
+  }
+  res.cached = sheetCacheUsed !== before;
+  if(memo) memo.set(ref, res);
+  if(res.e) throw res.e;
+  return res.v;
+}
+// what a cell shows: its text, or for a formula the result (cached = it came from the imported file)
+function sheetShownInfo(sheet, ref, memo){
+  const raw = sheetRaw(sheet, ref);
+  if(raw.trim()[0] !== '=') return { text: raw, cached: false };
+  const before = sheetCacheUsed;
+  try{ const v = sheetCellValue(sheet, ref, new Set(), memo); return { text: sheetFormat(v), cached: sheetCacheUsed !== before }; }
+  catch(e){ return { text: e instanceof SheetError ? (e.code === '#UNSUP' ? '#NAME?' : e.code) : '#ERR', cached: false }; }
+}
+const sheetShown = (sheet, ref, memo) => sheetShownInfo(sheet, ref, memo).text;
+
+/* ---- tokenizer + parser ---- */
+function sheetTokenize(src){
+  const out = []; let i = 0; const n = src.length;
+  while(i < n){
+    const ch = src[i];
+    if(ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r'){ i++; continue; }
+    if(ch === '"'){
+      let j = i + 1, s = '';
+      for(;;){ if(j >= n) throw sErr('#ERR'); if(src[j] === '"'){ if(src[j + 1] === '"'){ s += '"'; j += 2; continue; } break; } s += src[j++]; }
+      out.push({ t: 'str', v: s }); i = j + 1; continue;
+    }
+    if(ch === "'"){ const j = src.indexOf("'", i + 1); if(j > 0 && src[j + 1] === '!') throw sErr('#UNSUP'); throw sErr('#ERR'); }   // 'Other sheet'!A1
+    const rest = src.slice(i);
+    let m;
+    if((m = /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(rest))){ out.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue; }
+    if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5}):\$?([A-Za-z]{1,3})\$?(\d{1,5})(?![A-Za-z0-9_(!])/.exec(rest))){
+      out.push({ t: 'range', c1: colFromLetters(m[1]), r1: +m[2], c2: colFromLetters(m[3]), r2: +m[4] }); i += m[0].length; continue;
+    }
+    if((m = /^\$?([A-Za-z]{1,3}):\$?([A-Za-z]{1,3})(?![A-Za-z0-9_(!])/.exec(rest))){   // whole columns: A:A
+      out.push({ t: 'range', c1: colFromLetters(m[1]), r1: 1, c2: colFromLetters(m[2]), r2: Infinity }); i += m[0].length; continue;
+    }
+    if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5}):\$?([A-Za-z]{1,3})(?![A-Za-z0-9_(!])/.exec(rest))){   // open ended: A2:A
+      out.push({ t: 'range', c1: colFromLetters(m[1]), r1: +m[2], c2: colFromLetters(m[3]), r2: Infinity }); i += m[0].length; continue;
+    }
+    if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5})(?![A-Za-z0-9_(!])/.exec(rest))){ out.push({ t: 'ref', c: colFromLetters(m[1]), r: +m[2] }); i += m[0].length; continue; }
+    if((m = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(rest))){
+      const w = m[0];
+      if(rest[w.length] === '!') throw sErr('#UNSUP');                       // Sheet2!A1
+      if(rest[w.length] === '(') { out.push({ t: 'fn', v: w.toUpperCase() }); i += w.length; continue; }
+      const u = w.toUpperCase();
+      if(u === 'TRUE' || u === 'FALSE'){ out.push({ t: 'bool', v: u === 'TRUE' }); i += w.length; continue; }
+      throw sErr('#UNSUP');                                                   // a named range or something else we don't know
+    }
+    const two = src.slice(i, i + 2);
+    if(two === '<>' || two === '<=' || two === '>='){ out.push({ t: 'op', v: two }); i += 2; continue; }
+    if('+-*/^&=<>%(),;'.includes(ch)){ out.push({ t: 'op', v: ch === ';' ? ',' : ch }); i++; continue; }
+    throw sErr('#ERR');
+  }
+  return out;
+}
+function sheetParse(src){
+  const toks = sheetTokenize(src); let p = 0;
+  const isOp = (v) => toks[p] && toks[p].t === 'op' && toks[p].v === v;
+  const CMP = ['=', '<>', '<', '>', '<=', '>='];
+  const parseCmp = () => { let a = parseCat(); while(toks[p] && toks[p].t === 'op' && CMP.includes(toks[p].v)){ const op = toks[p++].v; a = { k: 'bin', op, a, b: parseCat() }; } return a; };
+  const parseCat = () => { let a = parseAdd(); while(isOp('&')){ p++; a = { k: 'bin', op: '&', a, b: parseAdd() }; } return a; };
+  const parseAdd = () => { let a = parseMul(); while(isOp('+') || isOp('-')){ const op = toks[p++].v; a = { k: 'bin', op, a, b: parseMul() }; } return a; };
+  const parseMul = () => { let a = parsePow(); while(isOp('*') || isOp('/')){ const op = toks[p++].v; a = { k: 'bin', op, a, b: parsePow() }; } return a; };
+  const parsePow = () => { let a = parsePct(); while(isOp('^')){ p++; a = { k: 'bin', op: '^', a, b: parsePct() }; } return a; };
+  const parsePct = () => { let a = parseUnary(); while(isOp('%')){ p++; a = { k: 'pct', a }; } return a; };
+  const parseUnary = () => { if(isOp('-')){ p++; return { k: 'neg', a: parseUnary() }; } if(isOp('+')){ p++; return parseUnary(); } return parsePrimary(); };
+  const parsePrimary = () => {
+    const t = toks[p++];
+    if(!t) throw sErr('#ERR');
+    if(t.t === 'num') return { k: 'lit', v: t.v };
+    if(t.t === 'str') return { k: 'lit', v: t.v };
+    if(t.t === 'bool') return { k: 'lit', v: t.v };
+    if(t.t === 'ref') return { k: 'ref', c: t.c, r: t.r };
+    if(t.t === 'range') return { k: 'range', c1: t.c1, r1: t.r1, c2: t.c2, r2: t.r2 };
+    if(t.t === 'fn'){
+      if(!isOp('(')) throw sErr('#ERR');
+      p++;
+      const args = [];
+      if(isOp(')')){ p++; return { k: 'fn', name: t.v, args }; }
+      for(;;){
+        args.push(parseCmp());
+        if(isOp(',')){ p++; continue; }
+        if(isOp(')')){ p++; break; }
+        throw sErr('#ERR');
+      }
+      return { k: 'fn', name: t.v, args };
+    }
+    if(t.t === 'op' && t.v === '('){ const e = parseCmp(); if(!isOp(')')) throw sErr('#ERR'); p++; return e; }
+    throw sErr('#ERR');
+  };
+  const ast = parseCmp();
+  if(p < toks.length) throw sErr('#ERR');
+  return ast;
+}
+
+/* ---- evaluation ---- */
+function sheetEval(n, ctx){
+  switch(n.k){
+    case 'lit': return n.v;
+    case 'ref': return sheetCellValue(ctx.sheet, colName(n.c) + n.r, ctx.seen, ctx.memo);
+    case 'range': throw sErr('#VALUE!');
+    case 'neg': return -sToNum(sheetEval(n.a, ctx));
+    case 'pct': return sToNum(sheetEval(n.a, ctx)) / 100;
+    case 'bin': {
+      const a = sheetEval(n.a, ctx), b = sheetEval(n.b, ctx);
+      switch(n.op){
+        case '+': return sFinite(sToNum(a) + sToNum(b));
+        case '-': return sFinite(sToNum(a) - sToNum(b));
+        case '*': return sFinite(sToNum(a) * sToNum(b));
+        case '/': { const d = sToNum(b); if(d === 0) throw sErr('#DIV/0!'); return sFinite(sToNum(a) / d); }
+        case '^': return sFinite(Math.pow(sToNum(a), sToNum(b)));
+        case '&': return sText(a) + sText(b);
+        case '=': return sCompare(a, b) === 0;
+        case '<>': return sCompare(a, b) !== 0;
+        case '<': return sCompare(a, b) < 0;
+        case '>': return sCompare(a, b) > 0;
+        case '<=': return sCompare(a, b) <= 0;
+        case '>=': return sCompare(a, b) >= 0;
+      }
+      throw sErr('#ERR');
+    }
+    case 'fn': return sheetFn(n.name, n.args, ctx);
+  }
+  throw sErr('#ERR');
+}
+// the values behind function arguments; ranges and single cell refs are flagged `ref` (text and blanks in them are skipped by SUM etc.)
+function sheetItems(args, ctx){
+  const out = [];
+  for(const a of args){
+    if(a.k === 'range'){
+      const c1 = Math.min(a.c1, a.c2), c2 = Math.max(a.c1, a.c2);
+      const r1 = Math.min(a.r1, a.r2), r2 = a.r2 === Infinity ? Math.max(ctx.sheet.rows, a.r1) : Math.max(a.r1, a.r2);
+      for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++) out.push({ v: sheetCellValue(ctx.sheet, colName(c) + r, ctx.seen, ctx.memo), ref: true });
+    } else if(a.k === 'ref') out.push({ v: sheetEval(a, ctx), ref: true });
+    else out.push({ v: sheetEval(a, ctx), ref: false });
+  }
+  return out;
+}
+function sheetCriterion(c){
+  if(typeof c === 'number') return (v) => typeof v === 'number' && v === c;
+  if(typeof c === 'boolean') return (v) => v === c;
+  const m = /^(<=|>=|<>|=|<|>)?([\s\S]*)$/.exec(String(c));
+  const op = m[1] || '=', rest = m[2], n = sheetNumberFromText(rest.trim());
+  return (v) => {
+    if(n !== null){
+      if(typeof v !== 'number') return op === '<>';
+      return op === '=' ? v === n : op === '<>' ? v !== n : op === '<' ? v < n : op === '>' ? v > n : op === '<=' ? v <= n : v >= n;
+    }
+    const a = sText(v).toLowerCase(), b = rest.toLowerCase();
+    return op === '=' ? a === b : op === '<>' ? a !== b : op === '<' ? a < b : op === '>' ? a > b : op === '<=' ? a <= b : a >= b;
+  };
+}
+function sheetFn(name, args, ctx){
+  const val = (i) => { if(i >= args.length) throw sErr('#ERR'); return sheetEval(args[i], ctx); };
+  const nums = () => sheetItems(args, ctx).filter(x => !x.ref || typeof x.v === 'number').map(x => x.ref ? x.v : sToNum(x.v));
+  switch(name){
+    case 'SUM': return sFinite(nums().reduce((a, b) => a + b, 0));
+    case 'PRODUCT': { const v = nums(); return v.length ? sFinite(v.reduce((a, b) => a * b, 1)) : 0; }
+    case 'AVERAGE': case 'AVG': { const v = nums(); if(!v.length) throw sErr('#DIV/0!'); return v.reduce((a, b) => a + b, 0) / v.length; }
+    case 'MIN': { const v = nums(); return v.length ? Math.min(...v) : 0; }
+    case 'MAX': { const v = nums(); return v.length ? Math.max(...v) : 0; }
+    case 'MEDIAN': { const v = nums().sort((a, b) => a - b); if(!v.length) throw sErr('#NUM!'); const m = v.length >> 1; return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2; }
+    case 'COUNT': return sheetItems(args, ctx).filter(x => typeof x.v === 'number' || (!x.ref && typeof x.v === 'boolean')).length;
+    case 'COUNTA': return sheetItems(args, ctx).filter(x => x.v !== '').length;
+    case 'ROUND': case 'ROUNDUP': case 'ROUNDDOWN': {
+      const x = sToNum(val(0)), d = args.length > 1 ? Math.trunc(sToNum(val(1))) : 0, f = Math.pow(10, d), ax = Math.abs(x) * f;
+      const r = name === 'ROUND' ? Math.round(ax + 1e-9) : name === 'ROUNDUP' ? Math.ceil(ax - 1e-9) : Math.floor(ax + 1e-9);
+      return (x < 0 ? -1 : 1) * r / f;
+    }
+    case 'INT': return Math.floor(sToNum(val(0)));
+    case 'ABS': return Math.abs(sToNum(val(0)));
+    case 'SQRT': { const x = sToNum(val(0)); if(x < 0) throw sErr('#NUM!'); return Math.sqrt(x); }
+    case 'POWER': return sFinite(Math.pow(sToNum(val(0)), sToNum(val(1))));
+    case 'MOD': { const a = sToNum(val(0)), b = sToNum(val(1)); if(b === 0) throw sErr('#DIV/0!'); return a - b * Math.floor(a / b); }
+    case 'IF': { if(args.length < 2 || args.length > 3) throw sErr('#ERR'); return sToBool(val(0)) ? val(1) : (args.length > 2 ? val(2) : false); }
+    case 'IFERROR': { try{ return val(0); }catch(e){ if(e instanceof SheetError && e.code !== '#UNSUP') return val(1); throw e; } }
+    case 'AND': return sheetItems(args, ctx).filter(x => !(x.ref && typeof x.v === 'string')).every(x => sToBool(x.v));
+    case 'OR': return sheetItems(args, ctx).filter(x => !(x.ref && typeof x.v === 'string')).some(x => sToBool(x.v));
+    case 'NOT': return !sToBool(val(0));
+    case 'COUNTIF': case 'SUMIF': {
+      if(args.length < 2) throw sErr('#ERR');
+      const test = sheetCriterion(val(1)), rng = sheetItems([args[0]], ctx);
+      if(name === 'COUNTIF') return rng.filter(x => test(x.v)).length;
+      const sumr = args[2] ? sheetItems([args[2]], ctx) : rng;
+      let tot = 0; rng.forEach((x, i) => { if(test(x.v)){ const s = sumr[i] ? sumr[i].v : 0; if(typeof s === 'number') tot += s; } });
+      return tot;
+    }
+    case 'CONCAT': case 'CONCATENATE': return sheetItems(args, ctx).map(x => sText(x.v)).join('');
+    case 'LEN': return sText(val(0)).length;
+    case 'UPPER': return sText(val(0)).toUpperCase();
+    case 'LOWER': return sText(val(0)).toLowerCase();
+    case 'TRIM': return sText(val(0)).trim().replace(/\s+/g, ' ');
+    case 'LEFT': { const t = sText(val(0)), k = args.length > 1 ? sToNum(val(1)) : 1; return t.slice(0, Math.max(0, k)); }
+    case 'RIGHT': { const t = sText(val(0)), k = args.length > 1 ? sToNum(val(1)) : 1; return k <= 0 ? '' : t.slice(Math.max(0, t.length - k)); }
+    default: throw sErr('#UNSUP');
+  }
+}
+
+/* ---------- importing and exporting spreadsheets ----------
+   .xlsx (what Google Sheets / Excel give you under File → Download) keeps formulas, cached results and alignment.
+   .csv / .tsv only carry the values. */
+async function inflateRaw(bytes){
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function readZip(buf){
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let eocd = -1;
+  for(let i = u8.length - 22; i >= Math.max(0, u8.length - 65557); i--){ if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; } }
+  if(eocd < 0) throw new Error('not a zip file');
+  const count = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  const files = {}, dec = new TextDecoder();
+  for(let n = 0; n < count; n++){
+    if(dv.getUint32(p, true) !== 0x02014b50) break;
+    const nameLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), commentLen = dv.getUint16(p + 32, true);
+    files[dec.decode(u8.subarray(p + 46, p + 46 + nameLen))] = { method: dv.getUint16(p + 10, true), csize: dv.getUint32(p + 20, true), lho: dv.getUint32(p + 42, true) };
+    p += 46 + nameLen + extraLen + commentLen;
+  }
+  const read = async (name) => {
+    const f = files[name];
+    if(!f) return null;
+    const start = f.lho + 30 + dv.getUint16(f.lho + 26, true) + dv.getUint16(f.lho + 28, true);
+    const data = u8.subarray(start, start + f.csize);
+    if(f.method === 0) return data;
+    if(f.method === 8) return await inflateRaw(data);
+    throw new Error('unsupported zip method');
+  };
+  return { names: Object.keys(files), text: async (n) => { const d = await read(n); return d ? dec.decode(d) : null; } };
+}
+const CRC_TABLE = (() => { const t = new Uint32Array(256); for(let n = 0; n < 256; n++){ let c = n; for(let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for(let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStored(files){
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const dosDate = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  for(const f of files){
+    const name = enc.encode(f.name), data = typeof f.data === 'string' ? enc.encode(f.data) : f.data, crc = crc32(data);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, data.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(lh.buffer), name, data);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, data.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, name.length, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), name);
+    offset += 30 + name.length + data.length;
+  }
+  const cdSize = central.reduce((s, x) => s + x.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cdSize, true); end.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function downloadBlob(blob, filename){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function excelDateText(n){
+  const whole = Math.floor(n), frac = n - whole, secs = Math.round(frac * 86400);
+  const pad = (x) => String(x).padStart(2, '0');
+  const time = pad(Math.floor(secs / 3600) % 24) + ':' + pad(Math.floor(secs / 60) % 60) + (secs % 60 ? ':' + pad(secs % 60) : '');
+  if(whole < 1) return time;
+  const date = new Date(Math.round((whole - 25569) * 86400000)).toISOString().slice(0, 10);
+  return frac > 1e-9 ? date + ' ' + time : date;
+}
+// move the relative references of a shared formula to another cell (A1 stays A1 when written $A$1)
+function shiftFormula(f, dr, dc){
+  return f.replace(/"(?:[^"]|"")*"|(\$?)([A-Za-z]{1,3})(\$?)(\d{1,5})(?![A-Za-z0-9_(])/g, (m, d1, col, d2, row, off) => {
+    if(m[0] === '"') return m;
+    if(off > 0 && /[A-Za-z0-9_.!]/.test(f[off - 1])) return m;
+    const c = colFromLetters(col) + (d1 ? 0 : dc), r = +row + (d2 ? 0 : dr);
+    if(c < 0 || r < 1) return '#REF!';
+    return (d1 || '') + colName(c) + (d2 || '') + r;
+  });
+}
+
+async function parseXlsx(buf){
+  const zip = await readZip(buf);
+  const xml = async (name) => {
+    const t = await zip.text(name);
+    if(t == null) return null;
+    const d = new DOMParser().parseFromString(t, 'application/xml');
+    if(d.getElementsByTagName('parsererror').length) throw new Error('bad xml in ' + name);
+    return d;
+  };
+  const L = (node, name) => node ? Array.from(node.getElementsByTagNameNS('*', name)) : [];
+  const wb = await xml('xl/workbook.xml');
+  if(!wb) throw new Error('not an xlsx file');
+  const rels = await xml('xl/_rels/workbook.xml.rels');
+  const target = {};
+  L(rels, 'Relationship').forEach(r => { target[r.getAttribute('Id')] = r.getAttribute('Target'); });
+  const RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const defs = L(wb, 'sheet').map(s => ({ name: s.getAttribute('name') || 'Sheet', rid: s.getAttributeNS(RNS, 'id') || s.getAttribute('r:id') }));
+  const sst = await xml('xl/sharedStrings.xml');
+  const strings = L(sst, 'si').map(si => L(si, 't').filter(t => t.parentNode.localName !== 'rPh').map(t => t.textContent).join(''));
+  const st = await xml('xl/styles.xml');
+  const custom = {};
+  L(st, 'numFmt').forEach(n => { custom[n.getAttribute('numFmtId')] = n.getAttribute('formatCode') || ''; });
+  const hexOf = (rgb) => rgb && /^[0-9A-Fa-f]{8}$/.test(rgb) ? '#' + rgb.slice(2).toLowerCase() : null;
+  const fontsX = L(L(st, 'fonts')[0], 'font').map(f => {
+    const on = (n) => { const e = L(f, n)[0]; return !!e && e.getAttribute('val') !== '0' && e.getAttribute('val') !== 'false'; };
+    const sz = L(f, 'sz')[0], col = L(f, 'color')[0];
+    return { b: on('b'), i: on('i'), sz: sz ? parseFloat(sz.getAttribute('val')) : null, fg: col ? hexOf(col.getAttribute('rgb')) : null };
+  });
+  const fillsX = L(L(st, 'fills')[0], 'fill').map(f => {
+    const pf = L(f, 'patternFill')[0];
+    if(!pf || pf.getAttribute('patternType') !== 'solid') return null;
+    const fg = L(pf, 'fgColor')[0];
+    return fg ? hexOf(fg.getAttribute('rgb')) : null;
+  });
+  const bordersX = L(L(st, 'borders')[0], 'border').map(bd =>
+    ['left', 'right', 'top', 'bottom'].map(side => { const e = Array.from(bd.children).find(ch => ch.localName === side); return e && e.getAttribute('style') ? side[0] : ''; }).join(''));
+  const defSz = (fontsX[0] && fontsX[0].sz) || 10;
+  const xfs = L(L(st, 'cellXfs')[0], 'xf').map(x => {
+    const al = L(x, 'alignment')[0], h = al ? al.getAttribute('horizontal') : null;
+    const font = fontsX[+(x.getAttribute('fontId') || 0)] || {}, fmt = {};
+    if(h === 'left' || h === 'center' || h === 'right') fmt.a = h;
+    if(font.b) fmt.b = 1;
+    if(font.i) fmt.i = 1;
+    if(font.sz && Math.abs(font.sz - defSz) > 0.01) fmt.s = Math.max(6, Math.min(72, Math.round(font.sz * 10 / defSz)));   // relative to the file's normal size, shown against our 10
+    if(font.fg && font.fg !== '#000000') fmt.fg = font.fg;
+    const bg = fillsX[+(x.getAttribute('fillId') || 0)]; if(bg) fmt.bg = bg;
+    const bd = bordersX[+(x.getAttribute('borderId') || 0)]; if(bd) fmt.bd = bd;
+    return { fmtId: x.getAttribute('numFmtId') || '0', fmt };
+  });
+  const kindOf = (id) => {
+    const n = +id;
+    if(n === 9 || n === 10) return 'pct';
+    if((n >= 14 && n <= 22) || (n >= 45 && n <= 47)) return 'date';
+    const code = custom[id];
+    if(code){
+      const c = code.replace(/"[^"]*"|\[[^\]]*\]|\\./g, '');
+      if(/%/.test(c)) return 'pct';
+      if(/[ymdhs]/i.test(c) && !/^[#0?.,\s$€£%-]*$/.test(c)) return 'date';
+    }
+    return '';
+  };
+  const out = [];
+  for(const def of defs){
+    const t = target[def.rid];
+    if(!t) continue;
+    const doc = await xml(t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, ''));
+    if(!doc) continue;
+    const cells = {}, cache = {}, fmtMap = {}, shared = {};
+    let maxR = 0, maxC = 0, truncated = false;
+    for(const c of L(doc, 'c')){
+      const ref = c.getAttribute('r'), rp = ref && /^([A-Z]+)(\d+)$/.exec(ref);
+      if(!rp) continue;
+      const ci = colFromLetters(rp[1]), ri = +rp[2];
+      const type = c.getAttribute('t'), xf = xfs[+(c.getAttribute('s') || 0)] || { fmtId: '0', fmt: {} }, kind = kindOf(xf.fmtId);
+      let fEl = null, vEl = null, isEl = null;
+      for(const ch of c.children){ if(ch.localName === 'f') fEl = ch; else if(ch.localName === 'v') vEl = ch; else if(ch.localName === 'is') isEl = ch; }
+      const vText = vEl ? vEl.textContent : null;
+      let val = null;
+      if(type === 's') val = strings[+vText] == null ? '' : strings[+vText];
+      else if(type === 'inlineStr') val = L(isEl, 't').map(x => x.textContent).join('');
+      else if(type === 'str' || type === 'd') val = vText == null ? '' : vText;
+      else if(type === 'b') val = vText === '1';
+      else if(type === 'e') val = vText || '#ERR';
+      else if(vText != null && vText !== ''){
+        const n = parseFloat(vText);
+        val = isNaN(n) ? vText : kind === 'date' ? excelDateText(n) : kind === 'pct' ? String(Math.round(n * 100 * 1e8) / 1e8) + '%' : n;
+      }
+      let formula = null;
+      if(fEl){
+        const txt = fEl.textContent;
+        if(fEl.getAttribute('t') === 'shared'){
+          const si = fEl.getAttribute('si');
+          if(txt){ shared[si] = { f: txt, r: ri, c: ci }; formula = txt; }
+          else if(shared[si]) formula = shiftFormula(shared[si].f, ri - shared[si].r, ci - shared[si].c);
+        } else formula = txt;
+        if(formula) formula = '=' + formula.replace(/_xlfn\.|_xlws\./g, '');
+      }
+      const has = formula || (val !== null && val !== '');
+      const visible = has || xf.fmt.bg || xf.fmt.bd;   // an empty cell still counts when it has a fill or border
+      if(!visible) continue;
+      if(ri > SHEET_MAX_ROWS || ci >= SHEET_MAX_COLS){ truncated = true; continue; }
+      if(formula){ cells[ref] = formula; if(val !== null && val !== '') cache[ref] = val; }
+      else if(has) cells[ref] = typeof val === 'boolean' ? (val ? 'TRUE' : 'FALSE') : String(val);
+      if(Object.keys(xf.fmt).length) fmtMap[ref] = Object.assign({}, xf.fmt);
+      maxR = Math.max(maxR, ri); maxC = Math.max(maxC, ci + 1);
+    }
+    out.push({ name: def.name, rows: Math.max(maxR, 1), cols: Math.max(maxC, 1), cells, cache, fmt: fmtMap, truncated });
+  }
+  return out;
+}
+function parseDelimited(text, delim){
+  text = text.replace(/^﻿/, '');
+  if(!delim){
+    const first = text.split(/\r?\n/, 1)[0];
+    const counts = { ',': (first.match(/,/g) || []).length, ';': (first.match(/;/g) || []).length, '\t': (first.match(/\t/g) || []).length };
+    delim = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    if(!counts[delim]) delim = ',';
+  }
+  const rows = []; let row = [], cur = '', q = false;
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(q){ if(ch === '"'){ if(text[i + 1] === '"'){ cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if(ch === '"') q = true;
+    else if(ch === delim){ row.push(cur); cur = ''; }
+    else if(ch === '\n' || ch === '\r'){ if(ch === '\r' && text[i + 1] === '\n') i++; row.push(cur); cur = ''; rows.push(row); row = []; }
+    else cur += ch;
+  }
+  if(cur !== '' || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function sheetFromRows(rows){
+  const cells = {}; let maxR = 0, maxC = 0, truncated = false;
+  rows.forEach((row, r) => row.forEach((v, c) => {
+    if(v === '') return;
+    if(r + 1 > SHEET_MAX_ROWS || c >= SHEET_MAX_COLS){ truncated = true; return; }
+    cells[colName(c) + (r + 1)] = v; maxR = Math.max(maxR, r + 1); maxC = Math.max(maxC, c + 1);
+  }));
+  return { rows: Math.max(maxR, 1), cols: Math.max(maxC, 1), cells, cache: {}, fmt: {}, truncated };
+}
+async function importSheetFile(cur, file){
+  const lower = file.name.toLowerCase(), base = file.name.replace(/\.[^.]+$/, '');
+  let sheets;
+  try{
+    if(/\.(xlsx|xlsm)$/.test(lower)) sheets = await parseXlsx(await file.arrayBuffer());
+    else if(/\.(csv|tsv|txt)$/.test(lower)) sheets = [{ name: base, ...sheetFromRows(parseDelimited(await file.text(), lower.endsWith('.tsv') ? '\t' : null)) }];
+    else throw new Error('type');
+  }catch(e){
+    alert("Couldn't read that file.\n\nIn Google Sheets use File → Download → Microsoft Excel (.xlsx). That keeps your formulas (CSV only keeps the values).");
+    return;
+  }
+  sheets = sheets.filter(s => Object.keys(s.cells).length || Object.keys(s.fmt || {}).length);
+  if(!sheets.length){ alert('That file has no data in it.'); return; }
+  const first = sheets[0];
+  const countF = (s) => Object.values(s.cells).filter(v => String(v).startsWith('=')).length;
+  const hasData = cur.sheet && Object.keys(cur.sheet.cells || {}).length;
+  if(hasData && !confirm(`Replace this section's spreadsheet with "${first.name}" (${Object.keys(first.cells).length} cells, ${countF(first)} formulas)?\n\nA safety copy of your current data is kept first.`)) return;
+  takeSafetyCopy('before import');
+  const toModel = (s) => { const m = { rows: s.rows, cols: s.cols, cells: s.cells }; if(Object.keys(s.cache).length) m.cache = s.cache; if(Object.keys(s.fmt || {}).length) m.fmt = s.fmt; return m; };
+  cur.type = 'sheet';
+  cur.sheet = toModel(first);
+  let added = 0;
+  if(sheets.length > 1 && confirm(`The file has ${sheets.length - 1} more sheet${sheets.length > 2 ? 's' : ''} (${sheets.slice(1).map(s => s.name).join(', ')}).\n\nAdd ${sheets.length > 2 ? 'them' : 'it'} as new sections too?`)){
+    sheets.slice(1).forEach((s, i) => { data.businessTabs.push({ id: 'biz' + Date.now().toString(36) + i, name: s.name, type: 'sheet', sheet: toModel(s) }); added++; });
+  }
+  const unsupported = Object.keys(first.cache).length;
+  renderBusiness(); saveTasks();
+  const bits = [`${Object.keys(first.cells).length} cells`, `${countF(first)} formulas`];
+  if(added) bits.push(`${added} extra section${added > 1 ? 's' : ''}`);
+  showStatus('imported: ' + bits.join(', '));
+  if(sheets.some(s => s.truncated)) alert(`Only the first ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns of a sheet are imported. The rest was left out.`);
+}
+
+const exportFormula = (f) => f.replace(/"(?:[^"]|"")*"|[^"]+/g, (seg) => seg[0] === '"' ? seg : seg.toUpperCase().replace(/\bAVG\(/g, 'AVERAGE('));
+function sheetToXlsxBlob(name, sheet){
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const fonts = ['<font><sz val="10"/><name val="Arial"/></font>'];
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+  const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+  const xfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+  const intern = (list, xml) => { let i = list.indexOf(xml); if(i < 0){ list.push(xml); i = list.length - 1; } return i; };
+  const hex = (c) => 'FF' + c.replace('#', '').toUpperCase();
+  const styleOf = (f) => {
+    if(!f || !Object.keys(f).length) return 0;
+    const font = (f.b || f.i || f.s || f.fg) ? intern(fonts, `<font>${f.b ? '<b/>' : ''}${f.i ? '<i/>' : ''}<sz val="${f.s || 10}"/>${f.fg ? `<color rgb="${hex(f.fg)}"/>` : ''}<name val="Arial"/></font>`) : 0;
+    const fill = f.bg ? intern(fills, `<fill><patternFill patternType="solid"><fgColor rgb="${hex(f.bg)}"/><bgColor indexed="64"/></patternFill></fill>`) : 0;
+    const side = (k, nm) => (f.bd || '').includes(k) ? `<${nm} style="thin"><color auto="1"/></${nm}>` : `<${nm}/>`;
+    const border = f.bd ? intern(borders, `<border>${side('l', 'left')}${side('r', 'right')}${side('t', 'top')}${side('b', 'bottom')}<diagonal/></border>`) : 0;
+    const al = f.a ? `<alignment horizontal="${f.a}"/>` : '';
+    return intern(xfs, `<xf numFmtId="0" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${al ? ` applyAlignment="1">${al}</xf>` : '/>'}`);
+  };
+  const memo = new Map();
+  let rowsXml = '';
+  for(let r = 1; r <= sheet.rows; r++){
+    let row = '';
+    for(let c = 0; c < sheet.cols; c++){
+      const ref = colName(c) + r, raw = sheetRaw(sheet, ref), t = raw.trim();
+      const si = styleOf(sheet.fmt && sheet.fmt[ref]);
+      const st = si ? ` s="${si}"` : '';
+      if(t === ''){ if(si) row += `<c r="${ref}"${st}/>`; continue; }
+      if(t[0] === '='){
+        const f = esc(exportFormula(t.slice(1)));
+        let v, e = null;
+        try{ v = sheetCellValue(sheet, ref, new Set(), memo); }catch(err){ e = err instanceof SheetError ? err.code : '#ERR'; }
+        if(e){ if(e === '#UNSUP') e = '#NAME?'; row += `<c r="${ref}"${st} t="e"><f>${f}</f><v>${esc(e)}</v></c>`; }
+        else if(typeof v === 'number') row += `<c r="${ref}"${st}><f>${f}</f><v>${v}</v></c>`;
+        else if(typeof v === 'boolean') row += `<c r="${ref}"${st} t="b"><f>${f}</f><v>${v ? 1 : 0}</v></c>`;
+        else row += `<c r="${ref}"${st} t="str"><f>${f}</f><v>${esc(v)}</v></c>`;
+      } else if(/^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i.test(t)) row += `<c r="${ref}"${st}><v>${Number(t)}</v></c>`;
+      else row += `<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${esc(raw)}</t></is></c>`;
+    }
+    if(row) rowsXml += `<row r="${r}">${row}</row>`;
+  }
+  const safeName = esc((name || 'Sheet').replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || 'Sheet');
+  const H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', RELNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const styles = `<styleSheet xmlns="${NS}"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs></styleSheet>`;
+  return zipStored([
+    { name: '[Content_Types].xml', data: H + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
+    { name: '_rels/.rels', data: H + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RELNS}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: 'xl/workbook.xml', data: H + `<workbook xmlns="${NS}" xmlns:r="${RELNS}"><sheets><sheet name="${safeName}" sheetId="1" r:id="rId1"/></sheets></workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', data: H + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RELNS}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${RELNS}/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', data: H + styles },
+    { name: 'xl/worksheets/sheet1.xml', data: H + `<worksheet xmlns="${NS}"><sheetData>${rowsXml}</sheetData></worksheet>` }
+  ]);
+}
+function exportSheetXlsx(cur){
+  if(!cur.sheet) return;
+  const fname = ((cur.name || 'sheet').replace(/[\\/:*?"<>|]+/g, '-').trim() || 'sheet') + '.xlsx';
+  downloadBlob(sheetToXlsxBlob(cur.name, cur.sheet), fname);
+  showStatus('exported ' + fname);
 }
 
 /* --- car reselling sections: tab.cars = { vehicles: [{ id, name, bought, sold, expenses: [{ id, desc, amount }] }], notes } --- */
@@ -4178,56 +4753,226 @@ function renderBizPanel(cur){
   // spreadsheet
   if(!cur.sheet) cur.sheet = newSheet();
   const sh = cur.sheet;
-  const bar = document.createElement('div');
-  bar.className = 'sheet-bar';
-  const btn = (text, fn, disabled) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.disabled = !!disabled; b.onclick = fn; bar.appendChild(b); };
-  btn('+ Row', () => { sh.rows = Math.min(200, sh.rows + 1); renderBizPanel(cur); saveTasks(); });
-  btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++) delete sh.cells[colName(c) + sh.rows]; sh.rows = Math.max(1, sh.rows - 1); renderBizPanel(cur); saveTasks(); } }, sh.rows <= 1);
-  btn('+ Column', () => { sh.cols = Math.min(26, sh.cols + 1); renderBizPanel(cur); saveTasks(); }, sh.cols >= 26);
-  btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++) delete sh.cells[colName(sh.cols - 1) + r]; sh.cols = Math.max(1, sh.cols - 1); renderBizPanel(cur); saveTasks(); } }, sh.cols <= 1);
-  const hint = document.createElement('span');
-  hint.className = 'sheet-hint';
-  hint.textContent = 'Formulas: =A1+B1, =SUM(A1:A5), =AVERAGE(…), MIN, MAX, COUNT';
+  const mk = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
+
+  // Import / Export, small buttons top right
+  const headRow = mk('div', 'biz-head');
+  bizPanelEl.insertBefore(headRow, h);
+  headRow.appendChild(h);
+  const io = mk('div', 'sheet-io');
+  const fileIn = mk('input', 'sheet-file'); fileIn.type = 'file'; fileIn.accept = '.xlsx,.xlsm,.csv,.tsv,.txt'; fileIn.hidden = true;
+  fileIn.onchange = () => { const f = fileIn.files[0]; fileIn.value = ''; if(f) importSheetFile(cur, f); };
+  const mini = (label, title, fn) => { const b = mk('button', 'sheet-mini', label); b.type = 'button'; b.title = title; b.onclick = fn; return b; };
+  io.append(
+    mini('⤒ Import', 'Import a Google Sheets / Excel file (.xlsx keeps formulas and formatting) or a CSV', () => fileIn.click()),
+    mini('⤓ Export', 'Download as an Excel file (.xlsx) that opens in Google Sheets', () => exportSheetXlsx(cur)),
+    fileIn);
+  headRow.appendChild(io);
+
+  // rows and columns
+  const bar = mk('div', 'sheet-bar');
+  const btn = (text, fn, disabled) => { const b = mk('button', null, text); b.type = 'button'; b.disabled = !!disabled; b.onclick = fn; bar.appendChild(b); };
+  btn('+ Row', () => { sh.rows = Math.min(SHEET_MAX_ROWS, sh.rows + 1); renderBizPanel(cur); saveTasks(); }, sh.rows >= SHEET_MAX_ROWS);
+  btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++){ delete sh.cells[colName(c) + sh.rows]; if(sh.fmt) delete sh.fmt[colName(c) + sh.rows]; } sh.rows = Math.max(1, sh.rows - 1); renderBizPanel(cur); saveTasks(); } }, sh.rows <= 1);
+  btn('+ Column', () => { sh.cols = Math.min(SHEET_MAX_COLS, sh.cols + 1); renderBizPanel(cur); saveTasks(); }, sh.cols >= SHEET_MAX_COLS);
+  btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++){ delete sh.cells[colName(sh.cols - 1) + r]; if(sh.fmt) delete sh.fmt[colName(sh.cols - 1) + r]; } sh.cols = Math.max(1, sh.cols - 1); renderBizPanel(cur); saveTasks(); } }, sh.cols <= 1);
+  const hint = mk('span', 'sheet-hint', 'Formulas: =A1+B1, =SUM(A1:A5), IF, ROUND, AVERAGE… Select cells by dragging, or tap a column / row header.');
   bar.appendChild(hint);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'sheet-wrap';
-  const table = document.createElement('table');
-  table.className = 'sheet-grid';
+  // formatting toolbar (works on the selected cells, like Google Sheets)
+  const fbar = mk('div', 'sheet-bar fmt-bar');
+  const SIZES = [6, 7, 8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72];
+  const fb = (html, title, fn, cls) => { const b = mk('button', 'fmt-btn' + (cls ? ' ' + cls : '')); b.type = 'button'; b.title = title; b.innerHTML = html; b.onpointerdown = (e) => e.preventDefault(); b.onclick = fn; fbar.appendChild(b); return b; };
+  const sep = () => fbar.appendChild(mk('span', 'fmt-sep'));
+  const lines = { left: 'M2 3h12M2 6.5h8M2 10h12M2 13.5h8', center: 'M2 3h12M4 6.5h8M2 10h12M4 13.5h8', right: 'M2 3h12M6 6.5h8M2 10h12M6 13.5h8' };
+  const icon = (d) => `<svg viewBox="0 0 16 16" width="14" height="14"><path d="${d}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>`;
+
+  // selection: { r1, c1, r2, c2 } (rows 1-based, columns 0-based)
+  let sel = null, anchor = null, dragging = false;
+  const inputs = {}, colTh = [], rowTh = [];
+  const fmtOf = (ref) => (sh.fmt && sh.fmt[ref]) || null;
+  const anchorFmt = () => (anchor ? fmtOf(colName(anchor.c) + anchor.r) : null) || {};
+  const forSel = (fn) => { if(!sel) return; for(let r = sel.r1; r <= sel.r2; r++) for(let c = sel.c1; c <= sel.c2; c++) fn(colName(c) + r, r, c); };
+
+  const paintCell = (ref) => {
+    const inp = inputs[ref]; if(!inp) return;
+    const td = inp.parentElement, f = fmtOf(ref) || {}, disp = (inp.dataset.disp || '').trim();
+    const auto = sheetNumberFromText(disp) !== null ? 'right' : /^(TRUE|FALSE)$/i.test(disp) ? 'center' : 'left';   // like Sheets: numbers right, text left
+    inp.style.textAlign = f.a || auto;
+    inp.style.fontWeight = f.b ? '700' : '';
+    inp.style.fontStyle = f.i ? 'italic' : '';
+    inp.style.fontSize = f.s ? (f.s * 1.44).toFixed(1) + 'px' : '';
+    inp.style.color = f.fg || '';
+    td.style.background = f.bg || '';
+    const bd = f.bd || '', sd = [];
+    if(bd.includes('t')) sd.push('inset 0 1px 0 0 var(--text)');
+    if(bd.includes('b')) sd.push('inset 0 -1px 0 0 var(--text)');
+    if(bd.includes('l')) sd.push('inset 1px 0 0 0 var(--text)');
+    if(bd.includes('r')) sd.push('inset -1px 0 0 0 var(--text)');
+    td.style.boxShadow = sd.join(',');
+  };
+  const showCell = (ref, info) => {
+    const inp = inputs[ref];
+    inp.value = info.text; inp.dataset.disp = info.text;
+    inp.classList.toggle('cached-val', info.cached);
+    inp.title = info.cached ? "This value was worked out by Google Sheets / Excel. This app can't calculate that formula, so it won't update when other cells change." : '';
+    paintCell(ref);
+  };
+  const refresh = (except) => { const memo = new Map(); for(const ref in inputs) if(inputs[ref] !== except) showCell(ref, sheetShownInfo(sh, ref, memo)); };
+
+  const apply = (fn) => {
+    if(!sel) return;
+    forSel((ref, r, c) => {
+      sh.fmt = sh.fmt || {};
+      const f = Object.assign({}, sh.fmt[ref]);
+      fn(f, r, c);
+      Object.keys(f).forEach(k => { if(f[k] === undefined || f[k] === false || f[k] === '') delete f[k]; });
+      if(Object.keys(f).length) sh.fmt[ref] = f; else delete sh.fmt[ref];
+      paintCell(ref);
+    });
+    if(sh.fmt && !Object.keys(sh.fmt).length) delete sh.fmt;
+    saveTasks(); updateBar();
+  };
+
+  const boldBtn = fb('<b>B</b>', 'Bold', () => { const on = anchorFmt().b; apply(f => { f.b = on ? undefined : 1; }); });
+  const italBtn = fb('<i>I</i>', 'Italic', () => { const on = anchorFmt().i; apply(f => { f.i = on ? undefined : 1; }); });
+  sep();
+  const step = (dir) => { const cur0 = anchorFmt().s || 10; let i = SIZES.indexOf(cur0); if(i < 0) i = SIZES.findIndex(x => x >= cur0); const nx = SIZES[Math.max(0, Math.min(SIZES.length - 1, i + dir))]; apply(f => { f.s = nx === 10 ? undefined : nx; }); };
+  fb('−', 'Smaller text', () => step(-1));
+  const sizeLbl = mk('span', 'fmt-size', '10'); fbar.appendChild(sizeLbl);
+  fb('+', 'Bigger text', () => step(1));
+  sep();
+  const alBtns = {};
+  ['left', 'center', 'right'].forEach(a => { alBtns[a] = fb(icon(lines[a]), 'Align ' + a, () => { const on = anchorFmt().a === a; apply(f => { f.a = on ? undefined : a; }); }); });
+  sep();
+
+  // palettes and the borders menu open as small pop-ups
+  const PALETTE = [
+    '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef', '#f3f3f3', '#ffffff',
+    '#980000', '#ff0000', '#ff9900', '#ffff00', '#00ff00', '#00ffff', '#4a86e8', '#0000ff', '#9900ff', '#ff00ff',
+    '#e6b8af', '#f4cccc', '#fce5cd', '#fff2cc', '#d9ead3', '#d0e0e3', '#c9daf8', '#cfe2f3', '#d9d2e9', '#ead1dc',
+    '#dd7e6b', '#ea9999', '#f9cb9c', '#ffe599', '#b6d7a8', '#a2c4c9', '#a4c2f4', '#9fc5e8', '#b4a7d6', '#d5a6bd'];
+  const popup = (anchorBtn, build) => {
+    closeSheetMenu();
+    const menu = mk('div', 'sheet-menu');
+    build(menu);
+    document.body.appendChild(menu);
+    const r = anchorBtn.getBoundingClientRect();
+    menu.style.left = Math.max(8, Math.min(r.left, innerWidth - menu.offsetWidth - 8)) + 'px';
+    const below = r.bottom + 6, above = r.top - menu.offsetHeight - 6;
+    menu.style.top = (below + menu.offsetHeight < innerHeight - 8 ? below : Math.max(8, above)) + 'px';
+  };
+  const colorBtn = (labelHtml, title, key) => {
+    const b = fb(labelHtml, title, () => popup(b, (menu) => {
+      const grid = mk('div', 'palette');
+      PALETTE.forEach(col => { const chip = mk('button', 'chip'); chip.type = 'button'; chip.style.background = col; chip.title = col; chip.onclick = () => { closeSheetMenu(); apply(f => { f[key] = col; }); }; grid.appendChild(chip); });
+      const acts = mk('div', 'palette-actions');
+      const none = mk('button', 'sheet-mini', key === 'bg' ? 'No fill' : 'Default'); none.type = 'button'; none.onclick = () => { closeSheetMenu(); apply(f => { f[key] = undefined; }); };
+      const cust = mk('label', 'sheet-mini', 'Custom…');
+      const ci = mk('input'); ci.type = 'color'; ci.style.cssText = 'position:absolute;opacity:0;width:0;height:0'; cust.style.position = 'relative';
+      ci.onchange = () => { closeSheetMenu(); apply(f => { f[key] = ci.value; }); };
+      cust.appendChild(ci);
+      acts.append(none, cust);
+      menu.append(grid, acts);
+    }), 'fmt-pop-btn');
+    return b;
+  };
+  const fillBtn = colorBtn('<span class="swatch" id="fillSw"></span> Fill', 'Cell colour', 'bg');
+  const textBtn = colorBtn('<span class="fmt-a">A</span> Text', 'Text colour', 'fg');
+  const bordersBtn = fb('▦ Borders ▾', 'Borders', () => popup(bordersBtn, (menu) => {
+    const item = (label, fn) => { const b = mk('button', null, label); b.type = 'button'; b.onclick = () => { closeSheetMenu(); fn(); }; menu.appendChild(b); };
+    const add = (f, letters) => { const have = (f.bd || '').split(''); letters.split('').forEach(l => { if(!have.includes(l)) have.push(l); }); f.bd = have.join(''); };
+    item('All borders', () => apply(f => add(f, 'tblr')));
+    item('Outer borders', () => apply((f, r, c) => add(f, (r === sel.r1 ? 't' : '') + (r === sel.r2 ? 'b' : '') + (c === sel.c1 ? 'l' : '') + (c === sel.c2 ? 'r' : ''))));
+    item('Top border', () => apply((f, r) => { if(r === sel.r1) add(f, 't'); }));
+    item('Bottom border', () => apply((f, r) => { if(r === sel.r2) add(f, 'b'); }));
+    item('Left border', () => apply((f, r, c) => { if(c === sel.c1) add(f, 'l'); }));
+    item('Right border', () => apply((f, r, c) => { if(c === sel.c2) add(f, 'r'); }));
+    item('Clear borders', () => apply(f => { f.bd = undefined; }));
+  }), 'fmt-pop-btn');
+
+  const updateBar = () => {
+    const f = anchorFmt();
+    boldBtn.classList.toggle('on', !!f.b); italBtn.classList.toggle('on', !!f.i);
+    ['left', 'center', 'right'].forEach(a => alBtns[a].classList.toggle('on', f.a === a));
+    sizeLbl.textContent = String(f.s || 10);
+    const sw = fbar.querySelector('#fillSw'); if(sw) sw.style.background = f.bg || 'transparent';
+    const fa = fbar.querySelector('.fmt-a'); if(fa) fa.style.borderBottomColor = f.fg || 'var(--text)';
+  };
+  const paintSel = () => {
+    Object.values(inputs).forEach(i => i.parentElement.classList.remove('sel'));
+    colTh.forEach(t => t && t.classList.remove('sel')); rowTh.forEach(t => t && t.classList.remove('sel'));
+    if(!sel) return;
+    forSel((ref) => inputs[ref].parentElement.classList.add('sel'));
+    for(let c = sel.c1; c <= sel.c2; c++) if(colTh[c]) colTh[c].classList.add('sel');
+    for(let r = sel.r1; r <= sel.r2; r++) if(rowTh[r]) rowTh[r].classList.add('sel');
+    updateBar();
+  };
+  const setSel = (r1, c1, r2, c2) => { sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
+
+  const wrap = mk('div', 'sheet-wrap');
+  const table = mk('table', 'sheet-grid');
   const head = table.createTHead().insertRow();
-  head.appendChild(document.createElement('th'));
-  for(let c = 0; c < sh.cols; c++){ const th = document.createElement('th'); th.textContent = colName(c); head.appendChild(th); }
+  const corner = mk('th'); corner.title = 'Select all'; corner.onclick = () => { anchor = { r: 1, c: 0 }; setSel(1, 0, sh.rows, sh.cols - 1); if(document.activeElement) document.activeElement.blur(); };
+  head.appendChild(corner);
+  for(let c = 0; c < sh.cols; c++){
+    const th = mk('th', null, colName(c)); colTh[c] = th;
+    th.onclick = () => { anchor = { r: 1, c }; setSel(1, c, sh.rows, c); if(document.activeElement) document.activeElement.blur(); };
+    head.appendChild(th);
+  }
   const body = table.createTBody();
-  const inputs = {};
-  const refresh = (except) => { for(const ref in inputs) if(inputs[ref] !== except) inputs[ref].value = sheetShown(sh, ref); };
   for(let r = 1; r <= sh.rows; r++){
     const tr = body.insertRow();
-    const rh = document.createElement('th'); rh.textContent = r; tr.appendChild(rh);
+    const rh = mk('th', null, String(r)); rowTh[r] = rh;
+    rh.onclick = () => { anchor = { r, c: 0 }; setSel(r, 0, r, sh.cols - 1); if(document.activeElement) document.activeElement.blur(); };
+    tr.appendChild(rh);
     for(let c = 0; c < sh.cols; c++){
       const ref = colName(c) + r;
       const td = tr.insertCell();
-      const inp = document.createElement('input');
-      inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false;
-      inp.value = sheetShown(sh, ref);
+      const inp = mk('input'); inp.type = 'text'; inp.autocomplete = 'off'; inp.spellcheck = false; inp.dataset.r = r; inp.dataset.c = c;
       inputs[ref] = inp;
+      td.appendChild(inp);
       let timer = null;
-      inp.addEventListener('focus', () => { inp.value = sh.cells[ref] == null ? '' : sh.cells[ref]; });   // show the formula while editing
+      inp.addEventListener('pointerdown', (e) => {
+        if(e.pointerType === 'mouse' && e.button !== 0) return;
+        if(e.shiftKey && anchor){ e.preventDefault(); setSel(anchor.r, anchor.c, r, c); if(document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur(); return; }
+        anchor = { r, c }; setSel(r, c, r, c);
+        if(e.pointerType !== 'mouse') return;
+        const move = (ev) => {
+          const el = document.elementFromPoint(ev.clientX, ev.clientY), tgt = el && el.closest && el.closest('.sheet-grid td input');
+          if(!tgt) return;
+          const tr2 = +tgt.dataset.r, tc2 = +tgt.dataset.c;
+          if(!dragging && tr2 === r && tc2 === c) return;
+          dragging = true; ev.preventDefault();
+          if(document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
+          setSel(anchor.r, anchor.c, tr2, tc2);
+        };
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setTimeout(() => { dragging = false; }, 0); };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+      });
+      inp.addEventListener('focus', () => {
+        inp.value = sh.cells[ref] == null ? '' : sh.cells[ref];   // show the formula while editing
+        if(!dragging && !(sel && (sel.r1 !== sel.r2 || sel.c1 !== sel.c2) && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2)){ anchor = { r, c }; setSel(r, c, r, c); }
+      });
       inp.addEventListener('input', () => {
         if(inp.value === '') delete sh.cells[ref]; else sh.cells[ref] = inp.value;
+        if(sh.cache) delete sh.cache[ref];
         refresh(inp);
         clearTimeout(timer); timer = setTimeout(saveTasks, 500);
       });
-      inp.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); inp.value = sheetShown(sh, ref); });
+      inp.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
       inp.addEventListener('keydown', (e) => {
         const move = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
         if(move){ e.preventDefault(); const nxt = inputs[colName(c) + (r + move[0])]; if(nxt){ nxt.focus(); nxt.select(); } }
       });
-      td.appendChild(inp);
     }
   }
+  { const memo = new Map(); for(const ref in inputs) showCell(ref, sheetShownInfo(sh, ref, memo)); }
   wrap.appendChild(table);
-  bizPanelEl.append(bar, wrap);
+  bizPanelEl.append(bar, fbar, wrap);
+  updateBar();
 }
+
 
 /* drag a tab sideways to reorder: mouse = drag after a few pixels, touch = press and hold, then drag */
 let bizJustDragged = false;
@@ -4568,7 +5313,7 @@ function fbRenderSheet(){
 }
 /* ---------- backups and safety copies ---------- */
 const SAFETY_KEY = 'tpas2:safety';
-const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore' };
+const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import' };
 function readSafety(){ try{ const l = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
 function writeSafety(list){
   while(list.length){ try{ localStorage.setItem(SAFETY_KEY, JSON.stringify(list)); return; }catch(e){ list.shift(); } }   // storage full: drop the oldest until it fits

@@ -1251,6 +1251,11 @@
   .palette .chip{ width: 22px; height: 22px; border-radius: 4px; border: 1px solid rgba(128,128,128,.45); cursor: pointer; padding: 0; }
   .palette-actions{ display: flex; gap: 6px; padding: 0 8px 8px; }
   .sheet-grid td.mg input{ min-width: 0; }
+  .fn-pop{ position: fixed; z-index: 60; min-width: 240px; max-width: min(92vw, 420px); background: var(--panel-solid); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35); padding: 4px; }
+  .fn-opt{ display: flex; flex-direction: column; gap: 1px; padding: 5px 9px; border-radius: 7px; cursor: pointer; font-size: 0.82rem; color: var(--text); }
+  .fn-opt b{ font-weight: 600; }
+  .fn-opt span{ font-size: 0.72rem; color: var(--text-dim); }
+  .fn-opt.on, .fn-opt:hover{ background: rgba(34,224,255,.16); }
   .sheet-grid td.sel input{ background: rgba(34,224,255,.13); }
   .sheet-grid th.sel{ background: rgba(34,224,255,.24); color: var(--text); }
   .sheet-grid td input.cached-val{ font-style: italic; }
@@ -4467,6 +4472,70 @@ async function importSheetFile(cur, file){
 }
 
 const exportFormula = (f) => f.replace(/"(?:[^"]|"")*"|[^"]+/g, (seg) => seg[0] === '"' ? seg : seg.toUpperCase().replace(/\bAVG\(/g, 'AVERAGE('));
+// formula autocomplete: suggestions pop up under the cell while typing a function name after "="
+const SHEET_FUNCS = [
+  ['SUM', 'SUM(range)', 'Adds numbers'], ['AVERAGE', 'AVERAGE(range)', 'Average of numbers'], ['AVG', 'AVG(range)', 'Same as AVERAGE'],
+  ['MIN', 'MIN(range)', 'Smallest number'], ['MAX', 'MAX(range)', 'Largest number'], ['MEDIAN', 'MEDIAN(range)', 'Middle number'],
+  ['COUNT', 'COUNT(range)', 'Counts numbers'], ['COUNTA', 'COUNTA(range)', 'Counts non-empty cells'], ['PRODUCT', 'PRODUCT(range)', 'Multiplies numbers'],
+  ['ROUND', 'ROUND(number, digits)', 'Rounds'], ['ROUNDUP', 'ROUNDUP(number, digits)', 'Rounds up'], ['ROUNDDOWN', 'ROUNDDOWN(number, digits)', 'Rounds down'],
+  ['INT', 'INT(number)', 'Whole part, rounded down'], ['ABS', 'ABS(number)', 'Ignores the minus sign'], ['SQRT', 'SQRT(number)', 'Square root'],
+  ['POWER', 'POWER(number, power)', 'Number to a power'], ['MOD', 'MOD(number, divisor)', 'Remainder'],
+  ['IF', 'IF(test, if_true, if_false)', 'Picks one of two results'], ['IFERROR', 'IFERROR(value, if_error)', 'Replaces an error'],
+  ['AND', 'AND(a, b, …)', 'All true?'], ['OR', 'OR(a, b, …)', 'Any true?'], ['NOT', 'NOT(a)', 'Opposite'],
+  ['COUNTIF', 'COUNTIF(range, criterion)', 'Counts matches'], ['SUMIF', 'SUMIF(range, criterion, sum_range)', 'Adds matches'],
+  ['CONCAT', 'CONCAT(a, b, …)', 'Joins text'], ['CONCATENATE', 'CONCATENATE(a, b, …)', 'Joins text'], ['LEN', 'LEN(text)', 'Length of text'],
+  ['UPPER', 'UPPER(text)', 'UPPER CASE'], ['LOWER', 'LOWER(text)', 'lower case'], ['TRIM', 'TRIM(text)', 'Removes extra spaces'],
+  ['LEFT', 'LEFT(text, n)', 'First n characters'], ['RIGHT', 'RIGHT(text, n)', 'Last n characters']
+];
+let fnPop = null, fnPopIdx = 0, fnPopMatches = [], fnPopInput = null;
+function fnPopClose(){ if(fnPop){ fnPop.remove(); fnPop = null; } fnPopMatches = []; fnPopInput = null; }
+function fnPopToken(inp){
+  const v = inp.value, pos = inp.selectionStart;
+  if(!v.startsWith('=') || pos == null) return null;
+  const before = v.slice(0, pos);
+  if((before.match(/"/g) || []).length % 2) return null;   // inside a text string
+  const m = /(?:^|[^A-Za-z0-9_.!$:])([A-Za-z]{1,12})$/.exec(before);
+  return m ? { text: m[1], start: pos - m[1].length, end: pos } : null;
+}
+function fnPopRender(){
+  fnPop.innerHTML = '';
+  fnPopMatches.forEach((f, i) => {
+    const row = document.createElement('div'); row.className = 'fn-opt' + (i === fnPopIdx ? ' on' : '');
+    row.innerHTML = '<b></b><span></span>'; row.firstChild.textContent = f[1]; row.lastChild.textContent = f[2];
+    row.onmousedown = (e) => { e.preventDefault(); fnPopIdx = i; fnPopAccept(); };
+    fnPop.appendChild(row);
+  });
+}
+function fnPopUpdate(inp){
+  const tok = fnPopToken(inp);
+  const up = tok && tok.text.toUpperCase();
+  const list = tok ? SHEET_FUNCS.filter(f => f[0].startsWith(up) && !(f[0] === up && inp.value[tok.end] === '(')) : [];
+  if(!list.length){ fnPopClose(); return; }
+  fnPopMatches = list.slice(0, 6); fnPopIdx = 0; fnPopInput = inp;
+  if(!fnPop){ fnPop = document.createElement('div'); fnPop.className = 'fn-pop'; document.body.appendChild(fnPop); }
+  fnPopRender();
+  const r = inp.getBoundingClientRect();
+  fnPop.style.left = Math.max(8, Math.min(r.left, innerWidth - fnPop.offsetWidth - 8)) + 'px';
+  const below = r.bottom + 2;
+  fnPop.style.top = (below + fnPop.offsetHeight < innerHeight - 8 ? below : Math.max(8, r.top - fnPop.offsetHeight - 2)) + 'px';
+}
+function fnPopAccept(){
+  const inp = fnPopInput, f = fnPopMatches[fnPopIdx]; if(!inp || !f) return;
+  const tok = fnPopToken(inp); if(!tok) return fnPopClose();
+  inp.value = inp.value.slice(0, tok.start) + f[0] + '(' + inp.value.slice(tok.end);
+  const at = tok.start + f[0].length + 1; inp.setSelectionRange(at, at);
+  fnPopClose();
+  inp.dispatchEvent(new Event('input'));
+}
+// returns true when the key was used by the popup
+function fnPopKey(e){
+  if(!fnPop) return false;
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); fnPopIdx = (fnPopIdx + (e.key === 'ArrowDown' ? 1 : -1) + fnPopMatches.length) % fnPopMatches.length; fnPopRender(); return true; }
+  if(e.key === 'Tab' || e.key === 'Enter'){ e.preventDefault(); fnPopAccept(); return true; }
+  if(e.key === 'Escape'){ e.preventDefault(); fnPopClose(); return true; }
+  return false;
+}
+
 // delete rows (axis 'r', 1-based) or columns (axis 'c', 0-based) from..to inclusive; everything after shifts up/left, like Google Sheets
 function sheetDeleteLines(sh, axis, from, to){
   const n = to - from + 1;
@@ -5059,6 +5128,7 @@ function renderBizPanel(cur){
         if(inp.value === '') delete sh.cells[ref]; else sh.cells[ref] = inp.value;
         if(sh.cache) delete sh.cache[ref];
         refresh(inp);
+        fnPopUpdate(inp);
         clearTimeout(timer); timer = setTimeout(saveTasks, 500);
       });
       inp.addEventListener('paste', (e) => {   // paste a block copied from Google Sheets / Excel (tab-separated) into the grid
@@ -5082,8 +5152,9 @@ function renderBizPanel(cur){
         renderBizPanel(cur);
         if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
       });
-      inp.addEventListener('blur', () => { clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
+      inp.addEventListener('blur', () => { fnPopClose(); clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
       inp.addEventListener('keydown', (e) => {
+        if(fnPopKey(e)) return;
         const move = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
         if(move){ e.preventDefault(); let rr = r + move[0], nxt = inputs[colName(c) + rr]; while(nxt && nxt.parentNode.style.display === 'none'){ rr += move[0]; nxt = inputs[colName(c) + rr]; } if(nxt){ nxt.focus(); nxt.select(); } }
       });

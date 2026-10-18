@@ -3917,7 +3917,7 @@ document.addEventListener('click', (e) => { if(!e.target.closest('.sheet-menu, .
 const SHEET_MAX_ROWS = 500, SHEET_MAX_COLS = 52;
 const colName = (i) => { let n = i + 1, s = ''; while(n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const colFromLetters = (L) => { let n = 0; for(const ch of L.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
-function newSheet(){ return { rows: 20, cols: 8, cells: {} }; }
+function newSheet(){ return { rows: 20, cols: 12, cells: {} }; }
 function refParts(ref){ const m = /^\$?([A-Za-z]{1,3})\$?([0-9]{1,5})$/.exec(ref); return m ? { c: colFromLetters(m[1]), r: +m[2] } : null; }
 
 let sheetCacheUsed = 0;   // goes up whenever a value had to come from the imported file instead of being worked out here
@@ -4942,6 +4942,8 @@ function renderBizPanel(cur){
   const setColW = (c, w) => { sh.colW = sh.colW || {}; if(w) sh.colW[c] = w; else delete sh.colW[c]; if(!Object.keys(sh.colW).length) delete sh.colW; applyColW(c, w); };
   const setRowH = (r, h) => { sh.rowH = sh.rowH || {}; if(h) sh.rowH[r] = h; else delete sh.rowH[r]; if(!Object.keys(sh.rowH).length) delete sh.rowH; applyRowH(r, h); };
 
+  if(sh.cols < 12) sh.cols = 12;
+  if(sh.rows < 15) sh.rows = 15;
   const wrap = mk('div', 'sheet-wrap');
   const table = mk('table', 'sheet-grid');
   const head = table.createTHead().insertRow();
@@ -5027,6 +5029,12 @@ function renderBizPanel(cur){
   if(sh.colW) for(const c in sh.colW) if(colTh[c]) applyColW(+c, sh.colW[c]);
   if(sh.rowH) for(const r in sh.rowH) if(rowTh[r]) applyRowH(+r, sh.rowH[r]);
   bizPanelEl.append(bar, fbar, wrap);
+  // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
+  const fitW = Math.max(64, Math.floor((wrap.clientWidth - 42) / 12));
+  for(let c = 0; c < sh.cols; c++) if(!(sh.colW && sh.colW[c])) applyColW(c, fitW);
+  // and rows 1–15: shrink the default row height a little if the panel is too short to show them
+  const headH = table.tHead.offsetHeight, fitH = Math.max(24, Math.min(33, Math.floor((wrap.clientHeight - headH - 16) / 15)));
+  if(fitH < 33) for(let r = 1; r <= sh.rows; r++) if(!(sh.rowH && sh.rowH[r])) applyRowH(r, fitH);
   updateBar();
 }
 

@@ -4467,6 +4467,40 @@ async function importSheetFile(cur, file){
 }
 
 const exportFormula = (f) => f.replace(/"(?:[^"]|"")*"|[^"]+/g, (seg) => seg[0] === '"' ? seg : seg.toUpperCase().replace(/\bAVG\(/g, 'AVERAGE('));
+// delete rows (axis 'r', 1-based) or columns (axis 'c', 0-based) from..to inclusive; everything after shifts up/left, like Google Sheets
+function sheetDeleteLines(sh, axis, from, to){
+  const n = to - from + 1;
+  const map = (i) => i < from ? i : i > to ? i - n : null;
+  const mapEdge = (i, isEnd) => i < from ? i : i > to ? i - n : (isEnd ? from - 1 : from);   // a range edge inside the deleted part shrinks the range
+  const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? map(p.r) : map(p.c)) === null ? null : (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
+  const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o){ const nk = key(k); if(nk !== null) out[nk] = o[k]; } return out; };
+  const num = (o) => { if(!o) return o; const out = {}; for(const k in o){ const nk = map(+k); if(nk !== null) out[nk] = o[k]; } return out; };
+  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
+    const one = (c, r, isEnd) => { const ci = colFromLetters(c), ri = +r; const v = axis === 'r' ? mapEdge(ri, isEnd) : mapEdge(ci, isEnd); return v; };
+    if(c2 === undefined){
+      const v = axis === 'r' ? map(+r1) : map(colFromLetters(c1));
+      if(v === null) return '#REF!';
+      return axis === 'r' ? d1 + c1 + d2 + v : d1 + colName(v) + d2 + r1;
+    }
+    const a = one(c1, r1, false), b = one(c2, r2, true);
+    if(b < a || (axis === 'c' && b < 0) || (axis === 'r' && b < 1)) return '#REF!';
+    return axis === 'r' ? d1 + c1 + d2 + a + ':' + d3 + c2 + d4 + b : d1 + colName(a) + d2 + r1 + ':' + d3 + colName(b) + d4 + r2;
+  })).join('"');
+  sh.cells = remapObj(sh.cells);
+  for(const k in sh.cells) if(String(sh.cells[k]).startsWith('=')) sh.cells[k] = fix(sh.cells[k]);
+  if(sh.fmt){ sh.fmt = remapObj(sh.fmt); if(!Object.keys(sh.fmt).length) delete sh.fmt; }
+  if(sh.cache){ sh.cache = remapObj(sh.cache); if(!Object.keys(sh.cache).length) delete sh.cache; }
+  if(axis === 'c'){ if(sh.colW){ sh.colW = num(sh.colW); if(!Object.keys(sh.colW).length) delete sh.colW; } sh.cols = Math.max(1, sh.cols - n); }
+  else { if(sh.rowH){ sh.rowH = num(sh.rowH); if(!Object.keys(sh.rowH).length) delete sh.rowH; } sh.rows = Math.max(1, sh.rows - n); }
+  if(sh.merges){
+    sh.merges = sh.merges.map(m => axis === 'r'
+      ? { r1: mapEdge(m.r1, false), r2: mapEdge(m.r2, true), c1: m.c1, c2: m.c2 }
+      : { c1: mapEdge(m.c1, false), c2: mapEdge(m.c2, true), r1: m.r1, r2: m.r2 })
+      .filter(m => m.r2 >= m.r1 && m.c2 >= m.c1 && (m.r2 > m.r1 || m.c2 > m.c1));
+    if(!sh.merges.length) delete sh.merges;
+  }
+}
+
 function sheetToXlsxBlob(name, sheet){
   const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const fonts = ['<font><sz val="10"/><name val="Arial"/></font>'];
@@ -4802,11 +4836,11 @@ function renderBizPanel(cur){
   const icon = (d) => `<svg viewBox="0 0 16 16" width="14" height="14"><path d="${d}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>`;
 
   // selection: { r1, c1, r2, c2 } (rows 1-based, columns 0-based)
-  let sel = null, anchor = null, dragging = false;
+  let sel = null, anchor = null, dragging = false, extra = [];   // extra = more ranges added with Cmd/Ctrl-click
   const inputs = {}, colTh = [], rowTh = [];
   const fmtOf = (ref) => (sh.fmt && sh.fmt[ref]) || null;
   const anchorFmt = () => (anchor ? fmtOf(colName(anchor.c) + anchor.r) : null) || {};
-  const forSel = (fn) => { if(!sel) return; for(let r = sel.r1; r <= sel.r2; r++) for(let c = sel.c1; c <= sel.c2; c++) fn(colName(c) + r, r, c); };
+  const forSel = (fn) => { if(!sel) return; const seen = new Set(); [sel, ...extra].forEach(g => { for(let r = g.r1; r <= g.r2; r++) for(let c = g.c1; c <= g.c2; c++){ const k = colName(c) + r; if(!seen.has(k)){ seen.add(k); fn(k, r, c); } } }); };
 
   const paintCell = (ref) => {
     const inp = inputs[ref]; if(!inp) return;
@@ -4919,11 +4953,10 @@ function renderBizPanel(cur){
     colTh.forEach(t => t && t.classList.remove('sel')); rowTh.forEach(t => t && t.classList.remove('sel'));
     if(!sel) return;
     forSel((ref) => inputs[ref].parentElement.classList.add('sel'));
-    for(let c = sel.c1; c <= sel.c2; c++) if(colTh[c]) colTh[c].classList.add('sel');
-    for(let r = sel.r1; r <= sel.r2; r++) if(rowTh[r]) rowTh[r].classList.add('sel');
+    [sel, ...extra].forEach(g => { for(let c = g.c1; c <= g.c2; c++) if(colTh[c]) colTh[c].classList.add('sel'); for(let r = g.r1; r <= g.r2; r++) if(rowTh[r]) rowTh[r].classList.add('sel'); });
     updateBar();
   };
-  const setSel = (r1, c1, r2, c2) => { sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
+  const setSel = (r1, c1, r2, c2, keep) => { if(!keep) extra = []; sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
 
   // column widths / row heights: sh.colW[c], sh.rowH[r] in px (drag the edge of a header; double-click resets)
   let fitWv = 0, fitHv = 0;   // default (auto-fitted) column width / row height
@@ -4978,11 +5011,11 @@ function renderBizPanel(cur){
   const wrap = mk('div', 'sheet-wrap');
   const table = mk('table', 'sheet-grid');
   const head = table.createTHead().insertRow();
-  const corner = mk('th'); corner.title = 'Select all'; corner.onclick = () => { anchor = { r: 1, c: 0 }; setSel(1, 0, sh.rows, sh.cols - 1); if(document.activeElement) document.activeElement.blur(); };
+  const corner = mk('th'); corner.title = 'Select all'; corner.onclick = () => { extra = []; anchor = { r: 1, c: 0 }; setSel(1, 0, sh.rows, sh.cols - 1); if(document.activeElement) document.activeElement.blur(); };
   head.appendChild(corner);
   for(let c = 0; c < sh.cols; c++){
     const th = mk('th', null, colName(c)); colTh[c] = th;
-    th.onclick = () => { anchor = { r: 1, c }; setSel(1, c, sh.rows, c); if(document.activeElement) document.activeElement.blur(); };
+    th.onclick = (ev) => { const add = ev.metaKey || ev.ctrlKey; if(add && sel) extra.push(sel); anchor = { r: 1, c }; setSel(1, c, sh.rows, c, add); if(document.activeElement) document.activeElement.blur(); };
     grip('rz-x', th, () => th.offsetWidth, w => setColW(c, w), 'x', () => fitCol(c));
     head.appendChild(th);
   }
@@ -4990,7 +5023,7 @@ function renderBizPanel(cur){
   for(let r = 1; r <= sh.rows; r++){
     const tr = body.insertRow();
     const rh = mk('th', null, String(r)); rowTh[r] = rh;
-    rh.onclick = () => { anchor = { r, c: 0 }; setSel(r, 0, r, sh.cols - 1); if(document.activeElement) document.activeElement.blur(); };
+    rh.onclick = (ev) => { const add = ev.metaKey || ev.ctrlKey; if(add && sel) extra.push(sel); anchor = { r, c: 0 }; setSel(r, 0, r, sh.cols - 1, add); if(document.activeElement) document.activeElement.blur(); };
     grip('rz-y', rh, () => rh.offsetHeight, h => setRowH(r, h), 'y', () => fitRow(r));
     tr.appendChild(rh);
     for(let c = 0; c < sh.cols; c++){
@@ -5003,7 +5036,8 @@ function renderBizPanel(cur){
       inp.addEventListener('pointerdown', (e) => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
         if(e.shiftKey && anchor){ e.preventDefault(); setSel(anchor.r, anchor.c, r, c); if(document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur(); return; }
-        anchor = { r, c }; setSel(r, c, r, c);
+        const add = e.metaKey || e.ctrlKey; if(add && sel) extra.push(sel);
+        anchor = { r, c }; setSel(r, c, r, c, add);
         if(e.pointerType !== 'mouse') return;
         const move = (ev) => {
           const el = document.elementFromPoint(ev.clientX, ev.clientY), tgt = el && el.closest && el.closest('.sheet-grid td input');
@@ -5012,7 +5046,7 @@ function renderBizPanel(cur){
           if(!dragging && tr2 === r && tc2 === c) return;
           dragging = true; ev.preventDefault();
           if(document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
-          setSel(anchor.r, anchor.c, tr2, tc2);
+          setSel(anchor.r, anchor.c, tr2, tc2, add);
         };
         const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setTimeout(() => { dragging = false; }, 0); };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
@@ -5094,22 +5128,37 @@ function renderBizPanel(cur){
     else r = rowTh.indexOf(el);
     if(c < 0 && r < 1) return;
     ev.preventDefault();
-    const cs = c >= 0 ? (sel && c >= sel.c1 && c <= sel.c2 ? [sel.c1, sel.c2] : [c, c]) : null;
-    const rs = r >= 1 ? (sel && r >= sel.r1 && r <= sel.r2 ? [sel.r1, sel.r2] : [r, r]) : null;
+    const groups = sel ? [sel, ...extra] : [];
+    const span = (lo, hi) => { const o = []; for(let k = lo; k <= hi; k++) o.push(k); return o; };
+    const union = (key1, key2) => [...new Set(groups.flatMap(g => span(g[key1], g[key2])))].sort((x, y) => x - y);
+    const cl = c >= 0 ? (union('c1', 'c2').includes(c) ? union('c1', 'c2') : [c]) : null;
+    const rl = r >= 1 ? (union('r1', 'r2').includes(r) ? union('r1', 'r2') : [r]) : null;
+    const label = (l, f) => l.length === 1 ? f(l[0]) : (l[l.length - 1] - l[0] === l.length - 1 ? f(l[0]) + '–' + f(l[l.length - 1]) : l.map(f).join(', '));
     const ask = (what, cur, lo, hi) => { const v = prompt(`${what} in pixels (${lo}–${hi}):`, String(cur)); if(v === null) return null; const n = Math.round(parseFloat(v)); return isNaN(n) ? null : Math.max(lo, Math.min(hi, n)); };
+    const delLines = (axis, list) => {
+      const total = axis === 'r' ? sh.rows : sh.cols;
+      if(list.length >= total){ alert("You can't delete every " + (axis === 'r' ? 'row' : 'column') + '.'); return; }
+      const what = axis === 'r' ? 'row' + (list.length > 1 ? 's ' : ' ') + label(list, String) : 'column' + (list.length > 1 ? 's ' : ' ') + label(list, colName);
+      if(!confirm(`Delete ${what}? Everything after it moves up / left. (A safety copy is kept.)`)) return;
+      takeSafetyCopy('before delete');
+      list.slice().sort((x, y) => y - x).forEach(k => sheetDeleteLines(sh, axis, k, k));   // highest first so earlier numbers stay valid
+      renderBizPanel(cur); saveTasks();
+    };
     closeSheetMenu();
     const menu = mk('div', 'sheet-menu');
     const item = (label, fn) => { const b = mk('button', null, label); b.type = 'button'; b.onclick = () => { closeSheetMenu(); fn(); }; menu.appendChild(b); };
     const name = (a, b, f) => a === b ? f(a) : f(a) + '–' + f(b);
-    if(cs){
-      item(`Column ${name(cs[0], cs[1], colName)} width…`, () => { const n = ask('Column width', colTh[cs[0]].offsetWidth, 40, 600); if(n) for(let k = cs[0]; k <= cs[1]; k++) setColW(k, n); saveTasks(); });
-      item('Fit column to data', () => { for(let k = cs[0]; k <= cs[1]; k++) fitCol(k); saveTasks(); });
-      item('Reset column width', () => { for(let k = cs[0]; k <= cs[1]; k++) setColW(k, 0); saveTasks(); });
+    if(cl){
+      item(`Column ${label(cl, colName)} width…`, () => { const n = ask('Column width', colTh[cl[0]].offsetWidth, 40, 600); if(n) cl.forEach(k => setColW(k, n)); saveTasks(); });
+      item(`Delete column${cl.length === 1 ? '' : 's'} ${label(cl, colName)}`, () => delLines('c', cl));
+      item('Fit column to data', () => { cl.forEach(k => fitCol(k)); saveTasks(); });
+      item('Reset column width', () => { cl.forEach(k => setColW(k, 0)); saveTasks(); });
     }
-    if(rs){
-      item(`Row ${name(rs[0], rs[1], String)} height…`, () => { const n = ask('Row height', rowTh[rs[0]].offsetHeight, 24, 400); if(n) for(let k = rs[0]; k <= rs[1]; k++) setRowH(k, n); saveTasks(); });
-      item('Fit row to data', () => { for(let k = rs[0]; k <= rs[1]; k++) fitRow(k); saveTasks(); });
-      item('Reset row height', () => { for(let k = rs[0]; k <= rs[1]; k++) setRowH(k, 0); saveTasks(); });
+    if(rl){
+      item(`Row ${label(rl, String)} height…`, () => { const n = ask('Row height', rowTh[rl[0]].offsetHeight, 24, 400); if(n) rl.forEach(k => setRowH(k, n)); saveTasks(); });
+      item(`Delete row${rl.length === 1 ? '' : 's'} ${label(rl, String)}`, () => delLines('r', rl));
+      item('Fit row to data', () => { rl.forEach(k => fitRow(k)); saveTasks(); });
+      item('Reset row height', () => { rl.forEach(k => setRowH(k, 0)); saveTasks(); });
     }
     if(el.tagName === 'TD'){
       if(!(sel && c >= sel.c1 && c <= sel.c2 && r >= sel.r1 && r <= sel.r2)){ anchor = { r, c }; setSel(r, c, r, c); }
@@ -5477,7 +5526,7 @@ function fbRenderSheet(){
 }
 /* ---------- backups and safety copies ---------- */
 const SAFETY_KEY = 'tpas2:safety';
-const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', manual: 'backup now', 'before paste': 'before a spreadsheet paste' };
+const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', manual: 'backup now', 'before delete': 'before a row/column delete', 'before paste': 'before a spreadsheet paste' };
 function readSafety(){ try{ const l = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
 function writeSafety(list){
   while(list.length){ try{ localStorage.setItem(SAFETY_KEY, JSON.stringify(list)); return; }catch(e){ list.shift(); } }   // storage full: drop the oldest until it fits

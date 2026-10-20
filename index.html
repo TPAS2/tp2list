@@ -4081,10 +4081,40 @@ function sheetResolve(ctx, name){
   if(ctx.memo){ ctx.memo._o = ctx.memo._o || new Map(); memo = ctx.memo._o.get(other); if(!memo){ memo = new Map(); ctx.memo._o.set(other, memo); } }
   return { sheet: other, seen: ctx.seen, memo };
 }
+// array results spill into the empty cells below / right of the formula (display only; nothing is stored in those cells)
+function sheetSpillMap(sheet, memo){
+  if(!memo) return null;
+  if(memo._spill) return memo._spill;
+  if(memo._spillBusy) return null;
+  memo._spillBusy = true;
+  const map = new Map(), scratch = new Map();   // formulas are tried in a scratch cache so partial results never leak into the real one
+  scratch._spillBusy = true;
+  try{
+    for(const ref in sheet.cells){
+      const raw = String(sheet.cells[ref]);
+      if(raw[0] !== '=' || !(raw.includes(':') || /ARRAYFORMULA/i.test(raw))) continue;
+      try{ sheetCellValue(sheet, ref, new Set(), scratch); }catch(e){}
+      const arr = scratch.get('arr:' + ref), o = refParts(ref);
+      if(!arr || !o) continue;
+      const R = arr.rows.length, C = arr.rows[0].length;
+      let blocked = false;
+      for(let i = 0; i < R && !blocked; i++) for(let j = 0; j < C; j++){
+        if(!i && !j) continue;
+        const t = colName(o.c + j) + (o.r + i);
+        if(sheetRaw(sheet, t).trim() !== '' || map.has(t)){ blocked = true; break; }
+      }
+      if(blocked){ memo.set(ref, { e: sErr('#REF!') }); continue; }   // "array result was not expanded: it would overwrite data"
+      for(let i = 0; i < R; i++) for(let j = 0; j < C; j++) if(i || j) map.set(colName(o.c + j) + (o.r + i), arr.rows[i][j]);
+    }
+  } finally { memo._spillBusy = false; }
+  memo._spill = map;
+  return map;
+}
+function sheetSpillAt(sheet, ref, memo){ const m = sheetSpillMap(sheet, memo); return m ? m.get(ref) : undefined; }
 function sheetCellValue(sheet, ref, seen, memo){
   if(memo && memo.has(ref)){ const m = memo.get(ref); if(m.cached) sheetCacheUsed++; if(m.e) throw m.e; return m.v; }
   const raw = sheetRaw(sheet, ref), t = raw.trim();
-  if(t === '') return '';
+  if(t === ''){ const sp = sheetSpillAt(sheet, ref, memo); if(sp !== undefined){ if(sp instanceof SheetError) throw sp; return sp; } return ''; }
   if(t[0] !== '='){
     let v;
     if(SHEET_ERROR_RE.test(t)) { const e = sErr(t); if(memo) memo.set(ref, { e }); throw e; }
@@ -4107,6 +4137,11 @@ function sheetCellValue(sheet, ref, seen, memo){
       res = (typeof c === 'string' && SHEET_ERROR_RE.test(c)) ? { e: sErr(c) } : { v: c };
     } else res = { e: e instanceof SheetError ? e : sErr('#ERR') };
   }
+  if(!res.e && sIsArr(res.v)){   // an array result: the cell shows its first value, the rest can spill into the cells next to it
+    if(memo) memo.set('arr:' + ref, res.v);
+    const first = res.v.rows[0][0];
+    if(first instanceof SheetError) res = { e: first }; else res = { v: first };
+  }
   res.cached = sheetCacheUsed !== before;
   if(memo) memo.set(ref, res);
   if(res.e) throw res.e;
@@ -4115,6 +4150,7 @@ function sheetCellValue(sheet, ref, seen, memo){
 // what a cell shows: its text, or for a formula the result (cached = it came from the imported file)
 function sheetShownInfo(sheet, ref, memo){
   const raw = sheetRaw(sheet, ref);
+  if(raw.trim() === '' && memo){ try{ const sp = sheetSpillAt(sheet, ref, memo); if(sp !== undefined) return { text: sp instanceof SheetError ? (sp.code === '#UNSUP' ? '#NAME?' : sp.code) : sheetFormat(sp), cached: false }; }catch(e){} }
   if(raw.trim()[0] !== '=') return { text: raw, cached: false };
   const before = sheetCacheUsed;
   try{ const v = sheetCellValue(sheet, ref, new Set(), memo); return { text: sheetFormat(v), cached: sheetCacheUsed !== before }; }
@@ -4210,32 +4246,110 @@ function sheetParse(src){
 }
 
 /* ---- evaluation ---- */
+// a block of values (from a range or an array formula); an element may be a SheetError
+class SheetArray{ constructor(rows){ this.rows = rows; } }
+const sIsArr = (v) => v instanceof SheetArray;
+// apply fn to the values, element by element when any of them is an array (scalars and 1-row / 1-column arrays stretch to fit)
+function sLift(vals, fn){
+  if(!vals.some(sIsArr)) return fn(vals);
+  let R = 1, C = 1;
+  vals.forEach(v => { if(sIsArr(v)){ R = Math.max(R, v.rows.length); C = Math.max(C, v.rows[0].length); } });
+  const rows = [];
+  for(let i = 0; i < R; i++){
+    const row = [];
+    for(let j = 0; j < C; j++){
+      const picks = vals.map(v => {
+        if(!sIsArr(v)) return v;
+        const r = v.rows.length === 1 ? v.rows[0] : v.rows[i], cc = v.rows[0].length === 1 ? 0 : j;
+        return r && cc < r.length ? r[cc] : sErr('#N/A');
+      });
+      const bad = picks.find(x => x instanceof SheetError);
+      if(bad){ row.push(bad); continue; }
+      try{ row.push(fn(picks)); }catch(e){ if(e instanceof SheetError) row.push(e); else throw e; }
+    }
+    rows.push(row);
+  }
+  return new SheetArray(rows);
+}
+const sArrPick = (v, i, j) => !sIsArr(v) ? v : (() => { const r = v.rows.length === 1 ? v.rows[0] : v.rows[i], cc = v.rows[0].length === 1 ? 0 : j; return r && cc < r.length ? r[cc] : sErr('#N/A'); })();
+function sBin(op, a, b){
+  switch(op){
+    case '+': return sFinite(sToNum(a) + sToNum(b));
+    case '-': return sFinite(sToNum(a) - sToNum(b));
+    case '*': return sFinite(sToNum(a) * sToNum(b));
+    case '/': { const d = sToNum(b); if(d === 0) throw sErr('#DIV/0!'); return sFinite(sToNum(a) / d); }
+    case '^': return sFinite(Math.pow(sToNum(a), sToNum(b)));
+    case '&': return sText(a) + sText(b);
+    case '=': return sCompare(a, b) === 0;
+    case '<>': return sCompare(a, b) !== 0;
+    case '<': return sCompare(a, b) < 0;
+    case '>': return sCompare(a, b) > 0;
+    case '<=': return sCompare(a, b) <= 0;
+    case '>=': return sCompare(a, b) >= 0;
+  }
+  throw sErr('#ERR');
+}
+// one-value-in, one-value-out functions: given a range they work on every cell and return an array
+const SHEET_LIFT = new Set(['REGEXEXTRACT', 'REGEXMATCH', 'REGEXREPLACE', 'VALUE', 'MID', 'LEFT', 'RIGHT', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'SUBSTITUTE', 'FIND', 'SEARCH', 'TEXTBEFORE', 'TEXTAFTER', 'ROUND', 'ROUNDUP', 'ROUNDDOWN', 'INT', 'ABS', 'SQRT', 'POWER', 'MOD', 'NOT']);
+function sheetRangeArray(a, ctx){
+  const rc = sheetResolve(ctx, a.sh);
+  const c1 = Math.min(a.c1, a.c2), c2 = Math.max(a.c1, a.c2);
+  const r1 = Math.min(a.r1, a.r2), r2 = a.r2 === Infinity ? Math.max(rc.sheet.rows, a.r1) : Math.max(a.r1, a.r2);
+  const rows = [];
+  for(let r = r1; r <= r2; r++){
+    const row = [];
+    for(let c = c1; c <= c2; c++){
+      try{ row.push(sheetCellValue(rc.sheet, colName(c) + r, rc.seen, rc.memo)); }catch(e){ if(e instanceof SheetError) row.push(e); else throw e; }
+    }
+    rows.push(row);
+  }
+  return new SheetArray(rows);
+}
+function sheetFnEval(n, ctx){
+  const name = n.name, args = n.args, lit = (v) => ({ k: 'lit', v });
+  if(name === 'ARRAYFORMULA') return args.length ? sheetEval(args[0], ctx) : '';
+  if(name === 'IFERROR'){
+    let v0;
+    try{ v0 = sheetEval(args[0], ctx); }catch(e){ if(e instanceof SheetError && e.code !== '#UNSUP') return args.length > 1 ? sheetEval(args[1], ctx) : ''; throw e; }
+    if(!sIsArr(v0)) return v0;
+    const alt = args.length > 1 ? sheetEval(args[1], ctx) : '';
+    const R = Math.max(v0.rows.length, sIsArr(alt) ? alt.rows.length : 1), C = Math.max(v0.rows[0].length, sIsArr(alt) ? alt.rows[0].length : 1);
+    const rows = [];
+    for(let i = 0; i < R; i++){ const row = []; for(let j = 0; j < C; j++){ const e = sArrPick(v0, i, j); row.push(e instanceof SheetError ? sArrPick(alt, i, j) : e); } rows.push(row); }
+    return new SheetArray(rows);
+  }
+  if(name === 'IF' && args.length >= 2 && args.length <= 3){
+    const c = sheetEval(args[0], ctx);
+    if(!sIsArr(c)) return sheetFn('IF', [lit(c), args[1], args[2]].filter(Boolean), ctx);
+    const grab = (a) => { if(!a) return false; try{ return sheetEval(a, ctx); }catch(e){ if(e instanceof SheetError) return e; throw e; } };
+    const a = grab(args[1]), b = args.length > 2 ? grab(args[2]) : false;
+    const R = Math.max(c.rows.length, sIsArr(a) ? a.rows.length : 1, sIsArr(b) ? b.rows.length : 1), C = Math.max(c.rows[0].length, sIsArr(a) ? a.rows[0].length : 1, sIsArr(b) ? b.rows[0].length : 1);
+    const rows = [];
+    for(let i = 0; i < R; i++){ const row = []; for(let j = 0; j < C; j++){ const t = sArrPick(c, i, j); row.push(t instanceof SheetError ? t : (sToBool(t) ? sArrPick(a, i, j) : sArrPick(b, i, j))); } rows.push(row); }
+    return new SheetArray(rows);
+  }
+  if(name === 'SUMPRODUCT'){
+    const vals = args.map(a => sheetEval(a, ctx));
+    const prod = vals.reduce((x, y) => sLift([x, y], ([p, q]) => (typeof p === 'number' ? p : p === true ? 1 : 0) * (typeof q === 'number' ? q : q === true ? 1 : 0)));
+    const flat = sIsArr(prod) ? prod.rows.flat() : [prod];
+    let sum = 0; for(const x of flat){ if(x instanceof SheetError) throw x; if(typeof x === 'number') sum += x; }
+    return sFinite(sum);
+  }
+  if(SHEET_LIFT.has(name)){
+    const vals = args.map(a => sheetEval(a, ctx));
+    return sLift(vals, (p) => sheetFn(name, p.map(lit), ctx));
+  }
+  return sheetFn(name, args, ctx);
+}
 function sheetEval(n, ctx){
   switch(n.k){
     case 'lit': return n.v;
     case 'ref': { const rc = sheetResolve(ctx, n.sh); return sheetCellValue(rc.sheet, colName(n.c) + n.r, rc.seen, rc.memo); }
-    case 'range': throw sErr('#VALUE!');
-    case 'neg': return -sToNum(sheetEval(n.a, ctx));
-    case 'pct': return sToNum(sheetEval(n.a, ctx)) / 100;
-    case 'bin': {
-      const a = sheetEval(n.a, ctx), b = sheetEval(n.b, ctx);
-      switch(n.op){
-        case '+': return sFinite(sToNum(a) + sToNum(b));
-        case '-': return sFinite(sToNum(a) - sToNum(b));
-        case '*': return sFinite(sToNum(a) * sToNum(b));
-        case '/': { const d = sToNum(b); if(d === 0) throw sErr('#DIV/0!'); return sFinite(sToNum(a) / d); }
-        case '^': return sFinite(Math.pow(sToNum(a), sToNum(b)));
-        case '&': return sText(a) + sText(b);
-        case '=': return sCompare(a, b) === 0;
-        case '<>': return sCompare(a, b) !== 0;
-        case '<': return sCompare(a, b) < 0;
-        case '>': return sCompare(a, b) > 0;
-        case '<=': return sCompare(a, b) <= 0;
-        case '>=': return sCompare(a, b) >= 0;
-      }
-      throw sErr('#ERR');
-    }
-    case 'fn': return sheetFn(n.name, n.args, ctx);
+    case 'range': return sheetRangeArray(n, ctx);
+    case 'neg': return sLift([sheetEval(n.a, ctx)], ([x]) => -sToNum(x));
+    case 'pct': return sLift([sheetEval(n.a, ctx)], ([x]) => sToNum(x) / 100);
+    case 'bin': { const a = sheetEval(n.a, ctx), b = sheetEval(n.b, ctx); return sLift([a, b], ([x, y]) => sBin(n.op, x, y)); }
+    case 'fn': return sheetFnEval(n, ctx);
   }
   throw sErr('#ERR');
 }
@@ -4249,7 +4363,11 @@ function sheetItems(args, ctx){
       const r1 = Math.min(a.r1, a.r2), r2 = a.r2 === Infinity ? Math.max(rc.sheet.rows, a.r1) : Math.max(a.r1, a.r2);
       for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++) out.push({ v: sheetCellValue(rc.sheet, colName(c) + r, rc.seen, rc.memo), ref: true });
     } else if(a.k === 'ref') out.push({ v: sheetEval(a, ctx), ref: true });
-    else out.push({ v: sheetEval(a, ctx), ref: false });
+    else {
+      const v = sheetEval(a, ctx);
+      if(sIsArr(v)) v.rows.forEach(row => row.forEach(x => { if(x instanceof SheetError) throw x; out.push({ v: x, ref: true }); }));   // an array result behaves like a range
+      else out.push({ v, ref: false });
+    }
   }
   return out;
 }
@@ -4639,7 +4757,7 @@ const SHEET_FUNCS = [
   ['LEFT', 'LEFT(text, n)', 'First n characters'], ['RIGHT', 'RIGHT(text, n)', 'Last n characters'],
   ['MID', 'MID(text, start, length)', 'Characters from the middle'], ['FIND', 'FIND(text, within, [start])', 'Position of text (case-sensitive)'], ['SEARCH', 'SEARCH(text, within, [start])', 'Position of text'],
   ['SUBSTITUTE', 'SUBSTITUTE(text, old, new, [which])', 'Replaces text'], ['TEXTBEFORE', 'TEXTBEFORE(text, delimiter, [which])', 'Text before a marker'], ['TEXTAFTER', 'TEXTAFTER(text, delimiter, [which])', 'Text after a marker'],
-  ['VALUE', 'VALUE(text)', 'Text to a number'], ['REGEXEXTRACT', 'REGEXEXTRACT(text, pattern)', 'First match of a pattern'], ['REGEXMATCH', 'REGEXMATCH(text, pattern)', 'Does the pattern match?'], ['REGEXREPLACE', 'REGEXREPLACE(text, pattern, new)', 'Replaces matches']
+  ['VALUE', 'VALUE(text)', 'Text to a number'], ['ARRAYFORMULA', 'ARRAYFORMULA(formula)', 'Runs a formula on a whole range'], ['SUMPRODUCT', 'SUMPRODUCT(range, range, …)', 'Multiplies then adds'], ['REGEXEXTRACT', 'REGEXEXTRACT(text, pattern)', 'First match of a pattern'], ['REGEXMATCH', 'REGEXMATCH(text, pattern)', 'Does the pattern match?'], ['REGEXREPLACE', 'REGEXREPLACE(text, pattern, new)', 'Replaces matches']
 ];
 let fnPop = null, fnPopIdx = 0, fnPopMatches = [], fnPopInput = null;
 function fnPopClose(){ if(fnPop){ fnPop.remove(); fnPop = null; } fnPopMatches = []; fnPopInput = null; }
@@ -5488,7 +5606,8 @@ function renderBizPanel(cur){
 
   // ---- copy / cut / paste ----
   const tsvCell = (v) => /[\t\n"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-  const shownOf = (ref) => { const f = fmtOf(ref) || {}; return sheetFormatNumber(sheetShownInfo(sh, ref).text, f.nf); };
+  let copyMemo = null;
+  const shownOf = (ref) => { const f = fmtOf(ref) || {}; return sheetFormatNumber(sheetShownInfo(sh, ref, copyMemo || (copyMemo = new Map())).text, f.nf); };
   const placePaste = (payload, r0, c0, nr, nc) => {
     // nr × nc target block starting at r0,c0; a 1×1 copy fills the whole block
     takeSafetyCopy('before paste');
@@ -5521,6 +5640,7 @@ function renderBizPanel(cur){
       const ae = document.activeElement;
       if(ae && ae.matches && ae.matches('input') && ae.selectionStart !== ae.selectionEnd) return;   // text selected inside a cell: normal copy
       if(!sel) return;
+      copyMemo = new Map();
       const nr = sel.r2 - sel.r1 + 1, nc = sel.c2 - sel.c1 + 1, cells = {}, fmts = {}, lines = [];
       for(let r = sel.r1; r <= sel.r2; r++){
         const line = [];

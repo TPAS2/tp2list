@@ -4953,7 +4953,21 @@ window.addEventListener('resize', () => document.querySelectorAll('textarea.auto
 const carNum = (x) => { const n = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isNaN(n) ? 0 : n; };
 const carCost = (v) => carNum(v.bought) + (v.expenses || []).reduce((sum, e) => sum + carNum(e.amount), 0);
 const carSold = (v) => String(v.sold == null ? '' : v.sold).trim() !== '';
-const carRent = (v) => carNum(v.rentPerMonth) * carNum(v.rentMonths);   // rental income = per month × months
+// months rented: from the start date to the end date (or today while there's no end date / it hasn't come yet), counting whole months, so it updates by itself; without a start date the typed number of months is used
+const carDate = (x) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(x || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+const carRentAuto = (v) => !!carDate(v.rentStart);
+const carRentMonths = (v) => {
+  const a = carDate(v.rentStart);
+  if(!a) return carNum(v.rentMonths);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const e = carDate(v.rentEnd);
+  const end = new Date((e && e < today ? e : today).getTime()); end.setDate(end.getDate() + 1);   // the last day counts
+  if(end <= a) return 0;
+  let m = (end.getFullYear() - a.getFullYear()) * 12 + end.getMonth() - a.getMonth();
+  if(end.getDate() < a.getDate()) m--;
+  return Math.max(0, m);
+};
+const carRent = (v) => carNum(v.rentPerMonth) * carRentMonths(v);   // rental income = per month × months
 const carProfit = (v) => carNum(v.sold) + carRent(v) - carCost(v);
 const carMoney = (n) => formatSigned(n);
 const carUid = () => Date.now() + Math.random().toString(36).slice(2);
@@ -5084,7 +5098,17 @@ function renderCarsPanel(cur){
 
       body.appendChild(el('div', 'car-sub', 'Renting'));
       body.appendChild(field('Rent per month (€)', v.rentPerMonth, (x) => { v.rentPerMonth = x; }));
-      body.appendChild(field('Months rented', v.rentMonths, (x) => { v.rentMonths = x; }));
+      const dateField = (label, key) => {
+        const row = el('label', 'car-field'); row.appendChild(el('span', null, label));
+        const inp = el('input'); inp.type = 'date'; inp.value = v[key] || '';
+        inp.addEventListener('change', () => { v[key] = inp.value; saveTasks(); redraw(); });
+        row.appendChild(inp); return row;
+      };
+      body.appendChild(dateField('Rent started', 'rentStart'));
+      body.appendChild(dateField('Rent ends (optional)', 'rentEnd'));
+      const monthsRow = field(carRentAuto(v) ? 'Months rented (automatic)' : 'Months rented', carRentAuto(v) ? String(carRentMonths(v)) : v.rentMonths, (x) => { v.rentMonths = x; });
+      if(carRentAuto(v)) monthsRow.querySelector('input').disabled = true;   // worked out from the dates
+      body.appendChild(monthsRow);
       const sum = el('div', 'car-sum');
       const l1 = el('div'); l1.append(el('span', null, 'Total cost'), card._cost = el('b'));
       const lr = el('div'); lr.append(el('span', null, 'Rent income'), card._rent = el('b')); sum.appendChild(lr);

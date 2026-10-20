@@ -6251,7 +6251,6 @@ function showStorage(){
   const el = document.getElementById('dsStorage'); if(!el) return;
   const used = storageUsed(), pct = Math.min(100, used / 50000);   // 5,000,000 characters = 100 %
   el.textContent = `Browser storage: ${pct < 10 ? pct.toFixed(1) : Math.round(pct)}% used (${(used / 1e6).toFixed(2)} of about 5 million characters)`;
-  el.style.color = pct >= 80 ? 'var(--danger)' : '';
 }
 function fillSafetyList(){
   showStorage();
@@ -6270,19 +6269,14 @@ function fillSafetyList(){
 // reminder bar under the header: no downloaded backup for 7+ days (snooze 1 day), or browser storage nearly full (always shown)
 function updateBackupNudge(){
   const bar = document.getElementById('backupNudge');
-  let last = 0, snooze = 0, used = 0;
-  try{ last = +localStorage.getItem('tpas2:lastBackup') || 0; snooze = +localStorage.getItem('tpas2:nudgeSnooze') || 0; for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); used += k.length + (localStorage.getItem(k) || '').length; } }catch(e){}
+  let last = 0, snooze = 0;
+  try{ last = +localStorage.getItem('tpas2:lastBackup') || 0; snooze = +localStorage.getItem('tpas2:nudgeSnooze') || 0; }catch(e){}
   bar.textContent = ''; bar.classList.remove('warn');
   const msg = document.createElement('span'); bar.appendChild(msg);
   const btn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = fn; bar.appendChild(b); };
-  const full = used > 4000000;   // browsers allow roughly 5 million characters
   const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
   const stale = dataHasContent(data) && (days === null || days >= 7) && Date.now() > snooze;
-  if(full){
-    bar.classList.add('warn');
-    msg.textContent = `Browser storage is ${Math.round(used / 50000)}% full. Download a backup now, and remove big photos from Other lists.`;
-    btn('Download backup', () => document.getElementById('dsExport').click());
-  } else if(stale){
+  if(stale){
     msg.textContent = days === null ? "You haven't downloaded a backup yet." : `Your last downloaded backup was ${days} days ago.`;
     btn('Download backup', () => document.getElementById('dsExport').click());
     btn('Later', () => { try{ localStorage.setItem('tpas2:nudgeSnooze', String(Date.now() + 86400000)); }catch(e){} updateBackupNudge(); });

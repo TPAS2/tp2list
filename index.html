@@ -1244,6 +1244,7 @@
   .biz-tools .sheet-bar{ margin-bottom: 0; }
   .biz-tools .sheet-io{ margin-left: auto; }
   .sheet-io{ display: flex; gap: 6px; flex: none; }
+  .other-bar .sheet-io{ margin-left: auto; }
   .sheet-mini{ background: var(--fill); border: 0; border-radius: 8px; color: var(--text); font: inherit; font-size: .74rem; font-weight: 600; padding: 5px 9px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; }
   .sheet-mini:hover{ box-shadow: inset 0 0 0 1px var(--accent2); }
   .fmt-btn{ min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: .82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
@@ -4905,6 +4906,7 @@ function renderCarsPanel(cur){
 }
 
 function renderBizPanel(cur){
+  document.querySelectorAll('#businessPage .other-bar .sheet-io').forEach(x => x.remove());   // Import / Export live in the top bar, spreadsheet sections only
   bizPanelEl.innerHTML = '';
   if(!cur) return;
   const h = document.createElement('h3');
@@ -4968,7 +4970,7 @@ function renderBizPanel(cur){
   btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++){ delete sh.cells[colName(c) + sh.rows]; if(sh.fmt) delete sh.fmt[colName(c) + sh.rows]; } sh.rows = Math.max(1, sh.rows - 1); renderBizPanel(cur); saveTasks(); } }, sh.rows <= 1);
   btn('+ Column', () => { sh.cols = Math.min(SHEET_MAX_COLS, sh.cols + 1); renderBizPanel(cur); saveTasks(); }, sh.cols >= SHEET_MAX_COLS);
   btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++){ delete sh.cells[colName(sh.cols - 1) + r]; if(sh.fmt) delete sh.fmt[colName(sh.cols - 1) + r]; } sh.cols = Math.max(1, sh.cols - 1); renderBizPanel(cur); saveTasks(); } }, sh.cols <= 1);
-  const hint = mk('span', 'sheet-hint', 'ⓘ'); hint.title = 'Formulas: =A1+B1, =SUM(A1:A5), IF, ROUND, AVERAGE… Other sections: ='Section 2'!B3-A1 or =SUM(Sales!A1:A5). Select cells by dragging, or tap a column / row header.';
+  const hint = mk('span', 'sheet-hint', 'ⓘ'); hint.title = 'Formulas: =A1+B1, =SUM(A1:A5), IF, ROUND, AVERAGE… Other sections: =\'Section 2\'!B3-A1 or =SUM(Sales!A1:A5). Select cells by dragging, or tap a column / row header.';
   bar.appendChild(hint);
 
   // formatting toolbar (works on the selected cells, like Google Sheets)
@@ -5366,8 +5368,9 @@ function renderBizPanel(cur){
   if(sh.rowH) for(const r in sh.rowH) if(rowTh[r]) applyRowH(+r, sh.rowH[r]);
   sizeMerged();
   const tools = mk('div', 'biz-tools');   // all the buttons sit beside the sheet name
-  tools.append(bar, fbar, io);
+  tools.append(bar, fbar);
   headRow.appendChild(tools);
+  document.querySelector('#businessPage .other-bar').appendChild(io);   // Import / Export sit on the same row as the Business title
   bizPanelEl.append(wrap);
   // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
   const fitW = Math.max(64, Math.floor((wrap.clientWidth - 42) / Math.min(12, sh.cols)));   // fewer than 12 columns: they stretch to fill the page

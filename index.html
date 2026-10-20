@@ -1294,11 +1294,11 @@
   @media (max-width: 520px){ .sheet-hint{ display: none; } }
   .sheet-wrap{ flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
   .sheet-grid{ border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
-  .sheet-grid th{ position: sticky; top: 0; z-index: 2; background: var(--panel-solid); color: var(--text-dim); font-size: 0.72rem; font-weight: 600; padding: 4px 6px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .sheet-grid th{ position: sticky; top: 0; z-index: 2; background: var(--panel-solid); color: var(--text-dim); font-size: 0.72rem; font-weight: 600; padding: 4px 0; text-align: center; overflow: hidden; white-space: nowrap; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .sheet-grid tbody th{ position: sticky; left: 0; top: auto; z-index: 1; min-width: 34px; text-align: center; }
   .sheet-grid thead th:first-child{ left: 0; z-index: 3; }
-  .sheet-grid td{ padding: 0; min-width: 110px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .sheet-grid td input{ display: block; width: 100%; min-width: 110px; border-radius: 0; box-sizing: border-box; background: transparent; color: var(--text); border: 0; outline: none; font: inherit; font-size: 0.9rem; padding: 8px 8px; }
+  .sheet-grid td{ padding: 0; min-width: 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .sheet-grid td input{ display: block; width: 100%; min-width: 10px; border-radius: 0; box-sizing: border-box; background: transparent; color: var(--text); border: 0; outline: none; font: inherit; font-size: 0.9rem; padding: 8px 8px; }
   .sheet-grid td input:focus{ background: rgba(34,224,255,.1); box-shadow: inset 0 0 0 2px var(--accent2); }
   .sheet-tabs{
     display: flex; align-items: stretch; overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -5183,7 +5183,7 @@ function renderBizPanel(cur){
     w = w || fitWv;
     const v = w ? w + 'px' : '';
     colTh[c].style.minWidth = v; colTh[c].style.width = v;
-    for(let r = 1; r <= sh.rows; r++){ const i = inputs[colName(c) + r]; if(!i) continue; i.style.minWidth = v; i.parentNode.style.minWidth = v; i.parentNode.style.width = v; }
+    for(let r = 1; r <= sh.rows; r++){ const i = inputs[colName(c) + r]; if(!i) continue; i.style.minWidth = v; i.parentNode.style.minWidth = v; i.parentNode.style.width = v; i.style.paddingLeft = i.style.paddingRight = w < 30 ? '0' : ''; }
   };
   const applyRowH = (r, h) => {
     h = h || fitHv;
@@ -5199,7 +5199,7 @@ function renderBizPanel(cur){
       ev.preventDefault(); ev.stopPropagation();
       g.setPointerCapture(ev.pointerId);
       const start = axis === 'x' ? ev.clientX : ev.clientY, base = getCur();
-      g.onpointermove = e => set(Math.max(axis === 'x' ? 40 : 24, Math.min(axis === 'x' ? 600 : 400, Math.round(base + (axis === 'x' ? e.clientX : e.clientY) - start))));
+      g.onpointermove = e => set(Math.max(axis === 'x' ? 10 : 24, Math.min(axis === 'x' ? 600 : 400, Math.round(base + (axis === 'x' ? e.clientX : e.clientY) - start))));
       g.onpointerup = g.onpointercancel = () => { g.onpointermove = g.onpointerup = g.onpointercancel = null; saveTasks(); };
     };
     th.appendChild(g);
@@ -5215,7 +5215,7 @@ function renderBizPanel(cur){
       mctx.font = `${f.i ? 'italic ' : ''}${f.b ? '700 ' : ''}${((f.s || 10) * 1.44).toFixed(1)}px ${getComputedStyle(i).fontFamily}`;
       w = Math.max(w, mctx.measureText(i.dataset.disp || i.value).width);
     }
-    setColW(c, w ? Math.max(40, Math.min(600, Math.ceil(w) + 22)) : 0);
+    setColW(c, w ? Math.max(10, Math.min(600, Math.ceil(w) + 22)) : 0);
   };
   const fitRow = (r) => {
     let sz = 10;
@@ -5391,7 +5391,7 @@ function renderBizPanel(cur){
     const item = (label, fn) => { const b = mk('button', null, label); b.type = 'button'; b.onclick = () => { closeSheetMenu(); fn(); }; menu.appendChild(b); };
     const name = (a, b, f) => a === b ? f(a) : f(a) + '–' + f(b);
     if(cl){
-      item(`Column ${label(cl, colName)} width…`, () => { const n = ask('Column width', colTh[cl[0]].offsetWidth, 40, 600); if(n) cl.forEach(k => setColW(k, n)); saveTasks(); });
+      item(`Column ${label(cl, colName)} width…`, () => { const n = ask('Column width', colTh[cl[0]].offsetWidth, 10, 600); if(n) cl.forEach(k => setColW(k, n)); saveTasks(); });
       item(`Delete column${cl.length === 1 ? '' : 's'} ${label(cl, colName)}`, () => delLines('c', cl));
       item('Fit column to data', () => { cl.forEach(k => fitCol(k)); saveTasks(); });
       item('Reset column width', () => { cl.forEach(k => setColW(k, 0)); saveTasks(); });

@@ -58,6 +58,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - Known limit: sync merges per top-level section with newest edit wins, so editing the same section (e.g. Business, which is one section) on two devices at once can drop one device's changes. The safety copy is the net for that.
 
 ## Past bugs (fixed — check here first if something looks off)
+- Sheets with more than 80 rows stopped at row 80: the row-height fitting loop touched rows that the chunked build hadn't created yet and threw, aborting the render. Any code that loops over `sh.rows` while the grid is built in chunks must stay within `FIRST_ROWS` or guard `rowTh[r]` / `inputs[ref]`.
 - A single-quoted JS string containing `'Section 2'` (in the spreadsheet ⓘ tooltip) broke the whole page script for one merge. Always run a syntax check on the page script (extract `<script>` and `node --check`) before merging.
 - Sync pull rebuilt data without `ledger`/`spanEvents`, wiping them on every pull.
 - Sync push never updated the local timestamp, so the app treated its own saved data as stale and

@@ -4656,6 +4656,28 @@ function sheetFormatNumber(text, nf){
   return (n < 0 ? '-' : '') + fmt(n, 2);
 }
 
+// insert n blank rows (axis 'r', 1-based) or columns (axis 'c', 0-based) before index `at`; everything from there on shifts down / right
+function sheetInsertLines(sh, axis, at, n){
+  const map = (i) => i >= at ? i + n : i;
+  const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
+  const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o) out[key(k)] = o[k]; return out; };
+  const num = (o) => { if(!o) return o; const out = {}; for(const k in o) out[map(+k)] = o[k]; return out; };
+  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
+    const one = (c, r) => axis === 'r' ? [c, map(+r)] : [colName(map(colFromLetters(c))), r];
+    const [ca, ra] = one(c1, r1);
+    if(c2 === undefined) return d1 + ca + d2 + ra;
+    const [cb, rb] = one(c2, r2);
+    return d1 + ca + d2 + ra + ':' + d3 + cb + d4 + rb;
+  })).join('"');
+  sh.cells = remapObj(sh.cells);
+  for(const k in sh.cells) if(String(sh.cells[k]).startsWith('=')) sh.cells[k] = fix(sh.cells[k]);
+  if(sh.fmt) sh.fmt = remapObj(sh.fmt);
+  if(sh.cache) sh.cache = remapObj(sh.cache);
+  if(axis === 'c'){ if(sh.colW) sh.colW = num(sh.colW); sh.cols += n; }
+  else { if(sh.rowH) sh.rowH = num(sh.rowH); sh.rows += n; }
+  if(sh.merges) sh.merges = sh.merges.map(m => axis === 'r' ? { r1: map(m.r1), r2: map(m.r2), c1: m.c1, c2: m.c2 } : { c1: map(m.c1), c2: map(m.c2), r1: m.r1, r2: m.r2 });
+}
+
 // delete rows (axis 'r', 1-based) or columns (axis 'c', 0-based) from..to inclusive; everything after shifts up/left, like Google Sheets
 function sheetDeleteLines(sh, axis, from, to){
   const n = to - from + 1;
@@ -5511,6 +5533,11 @@ function renderBizPanel(cur){
     const rl = r >= 1 ? (union('r1', 'r2').includes(r) ? union('r1', 'r2') : [r]) : null;
     const label = (l, f) => l.length === 1 ? f(l[0]) : (l[l.length - 1] - l[0] === l.length - 1 ? f(l[0]) + '–' + f(l[l.length - 1]) : l.map(f).join(', '));
     const ask = (what, cur, lo, hi) => { const v = prompt(`${what} in pixels (${lo}–${hi}):`, String(cur)); if(v === null) return null; const n = Math.round(parseFloat(v)); return isNaN(n) ? null : Math.max(lo, Math.min(hi, n)); };
+    const insLines = (axis, at, n) => {
+      if(axis === 'r' ? sh.rows + n > SHEET_MAX_ROWS : sh.cols + n > SHEET_MAX_COLS){ alert(`A spreadsheet can have at most ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns.`); return; }
+      sheetInsertLines(sh, axis, at, n);
+      renderBizPanel(cur); saveTasks();
+    };
     const delLines = (axis, list) => {
       const total = axis === 'r' ? sh.rows : sh.cols;
       if(list.length >= total){ alert("You can't delete every " + (axis === 'r' ? 'row' : 'column') + '.'); return; }
@@ -5526,12 +5553,16 @@ function renderBizPanel(cur){
     const name = (a, b, f) => a === b ? f(a) : f(a) + '–' + f(b);
     if(cl){
       item(`Column ${label(cl, colName)} width…`, () => { const n = ask('Column width', colTh[cl[0]].offsetWidth, 10, 600); if(n) cl.forEach(k => setColW(k, n)); saveTasks(); });
+      item(`Insert ${cl.length > 1 ? cl.length + ' columns' : 'column'} left`, () => insLines('c', cl[0], cl.length));
+      item(`Insert ${cl.length > 1 ? cl.length + ' columns' : 'column'} right`, () => insLines('c', cl[cl.length - 1] + 1, cl.length));
       item(`Delete column${cl.length === 1 ? '' : 's'} ${label(cl, colName)}`, () => delLines('c', cl));
       item('Fit column to data', () => { cl.forEach(k => fitCol(k)); saveTasks(); });
       item('Reset column width', () => { cl.forEach(k => setColW(k, 0)); saveTasks(); });
     }
     if(rl){
       item(`Row ${label(rl, String)} height…`, () => { const n = ask('Row height', rowTh[rl[0]].offsetHeight, 24, 400); if(n) rl.forEach(k => setRowH(k, n)); saveTasks(); });
+      item(`Insert ${rl.length > 1 ? rl.length + ' rows' : 'row'} above`, () => insLines('r', rl[0], rl.length));
+      item(`Insert ${rl.length > 1 ? rl.length + ' rows' : 'row'} below`, () => insLines('r', rl[rl.length - 1] + 1, rl.length));
       item(`Delete row${rl.length === 1 ? '' : 's'} ${label(rl, String)}`, () => delLines('r', rl));
       item('Fit row to data', () => { rl.forEach(k => fitRow(k)); saveTasks(); });
       item('Reset row height', () => { rl.forEach(k => setRowH(k, 0)); saveTasks(); });

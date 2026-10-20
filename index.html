@@ -3942,6 +3942,14 @@ document.querySelector('#birthdayForm button.add').addEventListener('click', add
 
 /* ---------- business: sections with a Sheets-style tab strip. Each is { id, name }; blank for now ---------- */
 // clicking a cell on another section while typing a formula: the formula waits here until a cell is chosen
+// copy / cut / paste for the spreadsheet grid (set by renderBizPanel); formatting travels with copies made inside the app
+let bizSheetClip = null, bizLastCopy = null;
+['copy', 'cut', 'paste'].forEach(type => document.addEventListener(type, (e) => {
+  const c = bizSheetClip; if(!c || !c.wrap.isConnected || c.wrap.offsetParent === null) return;
+  const ae = document.activeElement, typing = ae && ae.matches && ae.matches('input, textarea, select, [contenteditable]');
+  if(typing && !ae.matches('.sheet-grid td input')) return;   // some other box (formula bar, notes…): normal behaviour
+  if(type === 'paste') c.paste(e); else c.copy(e, type === 'cut');
+}));
 let bizPickCandidate = null;   // formula being typed when a tab was pressed
 let bizPending = null;         // { tabId, ref, text, caret }
 function bizFormulaState(){
@@ -4958,6 +4966,7 @@ function renderCarsPanel(cur){
 }
 
 function renderBizPanel(cur){
+  bizSheetClip = null;   // set again below when this section is a spreadsheet
   document.querySelectorAll('#businessPage .other-bar .sheet-io, #businessPage .other-bar .fx-bar').forEach(x => x.remove());   // Import / Export live in the top bar, spreadsheet sections only
   bizPanelEl.innerHTML = '';
   if(!cur) return;
@@ -5355,27 +5364,6 @@ function renderBizPanel(cur){
         if(ref === fxRef()) fx.value = inp.value;
         clearTimeout(timer); timer = setTimeout(saveTasks, 500);
       });
-      inp.addEventListener('paste', (e) => {   // paste a block copied from Google Sheets / Excel (tab-separated) into the grid
-        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
-        if(!/[\t\n]/.test(text.replace(/\r?\n$/, ''))) return;   // a single value: normal paste
-        e.preventDefault();
-        const rows = parseDelimited(text, '\t');
-        while(rows.length > 1 && rows[rows.length - 1].every(v => v === '')) rows.pop();
-        const r0 = sel ? sel.r1 : r, c0 = sel ? sel.c1 : c;
-        let cut = false;
-        takeSafetyCopy('before paste');
-        rows.forEach((cells, i) => cells.forEach((v, j) => {
-          const rr = r0 + i, cc = c0 + j;
-          if(rr > SHEET_MAX_ROWS || cc >= SHEET_MAX_COLS){ cut = true; return; }
-          const k = colName(cc) + rr;
-          if(v === '') delete sh.cells[k]; else sh.cells[k] = v;
-          if(sh.cache) delete sh.cache[k];
-          sh.rows = Math.max(sh.rows, rr); sh.cols = Math.max(sh.cols, cc + 1);
-        }));
-        saveTasks();
-        renderBizPanel(cur);
-        if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
-      });
       inp.addEventListener('blur', () => { if(!table._noFocus) clearPick(); fnPopClose(); clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
       inp.addEventListener('keydown', (e) => {
         if(fnPopKey(e)) return;
@@ -5415,6 +5403,97 @@ function renderBizPanel(cur){
     applyMerges(); sizeMerged(); paintSel(); saveTasks();
   };
   mergeBtn.onclick = toggleMerge;
+
+  // ---- copy / cut / paste ----
+  const tsvCell = (v) => /[\t\n"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+  const shownOf = (ref) => { const f = fmtOf(ref) || {}; return sheetFormatNumber(sheetShownInfo(sh, ref).text, f.nf); };
+  const placePaste = (payload, r0, c0, nr, nc) => {
+    // nr × nc target block starting at r0,c0; a 1×1 copy fills the whole block
+    takeSafetyCopy('before paste');
+    let cut = false;
+    sh.fmt = sh.fmt || {};
+    for(let i = 0; i < nr; i++) for(let j = 0; j < nc; j++){
+      const rr = r0 + i, cc = c0 + j;
+      if(rr > SHEET_MAX_ROWS || cc >= SHEET_MAX_COLS){ cut = true; continue; }
+      const si = i % payload.nr, sj = j % payload.nc, key = si + ',' + sj, k = colName(cc) + rr;
+      let raw = payload.cells[key];
+      if(raw != null && String(raw).startsWith('=')) raw = '=' + shiftFormula(String(raw).slice(1), rr - (payload.r0 + si), cc - (payload.c0 + sj));
+      if(raw == null || raw === '') delete sh.cells[k]; else sh.cells[k] = raw;
+      if(sh.cache) delete sh.cache[k];
+      if(payload.fmts[key]) sh.fmt[k] = Object.assign({}, payload.fmts[key]); else delete sh.fmt[k];
+      sh.rows = Math.max(sh.rows, rr); sh.cols = Math.max(sh.cols, cc + 1);
+    }
+    if(!Object.keys(sh.fmt).length) delete sh.fmt;
+    if(payload.merges.length && payload.nr === nr && payload.nc === nc){   // merged cells come along (only for a same-size paste)
+      const mine = payload.merges.map(m => ({ r1: r0 + m.r1, c1: c0 + m.c1, r2: r0 + m.r2, c2: c0 + m.c2 }));
+      const hit = (m) => mine.some(n => !(m.r2 < n.r1 || m.r1 > n.r2 || m.c2 < n.c1 || m.c1 > n.c2));
+      sh.merges = (sh.merges || []).filter(m => !hit(m)).concat(mine.filter(m => m.r2 <= sh.rows && m.c2 < sh.cols));
+      if(!sh.merges.length) delete sh.merges;
+    }
+    saveTasks(); renderBizPanel(cur);
+    if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
+  };
+  bizSheetClip = {
+    wrap,
+    copy(e, isCut){
+      const ae = document.activeElement;
+      if(ae && ae.matches && ae.matches('input') && ae.selectionStart !== ae.selectionEnd) return;   // text selected inside a cell: normal copy
+      if(!sel) return;
+      const nr = sel.r2 - sel.r1 + 1, nc = sel.c2 - sel.c1 + 1, cells = {}, fmts = {}, lines = [];
+      for(let r = sel.r1; r <= sel.r2; r++){
+        const line = [];
+        for(let c = sel.c1; c <= sel.c2; c++){
+          const ref = colName(c) + r, key = (r - sel.r1) + ',' + (c - sel.c1);
+          line.push(tsvCell(shownOf(ref)));
+          if(sh.cells[ref] != null) cells[key] = sh.cells[ref];
+          if(sh.fmt && sh.fmt[ref]) fmts[key] = Object.assign({}, sh.fmt[ref]);
+        }
+        lines.push(line.join('\t'));
+      }
+      const merges = (sh.merges || []).filter(m => m.r1 >= sel.r1 && m.r2 <= sel.r2 && m.c1 >= sel.c1 && m.c2 <= sel.c2).map(m => ({ r1: m.r1 - sel.r1, c1: m.c1 - sel.c1, r2: m.r2 - sel.r1, c2: m.c2 - sel.c1 }));
+      const text = lines.join('\n');
+      e.clipboardData.setData('text/plain', text); e.preventDefault();
+      bizLastCopy = { text, r0: sel.r1, c0: sel.c1, nr, nc, cells, fmts, merges };
+      if(isCut){
+        takeSafetyCopy('before paste');
+        forSel((ref) => { delete sh.cells[ref]; if(sh.cache) delete sh.cache[ref]; if(sh.fmt) delete sh.fmt[ref]; });
+        if(sh.fmt && !Object.keys(sh.fmt).length) delete sh.fmt;
+        if(sh.merges){ sh.merges = sh.merges.filter(m => !(m.r1 >= sel.r1 && m.r2 <= sel.r2 && m.c1 >= sel.c1 && m.c2 <= sel.c2)); if(!sh.merges.length) delete sh.merges; }
+        saveTasks(); renderBizPanel(cur);
+      }
+    },
+    paste(e){
+      const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+      const r0 = sel ? sel.r1 : 1, c0 = sel ? sel.c1 : 0;
+      if(bizLastCopy && text === bizLastCopy.text){   // copied inside the app: formulas shift, formatting comes too
+        e.preventDefault();
+        const one = bizLastCopy.nr === 1 && bizLastCopy.nc === 1 && sel;
+        placePaste(bizLastCopy, r0, c0, one ? sel.r2 - sel.r1 + 1 : bizLastCopy.nr, one ? sel.c2 - sel.c1 + 1 : bizLastCopy.nc);
+        return;
+      }
+      const ae = document.activeElement;
+      if(ae && ae.matches && ae.matches('input') && !/[\t\n]/.test(text.replace(/\r?\n$/, ''))) return;   // a single plain value typed into a cell: normal paste
+      e.preventDefault();
+      const rows = parseDelimited(text, '\t');
+      while(rows.length > 1 && rows[rows.length - 1].every(v => v === '')) rows.pop();
+      const cells = {};
+      rows.forEach((line, i) => line.forEach((v, j) => { if(v !== '') cells[i + ',' + j] = v; }));
+      const nc = Math.max(1, ...rows.map(l => l.length));
+      // outside text keeps the formatting already in the cells it lands on
+      takeSafetyCopy('before paste');
+      let cut = false;
+      rows.forEach((line, i) => line.forEach((v, j) => {
+        const rr = r0 + i, cc = c0 + j;
+        if(rr > SHEET_MAX_ROWS || cc >= SHEET_MAX_COLS){ cut = true; return; }
+        const k = colName(cc) + rr;
+        if(v === '') delete sh.cells[k]; else sh.cells[k] = v;
+        if(sh.cache) delete sh.cache[k];
+        sh.rows = Math.max(sh.rows, rr); sh.cols = Math.max(sh.cols, cc + 1);
+      }));
+      saveTasks(); renderBizPanel(cur);
+      if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
+    }
+  };
 
   // right-click (or long-press on touch) a cell / column letter / row number: set an exact size, reset, merge
   table.addEventListener('contextmenu', (ev) => {
@@ -5483,7 +5562,7 @@ function renderBizPanel(cur){
   if(!sel){ anchor = { r: 1, c: 0 }; setSel(1, 0, 1, 0); }   // Import / Export sit on the same row as the Business title
   bizPanelEl.append(wrap);
   // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
-  const fitW = Math.max(64, Math.floor((wrap.clientWidth - 44 - Math.min(12, sh.cols)) / Math.min(12, sh.cols)));   // fewer than 12 columns: they stretch to fill the page
+  const fitW = Math.max(10, Math.floor((wrap.clientWidth - 44 - sh.cols) / sh.cols));   // every column fits across the page, whatever the count (min 10px)
   fitWv = fitW;
   for(let c = 0; c < sh.cols; c++) if(!(sh.colW && sh.colW[c])) applyColW(c, fitW);
   // and rows 1–14: shrink the default row height a little if the panel is too short to show them

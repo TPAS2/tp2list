@@ -5459,6 +5459,7 @@ function renderBizPanel(cur){
     table.style.width = w + 'px';
   };
   const applyRowH = (r, h) => {
+    if(!rowTh[r]) return;   // row not built yet (big sheets are built in chunks)
     h = h || fitHv;
     const v = h ? h + 'px' : '';
     rowTh[r].style.height = v;
@@ -5804,7 +5805,7 @@ function renderBizPanel(cur){
   const headH = table.tHead.offsetHeight, rowRoom = wrap.clientHeight - headH - (table.offsetWidth > wrap.clientWidth + 1 ? 16 : 3);   // room for 14 rows (a scrollbar needs more)
   const fitH = Math.max(24, Math.min(33, Math.floor(rowRoom / 14) - 1));   // −1 for each row's border
   if(fitH < 33) fitHv = fitH;
-  if(fitH < 33) for(let r = 1; r <= sh.rows; r++) if(!(sh.rowH && sh.rowH[r])) applyRowH(r, fitH);
+  if(fitH < 33) for(let r = 1; r <= Math.min(sh.rows, FIRST_ROWS); r++) if(!(sh.rowH && sh.rowH[r])) applyRowH(r, fitH);
   table.classList.add('fixed'); syncTableWidth();
   sizeMerged(); updateScroll();
   if(sh.rows > FIRST_ROWS){

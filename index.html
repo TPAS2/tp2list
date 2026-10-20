@@ -5300,8 +5300,17 @@ function renderBizPanel(cur){
     const bd = f.bd || '', sd = [];
     // two touching cells share one line: the left / top edge is skipped when the neighbour already draws its right / bottom edge
     const rr = +inp.dataset.r, cc = +inp.dataset.c;
-    const leftDrawn = cc > 0 && ((fmtOf(colName(cc - 1) + rr) || {}).bd || '').includes('r');
-    const topDrawn = rr > 1 && ((fmtOf(colName(cc) + (rr - 1)) || {}).bd || '').includes('b');
+    const mg = (sh.merges || []).find(m => m.r1 === rr && m.c1 === cc);   // this cell's own merged block, if it is one
+    const r2 = mg ? mg.r2 : rr, c2 = mg ? mg.c2 : cc;
+    // does the cell at (r, c) draw its right (side 'r') / bottom (side 'b') edge? a cell covered by a merged block answers for the block
+    const edgeDrawn = (r, c, side) => {
+      const m = (sh.merges || []).find(x => r >= x.r1 && r <= x.r2 && c >= x.c1 && c <= x.c2);
+      if(m){ if((side === 'r' && c !== m.c2) || (side === 'b' && r !== m.r2)) return false; return (((fmtOf(colName(m.c1) + m.r1) || {}).bd) || '').includes(side); }
+      return (((fmtOf(colName(c) + r) || {}).bd) || '').includes(side);
+    };
+    let leftDrawn = cc > 0, topDrawn = rr > 1;   // a (merged) block skips an edge only when every neighbour along it draws that edge
+    for(let r = rr; r <= r2 && leftDrawn; r++) if(!edgeDrawn(r, cc - 1, 'r')) leftDrawn = false;
+    for(let c = cc; c <= c2 && topDrawn; c++) if(!edgeDrawn(rr - 1, c, 'b')) topDrawn = false;
     if(bd.includes('t') && !topDrawn) sd.push('inset 0 1px 0 0 var(--text)');
     if(bd.includes('b')) sd.push('inset 0 -1px 0 0 var(--text)');
     if(bd.includes('l') && !leftDrawn) sd.push('inset 1px 0 0 0 var(--text)');
@@ -5644,7 +5653,9 @@ function renderBizPanel(cur){
     else if(sel.r1 === sel.r2 && sel.c1 === sel.c2) return;
     else sh.merges = list.filter(m => !hit(m)).concat([{ r1: sel.r1, c1: sel.c1, r2: sel.r2, c2: sel.c2 }]);
     if(!sh.merges.length) delete sh.merges;
-    applyMerges(); sizeMerged(); paintSel(); saveTasks();
+    applyMerges(); sizeMerged();
+    for(let r = sel.r1 - 1; r <= sel.r2 + 1; r++) for(let c = sel.c1 - 1; c <= sel.c2 + 1; c++){ const k = colName(c) + r; if(c >= 0 && r >= 1 && inputs[k]) paintCell(k); }   // shared edges change when cells merge or split
+    paintSel(); saveTasks();
   };
   mergeBtn.onclick = toggleMerge;
 

@@ -1261,6 +1261,7 @@
   .fn-opt b{ font-weight: 600; }
   .fn-opt span{ font-size: 0.72rem; color: var(--text-dim); }
   .fn-opt.on, .fn-opt:hover{ background: rgba(34,224,255,.16); }
+  .sheet-grid td.pick{ outline: 2px dashed var(--accent2); outline-offset: -2px; }
   .sheet-grid td.sel input{ background: rgba(34,224,255,.13); }
   .sheet-grid th.sel{ background: rgba(34,224,255,.24); color: var(--text); }
   .sheet-grid td input.cached-val{ font-style: italic; }
@@ -4954,6 +4955,25 @@ function renderBizPanel(cur){
   const icon = (d) => `<svg viewBox="0 0 16 16" width="14" height="14"><path d="${d}" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>`;
 
   // selection: { r1, c1, r2, c2 } (rows 1-based, columns 0-based)
+  // point-and-click formulas: while a cell shows "=…" and the caret follows an operator, clicking (or dragging over) cells inserts their references
+  let pick = null;   // { ed, start, end, td: [cells outlined] }
+  const clearPick = () => { if(pick) pick.td.forEach(t => t.classList.remove('pick')); pick = null; };
+  const pickAllowed = (ed) => {
+    if(!ed || !ed.matches || !ed.matches('.sheet-grid td input') || !ed.value.startsWith('=')) return false;
+    if(pick && pick.ed === ed && ed.selectionStart === pick.end) return true;   // replace the reference we just inserted
+    const before = ed.value.slice(0, ed.selectionStart).replace(/\s+$/, '');
+    return /[=+\-*\/(,&<>^:]$/.test(before);
+  };
+  const putRef = (ed, ref, cells) => {
+    const start = pick && pick.ed === ed && ed.selectionStart === pick.end ? pick.start : ed.selectionStart;
+    const end = pick && pick.ed === ed && ed.selectionStart === pick.end ? pick.end : ed.selectionEnd;
+    const old = pick; if(old) old.td.forEach(t => t.classList.remove('pick'));
+    ed.value = ed.value.slice(0, start) + ref + ed.value.slice(end);
+    const at = start + ref.length; ed.setSelectionRange(at, at);
+    cells.forEach(t => t.classList.add('pick'));
+    pick = { ed, start, end: at, td: cells };
+    ed.dispatchEvent(new Event('input'));
+  };
   let sel = null, anchor = null, dragging = false, extra = [];   // extra = more ranges added with Cmd/Ctrl-click
   const inputs = {}, colTh = [], rowTh = [];
   const fmtOf = (ref) => (sh.fmt && sh.fmt[ref]) || null;
@@ -5162,6 +5182,24 @@ function renderBizPanel(cur){
       let timer = null;
       inp.addEventListener('pointerdown', (e) => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
+        const ed = document.activeElement;
+        if(ed !== inp && pickAllowed(ed)){
+          e.preventDefault(); table._noFocus = true; setTimeout(() => { table._noFocus = false; }, 400);
+          const a = { r, c };
+          putRef(ed, ref, [inp.parentElement]);
+          if(e.pointerType !== 'mouse') return;
+          const mv = (ev) => {
+            const el = document.elementFromPoint(ev.clientX, ev.clientY), tgt = el && el.closest && el.closest('.sheet-grid td input');
+            if(!tgt) return;
+            const r2 = +tgt.dataset.r, c2 = +tgt.dataset.c, cells = [];
+            const rr1 = Math.min(a.r, r2), rr2 = Math.max(a.r, r2), cc1 = Math.min(a.c, c2), cc2 = Math.max(a.c, c2);
+            for(let y = rr1; y <= rr2; y++) for(let x = cc1; x <= cc2; x++) cells.push(inputs[colName(x) + y].parentElement);
+            putRef(ed, rr1 === rr2 && cc1 === cc2 ? colName(a.c) + a.r : colName(cc1) + rr1 + ':' + colName(cc2) + rr2, cells);
+          };
+          const upx = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', upx); };
+          window.addEventListener('pointermove', mv); window.addEventListener('pointerup', upx);
+          return;
+        }
         if(e.shiftKey && anchor){ e.preventDefault(); setSel(anchor.r, anchor.c, r, c); if(document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur(); return; }
         const add = e.metaKey || e.ctrlKey; if(add && sel) extra.push(sel);
         anchor = { r, c }; setSel(r, c, r, c, add);
@@ -5210,9 +5248,10 @@ function renderBizPanel(cur){
         renderBizPanel(cur);
         if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
       });
-      inp.addEventListener('blur', () => { fnPopClose(); clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
+      inp.addEventListener('blur', () => { if(!table._noFocus) clearPick(); fnPopClose(); clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
       inp.addEventListener('keydown', (e) => {
         if(fnPopKey(e)) return;
+        if(!['Shift', 'Meta', 'Control', 'Alt'].includes(e.key)) clearPick();
         const move = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
         if(move){ e.preventDefault(); let rr = r + move[0], nxt = inputs[colName(c) + rr]; while(nxt && nxt.parentNode.style.display === 'none'){ rr += move[0]; nxt = inputs[colName(c) + rr]; } if(nxt){ nxt.focus(); nxt.select(); } }
       });
@@ -5220,6 +5259,7 @@ function renderBizPanel(cur){
   }
   { const memo = new Map(); for(const ref in inputs) showCell(ref, sheetShownInfo(sh, ref, memo)); }
   wrap.appendChild(table);
+  table.addEventListener('mousedown', (e) => { if(table._noFocus) e.preventDefault(); });   // keep the caret in the formula being typed
   const applyMerges = () => {
     Object.values(inputs).forEach(i => { const td = i.parentNode; td.style.display = ''; td.rowSpan = 1; td.colSpan = 1; td.classList.remove('mg'); });
     (sh.merges || []).forEach(m => {

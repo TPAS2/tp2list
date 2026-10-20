@@ -5245,7 +5245,7 @@ function renderBizPanel(cur){
       });
       inp.addEventListener('focus', () => {
         inp.value = sh.cells[ref] == null ? '' : sh.cells[ref];   // show the formula while editing
-        if(!dragging && !(sel && (sel.r1 !== sel.r2 || sel.c1 !== sel.c2) && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2)){ anchor = { r, c }; setSel(r, c, r, c); }
+        if(!dragging && !extra.length && !(sel && (sel.r1 !== sel.r2 || sel.c1 !== sel.c2) && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2)){ anchor = { r, c }; setSel(r, c, r, c); }
       });
       inp.addEventListener('input', () => {
         if(inp.value === '') delete sh.cells[ref]; else sh.cells[ref] = inp.value;

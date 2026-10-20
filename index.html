@@ -5589,6 +5589,17 @@ function renderBizPanel(cur){
       inp.addEventListener('keydown', (e) => {
         if(fnPopKey(e)) return;
         if(!['Shift', 'Meta', 'Control', 'Alt'].includes(e.key)) clearPick();
+        if((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey){
+          // like Sheets: ← / → jump to the next cell when the caret is already at that edge of the text (or all of it is selected); otherwise they move the caret
+          const ss = inp.selectionStart, se = inp.selectionEnd, len = inp.value.length, dir = e.key === 'ArrowRight' ? 1 : -1;
+          const all = ss === 0 && se === len, atEdge = ss === se && (dir === 1 ? ss === len : ss === 0);
+          if(all || (atEdge && !inp.value.startsWith('='))){   // inside a formula the caret stays put (you may be editing it)
+            let cc = c + dir, nxt = inputs[colName(cc) + r];
+            while(nxt && nxt.parentNode.style.display === 'none'){ cc += dir; nxt = inputs[colName(cc) + r]; }
+            if(nxt){ e.preventDefault(); nxt.focus(); nxt.select(); }
+          }
+          return;
+        }
         const move = { Enter: [1, 0], ArrowDown: [1, 0], ArrowUp: [-1, 0] }[e.key];
         if(move){ e.preventDefault(); let rr = r + move[0], nxt = inputs[colName(c) + rr]; while(nxt && nxt.parentNode.style.display === 'none'){ rr += move[0]; nxt = inputs[colName(c) + rr]; } if(nxt){ nxt.focus(); nxt.select(); } }
       });

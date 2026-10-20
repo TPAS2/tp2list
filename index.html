@@ -4361,6 +4361,20 @@ async function parseXlsx(buf){
     }
     return '';
   };
+  const nfOf = (id) => {   // spreadsheet number format → our nf
+    const n = +id;
+    if(n === 1 || n === 3) return 'int';
+    if(n === 2 || n === 4) return 'num';
+    if(n >= 5 && n <= 8) return 'usd';
+    if(n === 9 || n === 10) return 'pct';
+    const code = custom[id]; if(!code) return '';
+    if(kindOf(id) === 'date') return '';
+    if(/€|EUR/.test(code)) return 'eur'; if(/£|GBP/.test(code)) return 'gbp'; if(/\$|USD/.test(code)) return 'usd';
+    if(/%/.test(code)) return 'pct';
+    if(/^[#,]*0\.0+$/.test(code.replace(/_\)|\[[^\]]*\]/g, ''))) return 'num';
+    if(/^[#,]*0$/.test(code)) return 'int';
+    return '';
+  };
   const out = [];
   for(const def of defs){
     const t = target[def.rid];
@@ -4403,7 +4417,7 @@ async function parseXlsx(buf){
       if(ri > SHEET_MAX_ROWS || ci >= SHEET_MAX_COLS){ truncated = true; continue; }
       if(formula){ cells[ref] = formula; if(val !== null && val !== '') cache[ref] = val; }
       else if(has) cells[ref] = typeof val === 'boolean' ? (val ? 'TRUE' : 'FALSE') : String(val);
-      if(Object.keys(xf.fmt).length) fmtMap[ref] = Object.assign({}, xf.fmt);
+      { const fm = Object.assign({}, xf.fmt), nf = nfOf(xf.fmtId); if(nf && kind !== 'date') fm.nf = nf; if(Object.keys(fm).length) fmtMap[ref] = fm; }
       maxR = Math.max(maxR, ri); maxC = Math.max(maxC, ci + 1);
     }
     const merges = [];
@@ -4542,6 +4556,20 @@ function fnPopKey(e){
   return false;
 }
 
+// number formats (sheet.fmt[ref].nf): shown instead of the raw number while the cell isn't being edited
+const SHEET_NUMFMTS = [['', 'Automatic', ''], ['num', 'Number', '1,234.50'], ['int', 'Whole number', '1,235'], ['eur', 'Euro', '€1,234.50'], ['gbp', 'Pound', '£1,234.50'], ['usd', 'Dollar', '$1,234.50'], ['pct', 'Percent', '15.00%']];
+function sheetFormatNumber(text, nf){
+  if(!nf) return text;
+  const n = sheetNumberFromText(String(text).trim());
+  if(n === null) return text;
+  const fmt = (x, d) => Math.abs(x).toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const sym = { eur: '€', gbp: '£', usd: '$' }[nf];
+  if(sym) return (n < 0 ? '-' : '') + sym + fmt(n, 2);
+  if(nf === 'pct') return (n < 0 ? '-' : '') + fmt(n * 100, 2) + '%';
+  if(nf === 'int') return (n < 0 && Math.round(Math.abs(n)) ? '-' : '') + fmt(n, 0);
+  return (n < 0 ? '-' : '') + fmt(n, 2);
+}
+
 // delete rows (axis 'r', 1-based) or columns (axis 'c', 0-based) from..to inclusive; everything after shifts up/left, like Google Sheets
 function sheetDeleteLines(sh, axis, from, to){
   const n = to - from + 1;
@@ -4591,7 +4619,8 @@ function sheetToXlsxBlob(name, sheet){
     const side = (k, nm) => (f.bd || '').includes(k) ? `<${nm} style="thin"><color auto="1"/></${nm}>` : `<${nm}/>`;
     const border = f.bd ? intern(borders, `<border>${side('l', 'left')}${side('r', 'right')}${side('t', 'top')}${side('b', 'bottom')}<diagonal/></border>`) : 0;
     const al = f.a ? `<alignment horizontal="${f.a}"/>` : '';
-    return intern(xfs, `<xf numFmtId="0" fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${al ? ` applyAlignment="1">${al}</xf>` : '/>'}`);
+    const nid = { eur: 164, gbp: 165, usd: 166, num: 4, int: 3, pct: 10 }[f.nf] || 0;
+    return intern(xfs, `<xf numFmtId="${nid}"${nid ? ' applyNumberFormat="1"' : ''} fontId="${font}" fillId="${fill}" borderId="${border}" xfId="0" applyFont="1" applyFill="1" applyBorder="1"${al ? ` applyAlignment="1">${al}</xf>` : '/>'}`);
   };
   const memo = new Map();
   let rowsXml = '';
@@ -4618,7 +4647,7 @@ function sheetToXlsxBlob(name, sheet){
   const safeName = esc((name || 'Sheet').replace(/[\[\]:*?\/\\]/g, ' ').trim().slice(0, 31) || 'Sheet');
   const H = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
   const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', RELNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-  const styles = `<styleSheet xmlns="${NS}"><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs></styleSheet>`;
+  const styles = `<styleSheet xmlns="${NS}"><numFmts count="3"><numFmt numFmtId="164" formatCode="&quot;€&quot;#,##0.00"/><numFmt numFmtId="165" formatCode="&quot;£&quot;#,##0.00"/><numFmt numFmtId="166" formatCode="&quot;$&quot;#,##0.00"/></numFmts><fonts count="${fonts.length}">${fonts.join('')}</fonts><fills count="${fills.length}">${fills.join('')}</fills><borders count="${borders.length}">${borders.join('')}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join('')}</cellXfs></styleSheet>`;
   return zipStored([
     { name: '[Content_Types].xml', data: H + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>' },
     { name: '_rels/.rels', data: H + `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${RELNS}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
@@ -4950,7 +4979,8 @@ function renderBizPanel(cur){
   };
   const showCell = (ref, info) => {
     const inp = inputs[ref];
-    inp.value = info.text; inp.dataset.disp = info.text;
+    const shown = sheetFormatNumber(info.text, (fmtOf(ref) || {}).nf);
+    inp.value = shown; inp.dataset.disp = shown;
     inp.classList.toggle('cached-val', info.cached);
     inp.title = info.cached ? "This value was worked out by Google Sheets / Excel. This app can't calculate that formula, so it won't update when other cells change." : '';
     paintCell(ref);
@@ -5014,6 +5044,14 @@ function renderBizPanel(cur){
     }), 'fmt-pop-btn');
     return b;
   };
+  const numBtn = fb('123 ▾', 'Number format: currency, number, percent', () => popup(numBtn, (menu) => {
+    const cur = anchorFmt().nf || '';
+    SHEET_NUMFMTS.forEach(([id, label, ex]) => {
+      const b = mk('button', null, (cur === id ? '✓ ' : '') + label + (ex ? '   ' + ex : '')); b.type = 'button';
+      b.onclick = () => { closeSheetMenu(); apply(f => { f.nf = id || undefined; }); refresh(); };
+      menu.appendChild(b);
+    });
+  }), 'fmt-pop-btn');
   const mergeBtn = fb('<span style="font-size:.95em">⊞</span> Merge', 'Merge / unmerge the selected cells', () => {});
   const fillBtn = colorBtn('<span class="swatch" id="fillSw"></span> Fill', 'Cell colour', 'bg');
   const textBtn = colorBtn('<span class="fmt-a">A</span> Text', 'Text colour', 'fg');

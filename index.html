@@ -210,6 +210,11 @@
     form.add-row{ margin-bottom: 8px; }
     input[type="text"]{ padding: 8px 12px; }
   }
+  .backup-nudge{ display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 8px 0 0; padding: 7px 10px; border-radius: 10px; background: var(--fill); border: 1px solid var(--line); font-size: 0.8rem; color: var(--text); }
+  .backup-nudge[hidden]{ display: none; }
+  .backup-nudge.warn{ border-color: var(--danger); }
+  .backup-nudge span{ flex: 1; min-width: 160px; }
+  .backup-nudge button{ background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--text); font: inherit; font-size: 0.78rem; padding: 4px 10px; cursor: pointer; }
   header{
     margin-bottom: 10px;
     padding-bottom: 14px;
@@ -1691,6 +1696,7 @@
       </div>
     </div>
   </header>
+  <div id="backupNudge" class="backup-nudge" hidden></div>
 </div>
 
 <div class="page-dots" id="pageDots">
@@ -5656,6 +5662,32 @@ function fillSafetyList(){
   let last = ''; try{ last = localStorage.getItem('tpas2:lastBackup') || ''; }catch(e){}
   document.getElementById('dsBackupInfo').textContent = last ? 'Last backup downloaded: ' + new Date(+last).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No backup downloaded yet.';
 }
+// reminder bar under the header: no downloaded backup for 7+ days (snooze 1 day), or browser storage nearly full (always shown)
+function updateBackupNudge(){
+  const bar = document.getElementById('backupNudge');
+  let last = 0, snooze = 0, used = 0;
+  try{ last = +localStorage.getItem('tpas2:lastBackup') || 0; snooze = +localStorage.getItem('tpas2:nudgeSnooze') || 0; for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); used += k.length + (localStorage.getItem(k) || '').length; } }catch(e){}
+  bar.textContent = ''; bar.classList.remove('warn');
+  const msg = document.createElement('span'); bar.appendChild(msg);
+  const btn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.onclick = fn; bar.appendChild(b); };
+  const full = used > 4000000;   // browsers allow roughly 5 million characters
+  const days = last ? Math.floor((Date.now() - last) / 86400000) : null;
+  const stale = dataHasContent(data) && (days === null || days >= 7) && Date.now() > snooze;
+  if(full){
+    bar.classList.add('warn');
+    msg.textContent = `Browser storage is ${Math.round(used / 50000)}% full. Download a backup now, and remove big photos from Other lists.`;
+    btn('Download backup', () => document.getElementById('dsExport').click());
+  } else if(stale){
+    msg.textContent = days === null ? "You haven't downloaded a backup yet." : `Your last downloaded backup was ${days} days ago.`;
+    btn('Download backup', () => document.getElementById('dsExport').click());
+    btn('Later', () => { try{ localStorage.setItem('tpas2:nudgeSnooze', String(Date.now() + 86400000)); }catch(e){} updateBackupNudge(); });
+  } else { bar.hidden = true; return; }
+  bar.hidden = false;
+}
+updateBackupNudge();
+setTimeout(updateBackupNudge, 1500);   // again once the data and any first sync have loaded
+document.addEventListener('visibilitychange', () => { if(!document.hidden) updateBackupNudge(); });
+setInterval(updateBackupNudge, 5 * 60 * 1000);
 document.getElementById('dsBackupNow').addEventListener('click', (e) => {
   const b = e.currentTarget;
   if(!dataHasContent(data)){ b.textContent = 'Nothing to back up'; }
@@ -5671,6 +5703,7 @@ document.getElementById('dsExport').addEventListener('click', () => {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   try{ localStorage.setItem('tpas2:lastBackup', String(Date.now())); }catch(e){}
+  updateBackupNudge();
   fillSafetyList();
   showStatus('backup downloaded');
 });

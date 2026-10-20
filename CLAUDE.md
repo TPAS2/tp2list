@@ -53,6 +53,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 
 ## Backups & safety copies (Sync sheet → "Backup")
 - **Backup now** saves a safety copy immediately (reason `manual`). **Download backup** saves all data as `tp2list-backup-YYYY-MM-DD.json` (`{app:'tp2list', version:1, exportedAt, data}`); **Restore from file…** replaces this device's data with it (confirms first, then queues it for sync; the ↩ undo button can step back).
+- **Backup reminder** (`updateBackupNudge`, `#backupNudge` under the header): appears when there is data and no backup was downloaded for 7+ days (`tpas2:lastBackup`; "Later" snoozes a day via `tpas2:nudgeSnooze`), and a red warning appears whenever localStorage use passes ~4 million characters (browser limit is ~5 million).
 - **Safety copies** (`tpas2:safety` in localStorage, newest 8, skipped when the data is empty): automatically one a day on open (`daily`), just before a sync update replaces local data (`before sync update`; always on the first sync after joining, otherwise at most every 15 min), and before any restore (`before restore`). The dropdown + Restore button brings one back. Functions: `takeSafetyCopy`, `restoreData`, `fillSafetyList`.
 - Known limit: sync merges per top-level section with newest edit wins, so editing the same section (e.g. Business, which is one section) on two devices at once can drop one device's changes. The safety copy is the net for that.
 

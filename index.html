@@ -4953,7 +4953,7 @@ window.addEventListener('resize', () => document.querySelectorAll('textarea.auto
 const carNum = (x) => { const n = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isNaN(n) ? 0 : n; };
 const carCost = (v) => carNum(v.bought) + (v.expenses || []).reduce((sum, e) => sum + carNum(e.amount), 0);
 const carSold = (v) => String(v.sold == null ? '' : v.sold).trim() !== '';
-// months rented: from the start date to the end date (or today while there's no end date / it hasn't come yet), counting whole months, so it updates by itself; without a start date the typed number of months is used
+// months rented: from the start date to the end date (or today while there's no end date / it hasn't come yet), counting every month that has started (the first month counts at once), so it updates by itself; without a start date the typed number of months is used
 const carDate = (x) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(x || '')); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
 const carRentAuto = (v) => !!carDate(v.rentStart);
 const carRentMonths = (v) => {
@@ -4961,11 +4961,11 @@ const carRentMonths = (v) => {
   if(!a) return carNum(v.rentMonths);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const e = carDate(v.rentEnd);
-  const end = new Date((e && e < today ? e : today).getTime()); end.setDate(end.getDate() + 1);   // the last day counts
-  if(end <= a) return 0;
+  const end = e && e < today ? e : today;
+  if(end < a) return 0;   // not started yet
   let m = (end.getFullYear() - a.getFullYear()) * 12 + end.getMonth() - a.getMonth();
   if(end.getDate() < a.getDate()) m--;
-  return Math.max(0, m);
+  return Math.max(0, m) + 1;   // each month's rent counts from the day that month starts, so the first month counts straight away
 };
 const carRent = (v) => carNum(v.rentPerMonth) * carRentMonths(v);   // rental income = per month × months
 const carProfit = (v) => carNum(v.sold) + carRent(v) - carCost(v);

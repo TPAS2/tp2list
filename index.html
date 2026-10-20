@@ -1245,6 +1245,22 @@
   .biz-tools .sheet-io{ margin-left: auto; }
   .sheet-io{ display: flex; gap: 6px; flex: none; }
   .other-bar .sheet-io{ margin-left: auto; }
+  .fx-bar{ display: flex; align-items: center; gap: 6px; flex: 1; min-width: 220px; background: var(--fill); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; }
+  .fx-label{ font-style: italic; color: var(--text-dim); font-size: 0.8rem; }
+  .fx-name{ min-width: 26px; font-weight: 700; font-size: 0.78rem; color: var(--accent2); }
+  .fx-input{ flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font: inherit; font-size: 0.85rem; padding: 5px 2px; }
+  @media (max-width: 700px){ .fx-bar{ order: 3; flex-basis: 100%; } }
+  .fx-bar .fx-input{ background: transparent !important; border: 0 !important; box-shadow: none !important; }
+  /* light mode: white grid like Google Sheets */
+  html[data-theme="light"] .sheet-wrap{ background: #fff; border-color: #dadce0; }
+  html[data-theme="light"] .sheet-grid td{ background: #fff; border-right-color: #e1e3e6; border-bottom-color: #e1e3e6; }
+  html[data-theme="light"] .sheet-grid th{ background: #f8f9fa; color: #5f6368; border-right-color: #dadce0; border-bottom-color: #dadce0; }
+  html[data-theme="light"] .sheet-grid th.sel{ background: #d3e3fd; color: #1f1f1f; }
+  html[data-theme="light"] .sheet-grid td input{ color: #202124; }
+  html[data-theme="light"] .sheet-grid td.sel input{ background: rgba(26,115,232,.13); }
+  html[data-theme="light"] .sheet-grid td input:focus{ background: #fff; box-shadow: inset 0 0 0 2px #1a73e8; }
+  html[data-theme="light"] .sheet-grid td.pick{ outline-color: #1a73e8; }
+  html[data-theme="light"] .fx-bar{ background: #fff; border-color: #dadce0; }
   .sheet-mini{ background: var(--fill); border: 0; border-radius: 8px; color: var(--text); font: inherit; font-size: .74rem; font-weight: 600; padding: 5px 9px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; }
   .sheet-mini:hover{ box-shadow: inset 0 0 0 1px var(--accent2); }
   .fmt-btn{ min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; font-size: .82rem; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
@@ -4906,7 +4922,7 @@ function renderCarsPanel(cur){
 }
 
 function renderBizPanel(cur){
-  document.querySelectorAll('#businessPage .other-bar .sheet-io').forEach(x => x.remove());   // Import / Export live in the top bar, spreadsheet sections only
+  document.querySelectorAll('#businessPage .other-bar .sheet-io, #businessPage .other-bar .fx-bar').forEach(x => x.remove());   // Import / Export live in the top bar, spreadsheet sections only
   bizPanelEl.innerHTML = '';
   if(!cur) return;
   const h = document.createElement('h3');
@@ -4986,7 +5002,7 @@ function renderBizPanel(cur){
   let pick = null;   // { ed, start, end, td: [cells outlined] }
   const clearPick = () => { if(pick) pick.td.forEach(t => t.classList.remove('pick')); pick = null; };
   const pickAllowed = (ed) => {
-    if(!ed || !ed.matches || !ed.matches('.sheet-grid td input') || !ed.value.startsWith('=')) return false;
+    if(!ed || !ed.matches || !ed.matches('.sheet-grid td input, .fx-input') || !ed.value.startsWith('=')) return false;
     if(pick && pick.ed === ed && ed.selectionStart === pick.end) return true;   // replace the reference we just inserted
     const before = ed.value.slice(0, ed.selectionStart).replace(/\s+$/, '');
     return /[=+\-*\/(,&<>^:]$/.test(before);
@@ -5114,7 +5130,36 @@ function renderBizPanel(cur){
     item('Clear borders', () => apply(f => { f.bd = undefined; }));
   }), 'fmt-pop-btn');
 
+  // formula bar in the title row: shows the clicked cell's contents (formula text) and edits it, like Google Sheets
+  const fxBar = mk('div', 'fx-bar');
+  const fxName = mk('span', 'fx-name', '');
+  const fx = mk('input', 'fx-input'); fx.type = 'text'; fx.autocomplete = 'off'; fx.spellcheck = false; fx.placeholder = 'Select a cell, then type here…';
+  fxBar.append(mk('span', 'fx-label', 'fx'), fxName, fx);
+  let fxTimer = null, fxOrig = '';
+  const fxRef = () => { const a = anchor || (sel && { r: sel.r1, c: sel.c1 }); return a ? colName(a.c) + a.r : null; };
+  const syncFx = () => {
+    const ref = fxRef();
+    fxName.textContent = ref || '';
+    if(document.activeElement !== fx){ fx.value = ref && sh.cells[ref] != null ? sh.cells[ref] : ''; fxOrig = fx.value; }
+  };
+  fx.addEventListener('input', () => {
+    const ref = fxRef(); if(!ref) return;
+    if(fx.value === '') delete sh.cells[ref]; else sh.cells[ref] = fx.value;
+    if(sh.cache) delete sh.cache[ref];
+    refresh();
+    fnPopUpdate(fx);
+    clearTimeout(fxTimer); fxTimer = setTimeout(saveTasks, 500);
+  });
+  fx.addEventListener('keydown', (e) => {
+    if(fnPopKey(e)) return;
+    if(!['Shift', 'Meta', 'Control', 'Alt'].includes(e.key)) clearPick();
+    if(e.key === 'Enter'){ e.preventDefault(); fx.blur(); const a = anchor, nxt = a && inputs[colName(a.c) + (a.r + 1)]; if(nxt){ nxt.focus(); nxt.select(); } }
+    else if(e.key === 'Escape'){ const ref = fxRef(); if(ref){ if(fxOrig === '') delete sh.cells[ref]; else sh.cells[ref] = fxOrig; } fx.value = fxOrig; refresh(); fx.blur(); }
+  });
+  fx.addEventListener('blur', () => { if(!table._noFocus) clearPick(); fnPopClose(); clearTimeout(fxTimer); saveTasks(); refresh(); syncFx(); });
+  fx.addEventListener('focus', () => { fxOrig = fx.value; });
   const updateBar = () => {
+    syncFx();
     const f = anchorFmt();
     boldBtn.classList.toggle('on', !!f.b); italBtn.classList.toggle('on', !!f.i);
     ['left', 'center', 'right'].forEach(a => alBtns[a].classList.toggle('on', f.a === a));
@@ -5252,6 +5297,7 @@ function renderBizPanel(cur){
         if(sh.cache) delete sh.cache[ref];
         refresh(inp);
         fnPopUpdate(inp);
+        if(ref === fxRef()) fx.value = inp.value;
         clearTimeout(timer); timer = setTimeout(saveTasks, 500);
       });
       inp.addEventListener('paste', (e) => {   // paste a block copied from Google Sheets / Excel (tab-separated) into the grid
@@ -5370,7 +5416,9 @@ function renderBizPanel(cur){
   const tools = mk('div', 'biz-tools');   // all the buttons sit beside the sheet name
   tools.append(bar, fbar);
   headRow.appendChild(tools);
-  document.querySelector('#businessPage .other-bar').appendChild(io);   // Import / Export sit on the same row as the Business title
+  const topBar = document.querySelector('#businessPage .other-bar');
+  topBar.appendChild(fxBar); topBar.appendChild(io);
+  if(!sel){ anchor = { r: 1, c: 0 }; setSel(1, 0, 1, 0); }   // Import / Export sit on the same row as the Business title
   bizPanelEl.append(wrap);
   // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
   const fitW = Math.max(64, Math.floor((wrap.clientWidth - 42) / Math.min(12, sh.cols)));   // fewer than 12 columns: they stretch to fill the page

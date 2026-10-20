@@ -1250,6 +1250,10 @@
   .fx-name{ min-width: 26px; font-weight: 700; font-size: 0.78rem; color: var(--accent2); }
   .fx-input{ flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font: inherit; font-size: 0.85rem; padding: 5px 2px; }
   @media (max-width: 700px){ .fx-bar{ order: 3; flex-basis: 100%; } }
+  .fill-handle{ position: absolute; z-index: 1; width: 11px; height: 11px; box-sizing: border-box; background: var(--accent2); border: 2px solid var(--panel-solid); border-radius: 2px; cursor: crosshair; touch-action: none; display: none; }
+  .fill-handle::after{ content: ''; position: absolute; inset: -9px; }   /* a bigger target for fingers */
+  .sheet-grid td.fillprev{ outline: 2px dashed var(--accent2); outline-offset: -2px; }
+  html[data-theme="light"] .fill-handle{ background: #1a73e8; border-color: #fff; }
   .pick-banner{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(34,224,255,.14); border: 1px dashed var(--accent2); font-size: 0.8rem; }
   .pick-banner span{ flex: 1; }
   /* Business page: less empty space above the grid so more rows show */
@@ -1302,7 +1306,7 @@
   .sheet-bar button:disabled{ opacity: .35; cursor: default; }
   .sheet-hint{ color: var(--text-faint); font-size: 0.72rem; margin-left: auto; }
   @media (max-width: 520px){ .sheet-hint{ display: none; } }
-  .sheet-wrap{ flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
+  .sheet-wrap{ position: relative; flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
   .sheet-grid{ border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
   .sheet-grid.fixed{ table-layout: fixed; }   /* every width is set explicitly, so big sheets don't re-lay out on each keystroke */
   .sheet-grid.fixed tbody th, .sheet-grid.fixed thead th:first-child{ box-sizing: border-box; width: 40px; min-width: 40px; padding-left: 2px; padding-right: 2px; }
@@ -3954,7 +3958,7 @@ document.querySelector('#birthdayForm button.add').addEventListener('click', add
 /* ---------- business: sections with a Sheets-style tab strip. Each is { id, name }; blank for now ---------- */
 // clicking a cell on another section while typing a formula: the formula waits here until a cell is chosen
 // copy / cut / paste for the spreadsheet grid (set by renderBizPanel); formatting travels with copies made inside the app
-let bizSheetClip = null, bizLastCopy = null, bizRenderToken = 0, bizScrollRestore = null;   // bizScrollRestore: where to scroll back to after the sheet is redrawn
+let bizSheetClip = null, bizLastCopy = null, bizRenderToken = 0, bizScrollRestore = null, bizSelRestore = null;   // bizSelRestore: selection to re-apply after a redraw (used by the fill handle)   // bizScrollRestore: where to scroll back to after the sheet is redrawn
 ['copy', 'cut', 'paste'].forEach(type => document.addEventListener(type, (e) => {
   const c = bizSheetClip; if(!c || !c.wrap.isConnected || c.wrap.offsetParent === null) return;
   const ae = document.activeElement, typing = ae && ae.matches && ae.matches('input, textarea, select, [contenteditable]');
@@ -5470,13 +5474,14 @@ function renderBizPanel(cur){
     colTh.forEach(t => t && t.classList.remove('sel')); rowTh.forEach(t => t && t.classList.remove('sel'));
     if(!sel) return;
     forSel((ref) => { const i = inputs[ref]; if(i) i.parentElement.classList.add('sel'); });
+    if(placeHandle) placeHandle();
     [sel, ...extra].forEach(g => { for(let c = g.c1; c <= g.c2; c++) if(colTh[c]) colTh[c].classList.add('sel'); for(let r = g.r1; r <= g.r2; r++) if(rowTh[r]) rowTh[r].classList.add('sel'); });
     updateBar();
   };
   const setSel = (r1, c1, r2, c2, keep) => { if(!keep) extra = []; sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
 
   // column widths / row heights: sh.colW[c], sh.rowH[r] in px (drag the edge of a header; double-click resets)
-  let updateScroll = null, rowsDone = true;
+  let updateScroll = null, rowsDone = true, placeHandle = null;   // placeHandle: positions the fill handle
   let fitWv = 0, fitHv = 0;   // default (auto-fitted) column width / row height
   const applyColW = (c, w, r1, r2) => {
     w = w || fitWv;
@@ -5594,16 +5599,30 @@ function renderBizPanel(cur){
         const add = e.metaKey || e.ctrlKey; if(add && sel) extra.push(sel);
         anchor = { r, c }; setSel(r, c, r, c, add);
         if(e.pointerType !== 'mouse') return;
-        const move = (ev) => {
-          const el = document.elementFromPoint(ev.clientX, ev.clientY), tgt = el && el.closest && el.closest('.sheet-grid td input');
+        let px = e.clientX, py = e.clientY, raf = 0;
+        const selectAt = () => {   // the cell under the pointer (the pointer may be outside the sheet while scrolling, so it is clamped to its edge)
+          const wr = wrap.getBoundingClientRect();
+          const x = Math.max(wr.left + 48, Math.min(px, wr.right - 6)), y = Math.max(wr.top + 30, Math.min(py, wr.bottom - 6));
+          const el = document.elementFromPoint(x, y), tgt = el && el.closest && el.closest('.sheet-grid td input');
           if(!tgt) return;
           const tr2 = +tgt.dataset.r, tc2 = +tgt.dataset.c;
           if(!dragging && tr2 === r && tc2 === c) return;
-          dragging = true; ev.preventDefault();
+          dragging = true;
           if(document.activeElement && document.activeElement.tagName === 'INPUT') document.activeElement.blur();
           setSel(anchor.r, anchor.c, tr2, tc2, add);
         };
-        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setTimeout(() => { dragging = false; }, 0); };
+        const move = (ev) => { px = ev.clientX; py = ev.clientY; if(dragging) ev.preventDefault(); selectAt(); };
+        const tick = () => {   // keep scrolling while the pointer rests near an edge, so the selection can grow beyond what is on screen
+          if(dragging){
+            const wr = wrap.getBoundingClientRect(), edge = 36, sp = 24;
+            if(py > wr.bottom - edge) wrap.scrollTop += sp; else if(py < wr.top + edge + 24) wrap.scrollTop -= sp;
+            if(px > wr.right - edge) wrap.scrollLeft += sp; else if(px < wr.left + edge + 40) wrap.scrollLeft -= sp;
+            selectAt();
+          }
+          raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        const up = () => { cancelAnimationFrame(raf); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setTimeout(() => { dragging = false; }, 0); };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
       });
       inp.addEventListener('focus', () => {
@@ -5674,6 +5693,112 @@ function renderBizPanel(cur){
     paintSel(); saveTasks();
   };
   mergeBtn.onclick = toggleMerge;
+
+  // ---- fill handle: drag the small square at the corner of the selection to continue numbers / formulas / text over more cells ----
+  const handle = mk('div', 'fill-handle'); handle.title = 'Drag to fill';
+  wrap.appendChild(handle);
+  placeHandle = () => {
+    if(!sel || extra.length || !wrap.isConnected){ handle.style.display = 'none'; return; }
+    const m = (sh.merges || []).find(x => sel.r2 >= x.r1 && sel.r2 <= x.r2 && sel.c2 >= x.c1 && sel.c2 <= x.c2);
+    const inp = m ? inputs[colName(m.c1) + m.r1] : inputs[colName(sel.c2) + sel.r2];
+    if(!inp){ handle.style.display = 'none'; return; }
+    const tr = inp.parentElement.getBoundingClientRect(), wr = wrap.getBoundingClientRect();
+    if(!tr.width){ handle.style.display = 'none'; return; }
+    handle.style.display = 'block';
+    handle.style.left = Math.round(tr.right - wr.left - wrap.clientLeft + wrap.scrollLeft - 6) + 'px';
+    handle.style.top = Math.round(tr.bottom - wr.top - wrap.clientTop + wrap.scrollTop - 6) + 'px';
+  };
+  const fillSeries = (S, dir, tgtEdge) => {
+    // S: the selected block; dir: 'down' | 'up' | 'right' | 'left'; tgtEdge: last row / column to fill (inclusive)
+    const vertical = dir === 'down' || dir === 'up', forward = dir === 'down' || dir === 'right';
+    sh.fmt = sh.fmt || {};
+    const lines = vertical ? S.c2 - S.c1 + 1 : S.r2 - S.r1 + 1;
+    const len = vertical ? S.r2 - S.r1 + 1 : S.c2 - S.c1 + 1;
+    const reach = vertical ? (forward ? tgtEdge - S.r2 : S.r1 - tgtEdge) : (forward ? tgtEdge - S.c2 : S.c1 - tgtEdge);
+    for(let li = 0; li < lines; li++){
+      const src = [];
+      for(let i = 0; i < len; i++){
+        const r = vertical ? S.r1 + i : S.r1 + li, c = vertical ? S.c1 + li : S.c1 + i, ref = colName(c) + r;
+        src.push({ r, c, raw: sh.cells[ref] == null ? '' : String(sh.cells[ref]), fmt: sh.fmt[ref] });
+      }
+      const nums = src.map(x => (x.raw.trim()[0] === '=' || x.raw.trim() === '') ? null : sheetNumberFromText(x.raw.trim()));
+      const series = len >= 2 && nums.every(n => n !== null);   // 1, 2 → 3, 4, 5 …
+      const step = series ? (nums[len - 1] - nums[0]) / (len - 1) : 0;
+      for(let k = 1; k <= reach; k++){
+        const r = vertical ? (forward ? S.r2 + k : S.r1 - k) : S.r1 + li, c = vertical ? S.c1 + li : (forward ? S.c2 + k : S.c1 - k);
+        if(r < 1 || c < 0 || r > sh.rows || c >= sh.cols) continue;
+        const ref = colName(c) + r;
+        const idx = forward ? (k - 1) % len : ((-k) % len + len) % len;
+        let s0 = src[idx], val;
+        if(series){
+          s0 = forward ? src[len - 1] : src[0];
+          val = String(Math.round(((forward ? nums[len - 1] + step * k : nums[0] - step * k)) * 1e9) / 1e9);
+        } else if(s0.raw.trim()[0] === '='){
+          val = '=' + shiftFormula(s0.raw.trim().slice(1), r - s0.r, c - s0.c);   // relative references move with the cell, like Sheets
+        } else if(len === 1 && nums[0] === null && /^(.*\D)?(\d+)$/.test(s0.raw.trim())){
+          const mm = /^(.*\D)?(\d+)$/.exec(s0.raw.trim()), n = parseInt(mm[2], 10) + (forward ? k : -k);   // "Item 1" → "Item 2"
+          val = n < 0 ? s0.raw : (mm[1] || '') + String(n).padStart(mm[2].length, '0');
+        } else val = s0.raw;
+        if(val === '') delete sh.cells[ref]; else sh.cells[ref] = val;
+        if(sh.cache) delete sh.cache[ref];
+        if(s0.fmt) sh.fmt[ref] = Object.assign({}, s0.fmt); else delete sh.fmt[ref];
+      }
+    }
+    if(!Object.keys(sh.fmt).length) delete sh.fmt;
+  };
+  let fillDrag = null;
+  handle.addEventListener('pointerdown', (e) => {
+    if(!sel) return;
+    e.preventDefault(); e.stopPropagation();
+    handle.setPointerCapture(e.pointerId);
+    const S = Object.assign({}, sel);
+    fillDrag = { S, plan: null, x: e.clientX, y: e.clientY, marked: [] };
+    const clearMarks = () => { fillDrag.marked.forEach(t => t.classList.remove('fillprev')); fillDrag.marked = []; };
+    const target = () => {
+      const wr0 = wrap.getBoundingClientRect();
+      const el = document.elementFromPoint(Math.max(wr0.left + 48, Math.min(fillDrag.x, wr0.right - 6)), Math.max(wr0.top + 30, Math.min(fillDrag.y, wr0.bottom - 6))), tgt = el && el.closest && el.closest('.sheet-grid td input');
+      if(!tgt) return null;
+      const rt = +tgt.dataset.r, ct = +tgt.dataset.c;
+      const dr = rt > S.r2 ? rt - S.r2 : rt < S.r1 ? S.r1 - rt : 0, dc = ct > S.c2 ? ct - S.c2 : ct < S.c1 ? S.c1 - ct : 0;
+      if(!dr && !dc) return null;
+      if(dr >= dc) return rt > S.r2 ? { dir: 'down', edge: rt } : { dir: 'up', edge: rt };
+      return ct > S.c2 ? { dir: 'right', edge: ct } : { dir: 'left', edge: ct };
+    };
+    const refreshPreview = () => {
+      const plan = target(); fillDrag.plan = plan; clearMarks();
+      if(!plan) return;
+      const r1 = plan.dir === 'up' ? plan.edge : plan.dir === 'down' ? S.r2 + 1 : S.r1, r2 = plan.dir === 'down' ? plan.edge : plan.dir === 'up' ? S.r1 - 1 : S.r2;
+      const c1 = plan.dir === 'left' ? plan.edge : plan.dir === 'right' ? S.c2 + 1 : S.c1, c2 = plan.dir === 'right' ? plan.edge : plan.dir === 'left' ? S.c1 - 1 : S.c2;
+      for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++){ const i = inputs[colName(c) + r]; if(i){ i.parentElement.classList.add('fillprev'); fillDrag.marked.push(i.parentElement); } }
+    };
+    let raf = 0;
+    const tick = () => {   // scroll while the pointer is near the edge of the sheet, so a long fill is possible
+      if(!fillDrag) return;
+      const wr = wrap.getBoundingClientRect(), edge = 36, sp = 22;
+      if(fillDrag.y > wr.bottom - edge) wrap.scrollTop += sp; else if(fillDrag.y < wr.top + edge + 24) wrap.scrollTop -= sp;
+      if(fillDrag.x > wr.right - edge) wrap.scrollLeft += sp; else if(fillDrag.x < wr.left + edge + 40) wrap.scrollLeft -= sp;
+      refreshPreview();
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    const move = (ev) => { fillDrag.x = ev.clientX; fillDrag.y = ev.clientY; };
+    const up = () => {
+      handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up);
+      cancelAnimationFrame(raf);
+      const plan = fillDrag.plan; clearMarks(); fillDrag = null;
+      if(!plan) return;
+      takeSafetyCopy('before paste');
+      fillSeries(S, plan.dir, plan.edge);
+      bizSelRestore = {
+        r1: plan.dir === 'up' ? plan.edge : S.r1, c1: plan.dir === 'left' ? plan.edge : S.c1,
+        r2: plan.dir === 'down' ? plan.edge : S.r2, c2: plan.dir === 'right' ? plan.edge : S.c2
+      };
+      saveTasks(); redrawKeep();
+    };
+    handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+  });
+  window.addEventListener('resize', () => { if(placeHandle && wrap.isConnected) placeHandle(); });
+  placeHandle();
 
   // ---- copy / cut / paste ----
   const tsvCell = (v) => /[\t\n"]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
@@ -5841,6 +5966,7 @@ function renderBizPanel(cur){
     wrap.style.overflowX = wrap.style.overflowY = 'hidden';
     const fitX = table.offsetWidth <= wrap.clientWidth + 1, fitY = rowsDone && table.offsetHeight <= wrap.clientHeight + 1;
     wrap.style.overflowX = fitX ? 'hidden' : 'auto'; wrap.style.overflowY = fitY ? 'hidden' : 'auto';
+    if(placeHandle) placeHandle();
   };
   wrap._updateScroll = updateScroll;
   const tools = mk('div', 'biz-tools');   // all the buttons sit beside the sheet name
@@ -5848,7 +5974,7 @@ function renderBizPanel(cur){
   headRow.appendChild(tools);
   const topBar = document.querySelector('#businessPage .other-bar');
   topBar.appendChild(fxBar); topBar.appendChild(io);
-  if(!sel){ anchor = { r: 1, c: 0 }; setSel(1, 0, 1, 0); }   // Import / Export sit on the same row as the Business title
+  if(!sel){ const rs = bizSelRestore; bizSelRestore = null; if(rs){ anchor = { r: rs.r1, c: rs.c1 }; setSel(rs.r1, rs.c1, rs.r2, rs.c2); } else { anchor = { r: 1, c: 0 }; setSel(1, 0, 1, 0); } }   // Import / Export sit on the same row as the Business title
   bizPanelEl.append(wrap);
   // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
   const fitW = Math.max(10, Math.floor((wrap.clientWidth - 44 - sh.cols) / sh.cols));   // every column fits across the page, whatever the count (min 10px)

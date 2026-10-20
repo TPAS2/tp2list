@@ -5088,7 +5088,7 @@ function renderBizPanel(cur){
   };
   const setRowH = (r, h) => { sh.rowH = sh.rowH || {}; if(h) sh.rowH[r] = h; else delete sh.rowH[r]; if(!Object.keys(sh.rowH).length) delete sh.rowH; applyRowH(r, h); if(typeof sizeMerged === 'function') sizeMerged(); };
 
-  if(sh.cols < 12) sh.cols = 12;
+  if(sh.cols < 1) sh.cols = 1;
   if(sh.rows < 15) sh.rows = 15;
   if(sh.merges) sh.merges = sh.merges.filter(m => m.r2 <= sh.rows && m.c2 < sh.cols);
   const wrap = mk('div', 'sheet-wrap');
@@ -5261,7 +5261,7 @@ function renderBizPanel(cur){
   headRow.appendChild(tools);
   bizPanelEl.append(wrap);
   // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
-  const fitW = Math.max(64, Math.floor((wrap.clientWidth - 42) / 12));
+  const fitW = Math.max(64, Math.floor((wrap.clientWidth - 42) / Math.min(12, sh.cols)));   // fewer than 12 columns: they stretch to fill the page
   fitWv = fitW;
   for(let c = 0; c < sh.cols; c++) if(!(sh.colW && sh.colW[c])) applyColW(c, fitW);
   // and rows 1–15: shrink the default row height a little if the panel is too short to show them

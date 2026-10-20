@@ -1250,6 +1250,8 @@
   .fx-name{ min-width: 26px; font-weight: 700; font-size: 0.78rem; color: var(--accent2); }
   .fx-input{ flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font: inherit; font-size: 0.85rem; padding: 5px 2px; }
   @media (max-width: 700px){ .fx-bar{ order: 3; flex-basis: 100%; } }
+  .pick-banner{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(34,224,255,.14); border: 1px dashed var(--accent2); font-size: 0.8rem; }
+  .pick-banner span{ flex: 1; }
   .fx-bar .fx-input{ background: transparent !important; border: 0 !important; box-shadow: none !important; }
   /* light mode: white grid like Google Sheets */
   html[data-theme="light"] .sheet-wrap{ background: #fff; border-color: #dadce0; }
@@ -3939,6 +3941,36 @@ document.querySelector('#birthdayForm button.add').addEventListener('click', add
 });
 
 /* ---------- business: sections with a Sheets-style tab strip. Each is { id, name }; blank for now ---------- */
+// clicking a cell on another section while typing a formula: the formula waits here until a cell is chosen
+let bizPickCandidate = null;   // formula being typed when a tab was pressed
+let bizPending = null;         // { tabId, ref, text, caret }
+function bizFormulaState(){
+  const ed = document.activeElement;
+  if(!ed || !ed.matches || !ed.matches('.sheet-grid td input, .fx-input') || !ed.value.startsWith('=')) return null;
+  const before = ed.value.slice(0, ed.selectionStart).replace(/\s+$/, '');
+  if(!/[=+\-*\/(,&<>^:]$/.test(before)) return null;
+  const ref = ed.classList.contains('fx-input') ? (document.querySelector('.fx-name') || {}).textContent : colName(+ed.dataset.c) + ed.dataset.r;
+  return ref ? { ref, text: ed.value, caret: ed.selectionStart } : null;
+}
+function bizFinishPick(refStr){
+  const pend = bizPending; if(!pend) return;
+  const tab = (data.businessTabs || []).find(t => t.id === pend.tabId);
+  bizPending = null;
+  if(!tab || !tab.sheet) return;
+  tab.sheet.cells[pend.ref] = pend.text.slice(0, pend.caret) + refStr + pend.text.slice(pend.caret);
+  if(tab.sheet.cache) delete tab.sheet.cache[pend.ref];
+  const at = pend.caret + refStr.length;
+  bizSel = tab.id; try{ localStorage.setItem(BIZ_SEL_KEY, tab.id); }catch(e){}
+  saveTasks(); renderBusiness();
+  const m = /^([A-Z]+)(\d+)$/.exec(pend.ref), inp = m && document.querySelector(`.sheet-grid td input[data-r="${m[2]}"][data-c="${colFromLetters(m[1])}"]`);
+  if(inp){ inp.focus(); inp.setSelectionRange(at, at); }
+}
+function bizCancelPick(){
+  const pend = bizPending; if(!pend) return;
+  bizPending = null; bizSel = pend.tabId; try{ localStorage.setItem(BIZ_SEL_KEY, bizSel); }catch(e){}
+  renderBusiness();
+}
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape' && bizPending) bizCancelPick(); });
 const BIZ_SEL_KEY = 'tpas2:biz:sel';
 let bizSel = (() => { try{ return localStorage.getItem(BIZ_SEL_KEY) || ''; }catch(e){ return ''; } })();
 const bizTabsEl = document.getElementById('bizTabs');
@@ -3951,7 +3983,7 @@ document.addEventListener('click', (e) => { if(!e.target.closest('.sheet-menu, .
 const SHEET_MAX_ROWS = 500, SHEET_MAX_COLS = 52;
 const colName = (i) => { let n = i + 1, s = ''; while(n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const colFromLetters = (L) => { let n = 0; for(const ch of L.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
-function newSheet(){ return { rows: 20, cols: 12, cells: {} }; }
+function newSheet(){ return { rows: 14, cols: 12, cells: {} }; }
 function refParts(ref){ const m = /^\$?([A-Za-z]{1,3})\$?([0-9]{1,5})$/.exec(ref); return m ? { c: colFromLetters(m[1]), r: +m[2] } : null; }
 
 let sheetCacheUsed = 0;   // goes up whenever a value had to come from the imported file instead of being worked out here
@@ -4002,12 +4034,14 @@ function sCompare(a, b){
 
 /* ---- the value of one cell. memo = a Map shared by one refresh so each cell is worked out once ---- */
 const sheetAstCache = new Map();
+function sheetNames(){ return (typeof data !== 'undefined' && data.businessTabs || []).filter(t => t.sheet && t.name).map(t => String(t.name).trim()).sort((a, b) => b.length - a.length); }
 function sheetParseCached(src){
-  let hit = sheetAstCache.get(src);
+  const names = sheetNames().join('|'), key = src + '\u0001' + names;   // names matter: unquoted section names like Section 1!A1 are recognised
+  let hit = sheetAstCache.get(key);
   if(!hit){
     try{ hit = { ast: sheetParse(src) }; }catch(e){ hit = { err: e instanceof SheetError ? e : sErr('#ERR') }; }
     if(sheetAstCache.size > 3000) sheetAstCache.clear();
-    sheetAstCache.set(src, hit);
+    sheetAstCache.set(key, hit);
   }
   if(hit.err) throw hit.err;
   return hit.ast;
@@ -4084,6 +4118,7 @@ function sheetTokenize(src){
     }
     const rest = src.slice(i);
     let m;
+    if(!qual){ for(const nm of sheetNames()){ if(rest.length > nm.length && rest[nm.length] === '!' && rest.slice(0, nm.length).toLowerCase() === nm.toLowerCase()){ qual = nm; i += nm.length + 1; break; } } if(qual) continue; }
     if(!qual && (m = /^(?:'((?:[^']|'')+)'|([A-Za-z_][A-Za-z0-9_.]*))!/.exec(rest))){   // 'Other section'!  or  Sheet2!
       qual = m[1] !== undefined ? m[1].replace(/''/g, "'") : m[2]; i += m[0].length; continue;
     }
@@ -4717,6 +4752,7 @@ function autoGrow(ta){
   setTimeout(fit, 60);   // again once laid out (e.g. fonts, panel just opened)
   return ta;
 }
+window.addEventListener('resize', () => { const t = document.querySelector('#bizPanel .sheet-wrap'); if(t && t._updateScroll) t._updateScroll(); });
 window.addEventListener('resize', () => document.querySelectorAll('textarea.auto-grow').forEach(t => { t.style.height = 'auto'; t.style.height = t.scrollHeight + 2 + 'px'; }));
 const carNum = (x) => { const n = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isNaN(n) ? 0 : n; };
 const carCost = (v) => carNum(v.bought) + (v.expenses || []).reduce((sum, e) => sum + carNum(e.amount), 0);
@@ -4970,6 +5006,13 @@ function renderBizPanel(cur){
   const headRow = mk('div', 'biz-head');
   bizPanelEl.insertBefore(headRow, h);
   headRow.appendChild(h);
+  const pend = bizPending && bizPending.tabId !== cur.id ? bizPending : null;
+  if(pend){
+    const bn = mk('div', 'pick-banner');
+    bn.append(mk('span', null, 'Click a cell (or drag a range) in this section to put it in your formula.'));
+    const cx = mk('button', 'sheet-mini', 'Cancel'); cx.type = 'button'; cx.onclick = bizCancelPick; bn.appendChild(cx);
+    bizPanelEl.insertBefore(bn, headRow.nextSibling);
+  }
   const io = mk('div', 'sheet-io');
   const fileIn = mk('input', 'sheet-file'); fileIn.type = 'file'; fileIn.accept = '.xlsx,.xlsm,.csv,.tsv,.txt'; fileIn.hidden = true;
   fileIn.onchange = () => { const f = fileIn.files[0]; fileIn.value = ''; if(f) importSheetFile(cur, f); };
@@ -5178,6 +5221,7 @@ function renderBizPanel(cur){
   const setSel = (r1, c1, r2, c2, keep) => { if(!keep) extra = []; sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
 
   // column widths / row heights: sh.colW[c], sh.rowH[r] in px (drag the edge of a header; double-click resets)
+  let updateScroll = null;
   let fitWv = 0, fitHv = 0;   // default (auto-fitted) column width / row height
   const applyColW = (c, w) => {
     w = w || fitWv;
@@ -5204,7 +5248,7 @@ function renderBizPanel(cur){
     };
     th.appendChild(g);
   };
-  const setColW = (c, w) => { sh.colW = sh.colW || {}; if(w) sh.colW[c] = w; else delete sh.colW[c]; if(!Object.keys(sh.colW).length) delete sh.colW; applyColW(c, w); };
+  const setColW = (c, w) => { sh.colW = sh.colW || {}; if(w) sh.colW[c] = w; else delete sh.colW[c]; if(!Object.keys(sh.colW).length) delete sh.colW; applyColW(c, w); if(updateScroll) updateScroll(); };
   // double-click an edge: fit to the data (widest text in the column / tallest font in the row)
   const mctx = document.createElement('canvas').getContext('2d');
   const fitCol = (c) => {
@@ -5222,10 +5266,10 @@ function renderBizPanel(cur){
     for(let c = 0; c < sh.cols; c++){ const f = sh.fmt && sh.fmt[colName(c) + r]; if(f && f.s) sz = Math.max(sz, f.s); }
     setRowH(r, sz > 10 ? Math.min(400, Math.ceil(sz * 1.44 * 1.35) + 14) : 0);
   };
-  const setRowH = (r, h) => { sh.rowH = sh.rowH || {}; if(h) sh.rowH[r] = h; else delete sh.rowH[r]; if(!Object.keys(sh.rowH).length) delete sh.rowH; applyRowH(r, h); if(typeof sizeMerged === 'function') sizeMerged(); };
+  const setRowH = (r, h) => { sh.rowH = sh.rowH || {}; if(h) sh.rowH[r] = h; else delete sh.rowH[r]; if(!Object.keys(sh.rowH).length) delete sh.rowH; applyRowH(r, h); if(typeof sizeMerged === 'function') sizeMerged(); if(updateScroll) updateScroll(); };
 
   if(sh.cols < 1) sh.cols = 1;
-  if(sh.rows < 15) sh.rows = 15;
+  if(sh.rows < 1) sh.rows = 1;
   if(sh.merges) sh.merges = sh.merges.filter(m => m.r2 <= sh.rows && m.c2 < sh.cols);
   const wrap = mk('div', 'sheet-wrap');
   const table = mk('table', 'sheet-grid');
@@ -5254,6 +5298,17 @@ function renderBizPanel(cur){
       let timer = null;
       inp.addEventListener('pointerdown', (e) => {
         if(e.pointerType === 'mouse' && e.button !== 0) return;
+        if(pend){   // choosing a cell for a formula that is waiting on another section
+          e.preventDefault();
+          const a0 = { r, c }; let b0 = { r, c };
+          const nm = "'" + String(cur.name || '').replace(/'/g, "''") + "'!";
+          const str = () => nm + colName(Math.min(a0.c, b0.c)) + Math.min(a0.r, b0.r) + ((a0.r === b0.r && a0.c === b0.c) ? '' : ':' + colName(Math.max(a0.c, b0.c)) + Math.max(a0.r, b0.r));
+          if(e.pointerType !== 'mouse'){ bizFinishPick(str()); return; }
+          const mv0 = (ev) => { const el = document.elementFromPoint(ev.clientX, ev.clientY), tg = el && el.closest && el.closest('.sheet-grid td input'); if(tg) b0 = { r: +tg.dataset.r, c: +tg.dataset.c }; };
+          const up0 = () => { window.removeEventListener('pointermove', mv0); window.removeEventListener('pointerup', up0); bizFinishPick(str()); };
+          window.addEventListener('pointermove', mv0); window.addEventListener('pointerup', up0);
+          return;
+        }
         const ed = document.activeElement;
         if(ed !== inp && pickAllowed(ed)){
           e.preventDefault(); table._noFocus = true; setTimeout(() => { table._noFocus = false; }, 400);
@@ -5413,6 +5468,13 @@ function renderBizPanel(cur){
   if(sh.colW) for(const c in sh.colW) if(colTh[c]) applyColW(+c, sh.colW[c]);
   if(sh.rowH) for(const r in sh.rowH) if(rowTh[r]) applyRowH(+r, sh.rowH[r]);
   sizeMerged();
+  // no scrollbars when the whole sheet already fits the view
+  updateScroll = () => {
+    wrap.style.overflowX = wrap.style.overflowY = 'hidden';
+    const fitX = table.offsetWidth <= wrap.clientWidth + 1, fitY = table.offsetHeight <= wrap.clientHeight + 1;
+    wrap.style.overflowX = fitX ? 'hidden' : 'auto'; wrap.style.overflowY = fitY ? 'hidden' : 'auto';
+  };
+  wrap._updateScroll = updateScroll;
   const tools = mk('div', 'biz-tools');   // all the buttons sit beside the sheet name
   tools.append(bar, fbar);
   headRow.appendChild(tools);
@@ -5421,13 +5483,15 @@ function renderBizPanel(cur){
   if(!sel){ anchor = { r: 1, c: 0 }; setSel(1, 0, 1, 0); }   // Import / Export sit on the same row as the Business title
   bizPanelEl.append(wrap);
   // default column width: fit columns A–L across the panel (phones keep a readable minimum and scroll sideways)
-  const fitW = Math.max(64, Math.floor((wrap.clientWidth - 42) / Math.min(12, sh.cols)));   // fewer than 12 columns: they stretch to fill the page
+  const fitW = Math.max(64, Math.floor((wrap.clientWidth - 44 - Math.min(12, sh.cols)) / Math.min(12, sh.cols)));   // fewer than 12 columns: they stretch to fill the page
   fitWv = fitW;
   for(let c = 0; c < sh.cols; c++) if(!(sh.colW && sh.colW[c])) applyColW(c, fitW);
-  // and rows 1–15: shrink the default row height a little if the panel is too short to show them
-  const headH = table.tHead.offsetHeight, fitH = Math.max(24, Math.min(33, Math.floor((wrap.clientHeight - headH - 16) / 15)));
+  // and rows 1–14: shrink the default row height a little if the panel is too short to show them
+  const headH = table.tHead.offsetHeight, rowRoom = wrap.clientHeight - headH - (table.offsetWidth > wrap.clientWidth + 1 ? 16 : 3);   // room for 14 rows (a scrollbar needs more)
+  const fitH = Math.max(24, Math.min(33, Math.floor(rowRoom / 14) - 1));   // −1 for each row's border
   if(fitH < 33) fitHv = fitH;
   if(fitH < 33) for(let r = 1; r <= sh.rows; r++) if(!(sh.rowH && sh.rowH[r])) applyRowH(r, fitH);
+  sizeMerged(); updateScroll();
   updateBar();
 }
 
@@ -5491,6 +5555,7 @@ function startBizTabDrag(e, tabEl){
 }
 
 function renderBusiness(){
+  if(!bizTabsEl._pickHook){ bizTabsEl._pickHook = true; bizTabsEl.addEventListener('pointerdown', () => { bizPickCandidate = bizFormulaState(); }, true); }
   const tabs = data.businessTabs || [];
   // Section 2 is the car reselling tracker unless it was set up as something else (also covers synced older data)
   tabs.forEach(t => { if(t.id === 'biz2' && !t.type){ t.type = 'cars'; if(t.name === 'Section 2') t.name = 'Car Reselling'; } });
@@ -5545,7 +5610,12 @@ function renderBusiness(){
     tab.append(label, arrow);
     tab.dataset.id = t.id;
     tab.addEventListener('pointerdown', (e) => startBizTabDrag(e, tab));
-    tab.onclick = () => { if(bizJustDragged) return; bizSel = t.id; try{ localStorage.setItem(BIZ_SEL_KEY, t.id); }catch(e){} renderBusiness(); };
+    tab.onclick = () => {
+      if(bizJustDragged) return;
+      if(bizPickCandidate && t.id !== bizSel && t.sheet) bizPending = Object.assign({ tabId: bizSel }, bizPickCandidate);   // keep the half-typed formula while visiting another section
+      else if(bizPending && t.id === bizPending.tabId) bizPending = null;
+      bizPickCandidate = null;
+      bizSel = t.id; try{ localStorage.setItem(BIZ_SEL_KEY, t.id); }catch(e){} renderBusiness(); };
     bizTabsEl.appendChild(tab);
   });
   renderBizPanel(tabs.find(t => t.id === bizSel));

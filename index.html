@@ -1935,6 +1935,7 @@
         <button type="button" class="ds-btn" id="dsImport">Restore from file…</button>
         <input type="file" id="dsFile" accept=".json,application/json" hidden>
       </div>
+      <p class="ds-hint" id="dsStorage" style="margin-top:6px"></p>
       <p class="ds-hint" id="dsBackupInfo" style="margin-top:6px"></p>
       <div class="ds-row">
         <select class="ds-input" id="dsSafety"></select>
@@ -5768,6 +5769,13 @@ function renderBizPanel(cur){
     const rl = r >= 1 ? (union('r1', 'r2').includes(r) ? union('r1', 'r2') : [r]) : null;
     const label = (l, f) => l.length === 1 ? f(l[0]) : (l[l.length - 1] - l[0] === l.length - 1 ? f(l[0]) + '–' + f(l[l.length - 1]) : l.map(f).join(', '));
     const ask = (what, cur, lo, hi) => { const v = prompt(`${what} in pixels (${lo}–${hi}):`, String(cur)); if(v === null) return null; const n = Math.round(parseFloat(v)); return isNaN(n) ? null : Math.max(lo, Math.min(hi, n)); };
+    const askCount = (what, def, room) => {   // "how many rows / columns?" (starts at the number selected, 1 if none)
+      if(room < 1){ alert(`A spreadsheet can have at most ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns.`); return 0; }
+      const v = prompt(`How many ${what} do you want to insert? (up to ${room})`, String(Math.min(def, room)));
+      if(v === null) return 0;
+      const n = Math.round(parseFloat(v));
+      return isNaN(n) || n < 1 ? 0 : Math.min(n, room);
+    };
     const insLines = (axis, at, n) => {
       if(axis === 'r' ? sh.rows + n > SHEET_MAX_ROWS : sh.cols + n > SHEET_MAX_COLS){ alert(`A spreadsheet can have at most ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns.`); return; }
       sheetInsertLines(sh, axis, at, n);
@@ -5788,16 +5796,16 @@ function renderBizPanel(cur){
     const name = (a, b, f) => a === b ? f(a) : f(a) + '–' + f(b);
     if(cl){
       item(`Column ${label(cl, colName)} width…`, () => { const n = ask('Column width', colTh[cl[0]].offsetWidth, 10, 600); if(n) cl.forEach(k => setColW(k, n)); saveTasks(); });
-      item(`Insert ${cl.length > 1 ? cl.length + ' columns' : 'column'} left`, () => insLines('c', cl[0], cl.length));
-      item(`Insert ${cl.length > 1 ? cl.length + ' columns' : 'column'} right`, () => insLines('c', cl[cl.length - 1] + 1, cl.length));
+      item('Insert columns left…', () => { const n = askCount('columns', cl.length, SHEET_MAX_COLS - sh.cols); if(n) insLines('c', cl[0], n); });
+      item('Insert columns right…', () => { const n = askCount('columns', cl.length, SHEET_MAX_COLS - sh.cols); if(n) insLines('c', cl[cl.length - 1] + 1, n); });
       item(`Delete column${cl.length === 1 ? '' : 's'} ${label(cl, colName)}`, () => delLines('c', cl));
       item('Fit column to data', () => { cl.forEach(k => fitCol(k)); saveTasks(); });
       item('Reset column width', () => { cl.forEach(k => setColW(k, 0)); saveTasks(); });
     }
     if(rl){
       item(`Row ${label(rl, String)} height…`, () => { const n = ask('Row height', rowTh[rl[0]].offsetHeight, 24, 400); if(n) rl.forEach(k => setRowH(k, n)); saveTasks(); });
-      item(`Insert ${rl.length > 1 ? rl.length + ' rows' : 'row'} above`, () => insLines('r', rl[0], rl.length));
-      item(`Insert ${rl.length > 1 ? rl.length + ' rows' : 'row'} below`, () => insLines('r', rl[rl.length - 1] + 1, rl.length));
+      item('Insert rows above…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[0], n); });
+      item('Insert rows below…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[rl.length - 1] + 1, n); });
       item(`Delete row${rl.length === 1 ? '' : 's'} ${label(rl, String)}`, () => delLines('r', rl));
       item('Fit row to data', () => { rl.forEach(k => fitRow(k)); saveTasks(); });
       item('Reset row height', () => { rl.forEach(k => setRowH(k, 0)); saveTasks(); });
@@ -6237,7 +6245,16 @@ function restoreData(d){
   renderAll();
   saveTasks();   // also queues it for sync, and the undo button can step back
 }
+// how much of the browser's ~5 million characters of localStorage this app is using
+function storageUsed(){ let used = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); used += k.length + (localStorage.getItem(k) || '').length; } }catch(e){} return used; }
+function showStorage(){
+  const el = document.getElementById('dsStorage'); if(!el) return;
+  const used = storageUsed(), pct = Math.min(100, used / 50000);   // 5,000,000 characters = 100 %
+  el.textContent = `Browser storage: ${pct < 10 ? pct.toFixed(1) : Math.round(pct)}% used (${(used / 1e6).toFixed(2)} of about 5 million characters)`;
+  el.style.color = pct >= 80 ? 'var(--danger)' : '';
+}
 function fillSafetyList(){
+  showStorage();
   const sel = document.getElementById('dsSafety'), btn = document.getElementById('dsRestoreSafety');
   const list = readSafety();
   sel.innerHTML = '';

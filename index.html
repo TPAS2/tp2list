@@ -3995,6 +3995,23 @@ function sheetParseCached(src){
   if(hit.err) throw hit.err;
   return hit.ast;
 }
+// other sections of the Business page, by name: ='Section 2'!B3 or =Sheet2!A1:A5
+const sheetUids = new WeakMap(); let sheetUidN = 0;
+const sheetUid = (sh) => { if(!sheetUids.has(sh)) sheetUids.set(sh, ++sheetUidN); return sheetUids.get(sh); };
+function sheetByName(name){
+  const want = String(name).trim().toLowerCase();
+  const tab = (typeof data !== 'undefined' && data.businessTabs || []).find(t => t.sheet && String(t.name || '').trim().toLowerCase() === want);
+  return tab ? tab.sheet : null;
+}
+function sheetResolve(ctx, name){
+  if(!name) return ctx;
+  const other = sheetByName(name);
+  if(!other) throw sErr('#UNSUP');   // unknown section: falls back to the imported value, else #NAME?
+  if(other === ctx.sheet) return ctx;
+  let memo = null;
+  if(ctx.memo){ ctx.memo._o = ctx.memo._o || new Map(); memo = ctx.memo._o.get(other); if(!memo){ memo = new Map(); ctx.memo._o.set(other, memo); } }
+  return { sheet: other, seen: ctx.seen, memo };
+}
 function sheetCellValue(sheet, ref, seen, memo){
   if(memo && memo.has(ref)){ const m = memo.get(ref); if(m.cached) sheetCacheUsed++; if(m.e) throw m.e; return m.v; }
   const raw = sheetRaw(sheet, ref), t = raw.trim();
@@ -4008,9 +4025,10 @@ function sheetCellValue(sheet, ref, seen, memo){
     if(memo) memo.set(ref, { v });
     return v;
   }
-  if(seen.has(ref)) throw sErr('#CIRC');
+  const skey = sheetUid(sheet) + ':' + ref;
+  if(seen.has(skey)) throw sErr('#CIRC');
   const before = sheetCacheUsed;
-  const next = new Set(seen); next.add(ref);
+  const next = new Set(seen); next.add(skey);
   let res;
   try{ res = { v: sheetEval(sheetParseCached(t.slice(1)), { sheet, seen: next, memo }) }; }
   catch(e){
@@ -4037,7 +4055,8 @@ const sheetShown = (sheet, ref, memo) => sheetShownInfo(sheet, ref, memo).text;
 
 /* ---- tokenizer + parser ---- */
 function sheetTokenize(src){
-  const out = []; let i = 0; const n = src.length;
+  const out = []; let i = 0; const n = src.length; let qual = null;
+  const q = () => { const v = qual; qual = null; return v; };
   while(i < n){
     const ch = src[i];
     if(ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r'){ i++; continue; }
@@ -4046,23 +4065,27 @@ function sheetTokenize(src){
       for(;;){ if(j >= n) throw sErr('#ERR'); if(src[j] === '"'){ if(src[j + 1] === '"'){ s += '"'; j += 2; continue; } break; } s += src[j++]; }
       out.push({ t: 'str', v: s }); i = j + 1; continue;
     }
-    if(ch === "'"){ const j = src.indexOf("'", i + 1); if(j > 0 && src[j + 1] === '!') throw sErr('#UNSUP'); throw sErr('#ERR'); }   // 'Other sheet'!A1
     const rest = src.slice(i);
     let m;
+    if(!qual && (m = /^(?:'((?:[^']|'')+)'|([A-Za-z_][A-Za-z0-9_.]*))!/.exec(rest))){   // 'Other section'!  or  Sheet2!
+      qual = m[1] !== undefined ? m[1].replace(/''/g, "'") : m[2]; i += m[0].length; continue;
+    }
+    if(qual && !/^[$A-Za-z]/.test(rest)) throw sErr('#ERR');
+    if(ch === "'") throw sErr('#ERR');
     if((m = /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/.exec(rest))){ out.push({ t: 'num', v: parseFloat(m[0]) }); i += m[0].length; continue; }
     if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5}):\$?([A-Za-z]{1,3})\$?(\d{1,5})(?![A-Za-z0-9_(!])/.exec(rest))){
-      out.push({ t: 'range', c1: colFromLetters(m[1]), r1: +m[2], c2: colFromLetters(m[3]), r2: +m[4] }); i += m[0].length; continue;
+      out.push({ t: 'range', sh: q(), c1: colFromLetters(m[1]), r1: +m[2], c2: colFromLetters(m[3]), r2: +m[4] }); i += m[0].length; continue;
     }
     if((m = /^\$?([A-Za-z]{1,3}):\$?([A-Za-z]{1,3})(?![A-Za-z0-9_(!])/.exec(rest))){   // whole columns: A:A
-      out.push({ t: 'range', c1: colFromLetters(m[1]), r1: 1, c2: colFromLetters(m[2]), r2: Infinity }); i += m[0].length; continue;
+      out.push({ t: 'range', sh: q(), c1: colFromLetters(m[1]), r1: 1, c2: colFromLetters(m[2]), r2: Infinity }); i += m[0].length; continue;
     }
     if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5}):\$?([A-Za-z]{1,3})(?![A-Za-z0-9_(!])/.exec(rest))){   // open ended: A2:A
-      out.push({ t: 'range', c1: colFromLetters(m[1]), r1: +m[2], c2: colFromLetters(m[3]), r2: Infinity }); i += m[0].length; continue;
+      out.push({ t: 'range', sh: q(), c1: colFromLetters(m[1]), r1: +m[2], c2: colFromLetters(m[3]), r2: Infinity }); i += m[0].length; continue;
     }
-    if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5})(?![A-Za-z0-9_(!])/.exec(rest))){ out.push({ t: 'ref', c: colFromLetters(m[1]), r: +m[2] }); i += m[0].length; continue; }
+    if((m = /^\$?([A-Za-z]{1,3})\$?(\d{1,5})(?![A-Za-z0-9_(!])/.exec(rest))){ out.push({ t: 'ref', sh: q(), c: colFromLetters(m[1]), r: +m[2] }); i += m[0].length; continue; }
     if((m = /^[A-Za-z_][A-Za-z0-9_.]*/.exec(rest))){
       const w = m[0];
-      if(rest[w.length] === '!') throw sErr('#UNSUP');                       // Sheet2!A1
+      if(qual) throw sErr('#ERR');
       if(rest[w.length] === '(') { out.push({ t: 'fn', v: w.toUpperCase() }); i += w.length; continue; }
       const u = w.toUpperCase();
       if(u === 'TRUE' || u === 'FALSE'){ out.push({ t: 'bool', v: u === 'TRUE' }); i += w.length; continue; }
@@ -4073,6 +4096,7 @@ function sheetTokenize(src){
     if('+-*/^&=<>%(),;'.includes(ch)){ out.push({ t: 'op', v: ch === ';' ? ',' : ch }); i++; continue; }
     throw sErr('#ERR');
   }
+  if(qual) throw sErr('#ERR');
   return out;
 }
 function sheetParse(src){
@@ -4092,8 +4116,8 @@ function sheetParse(src){
     if(t.t === 'num') return { k: 'lit', v: t.v };
     if(t.t === 'str') return { k: 'lit', v: t.v };
     if(t.t === 'bool') return { k: 'lit', v: t.v };
-    if(t.t === 'ref') return { k: 'ref', c: t.c, r: t.r };
-    if(t.t === 'range') return { k: 'range', c1: t.c1, r1: t.r1, c2: t.c2, r2: t.r2 };
+    if(t.t === 'ref') return { k: 'ref', sh: t.sh, c: t.c, r: t.r };
+    if(t.t === 'range') return { k: 'range', sh: t.sh, c1: t.c1, r1: t.r1, c2: t.c2, r2: t.r2 };
     if(t.t === 'fn'){
       if(!isOp('(')) throw sErr('#ERR');
       p++;
@@ -4119,7 +4143,7 @@ function sheetParse(src){
 function sheetEval(n, ctx){
   switch(n.k){
     case 'lit': return n.v;
-    case 'ref': return sheetCellValue(ctx.sheet, colName(n.c) + n.r, ctx.seen, ctx.memo);
+    case 'ref': { const rc = sheetResolve(ctx, n.sh); return sheetCellValue(rc.sheet, colName(n.c) + n.r, rc.seen, rc.memo); }
     case 'range': throw sErr('#VALUE!');
     case 'neg': return -sToNum(sheetEval(n.a, ctx));
     case 'pct': return sToNum(sheetEval(n.a, ctx)) / 100;
@@ -4150,9 +4174,10 @@ function sheetItems(args, ctx){
   const out = [];
   for(const a of args){
     if(a.k === 'range'){
+      const rc = sheetResolve(ctx, a.sh);
       const c1 = Math.min(a.c1, a.c2), c2 = Math.max(a.c1, a.c2);
-      const r1 = Math.min(a.r1, a.r2), r2 = a.r2 === Infinity ? Math.max(ctx.sheet.rows, a.r1) : Math.max(a.r1, a.r2);
-      for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++) out.push({ v: sheetCellValue(ctx.sheet, colName(c) + r, ctx.seen, ctx.memo), ref: true });
+      const r1 = Math.min(a.r1, a.r2), r2 = a.r2 === Infinity ? Math.max(rc.sheet.rows, a.r1) : Math.max(a.r1, a.r2);
+      for(let r = r1; r <= r2; r++) for(let c = c1; c <= c2; c++) out.push({ v: sheetCellValue(rc.sheet, colName(c) + r, rc.seen, rc.memo), ref: true });
     } else if(a.k === 'ref') out.push({ v: sheetEval(a, ctx), ref: true });
     else out.push({ v: sheetEval(a, ctx), ref: false });
   }
@@ -4943,7 +4968,7 @@ function renderBizPanel(cur){
   btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++){ delete sh.cells[colName(c) + sh.rows]; if(sh.fmt) delete sh.fmt[colName(c) + sh.rows]; } sh.rows = Math.max(1, sh.rows - 1); renderBizPanel(cur); saveTasks(); } }, sh.rows <= 1);
   btn('+ Column', () => { sh.cols = Math.min(SHEET_MAX_COLS, sh.cols + 1); renderBizPanel(cur); saveTasks(); }, sh.cols >= SHEET_MAX_COLS);
   btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++){ delete sh.cells[colName(sh.cols - 1) + r]; if(sh.fmt) delete sh.fmt[colName(sh.cols - 1) + r]; } sh.cols = Math.max(1, sh.cols - 1); renderBizPanel(cur); saveTasks(); } }, sh.cols <= 1);
-  const hint = mk('span', 'sheet-hint', 'ⓘ'); hint.title = 'Formulas: =A1+B1, =SUM(A1:A5), IF, ROUND, AVERAGE… Select cells by dragging, or tap a column / row header.';
+  const hint = mk('span', 'sheet-hint', 'ⓘ'); hint.title = 'Formulas: =A1+B1, =SUM(A1:A5), IF, ROUND, AVERAGE… Other sections: ='Section 2'!B3-A1 or =SUM(Sales!A1:A5). Select cells by dragging, or tap a column / row header.';
   bar.appendChild(hint);
 
   // formatting toolbar (works on the selected cells, like Google Sheets)

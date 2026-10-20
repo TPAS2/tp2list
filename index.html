@@ -1252,6 +1252,14 @@
   @media (max-width: 700px){ .fx-bar{ order: 3; flex-basis: 100%; } }
   .pick-banner{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(34,224,255,.14); border: 1px dashed var(--accent2); font-size: 0.8rem; }
   .pick-banner span{ flex: 1; }
+  /* Business page: less empty space above the grid so more rows show */
+  body:has(#businessPage.active) header{ margin-bottom: 4px; padding-bottom: 8px; }
+  #businessPage .other-bar{ margin-bottom: 4px; }
+  #businessPage .biz-panel{ padding-top: 8px; }
+  #businessPage .biz-head{ margin-bottom: 6px; padding-bottom: 6px; }
+  #businessPage .biz-head h3{ font-size: 1.15rem; }
+  .fx-bar{ padding-top: 0; padding-bottom: 0; }
+  .fx-bar .fx-input{ padding-top: 3px; padding-bottom: 3px; }
   .fx-bar .fx-input{ background: transparent !important; border: 0 !important; box-shadow: none !important; }
   /* light mode: white grid like Google Sheets */
   html[data-theme="light"] .sheet-wrap{ background: #fff; border-color: #dadce0; }
@@ -1296,6 +1304,8 @@
   @media (max-width: 520px){ .sheet-hint{ display: none; } }
   .sheet-wrap{ flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
   .sheet-grid{ border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+  .sheet-grid.fixed{ table-layout: fixed; }   /* every width is set explicitly, so big sheets don't re-lay out on each keystroke */
+  .sheet-grid.fixed tbody th, .sheet-grid.fixed thead th:first-child{ box-sizing: border-box; width: 40px; min-width: 40px; padding-left: 2px; padding-right: 2px; }
   .sheet-grid th{ position: sticky; top: 0; z-index: 2; background: var(--panel-solid); color: var(--text-dim); font-size: 0.72rem; font-weight: 600; padding: 4px 0; text-align: center; overflow: hidden; white-space: nowrap; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .sheet-grid tbody th{ position: sticky; left: 0; top: auto; z-index: 1; min-width: 34px; text-align: center; }
   .sheet-grid thead th:first-child{ left: 0; z-index: 3; }
@@ -3943,7 +3953,7 @@ document.querySelector('#birthdayForm button.add').addEventListener('click', add
 /* ---------- business: sections with a Sheets-style tab strip. Each is { id, name }; blank for now ---------- */
 // clicking a cell on another section while typing a formula: the formula waits here until a cell is chosen
 // copy / cut / paste for the spreadsheet grid (set by renderBizPanel); formatting travels with copies made inside the app
-let bizSheetClip = null, bizLastCopy = null;
+let bizSheetClip = null, bizLastCopy = null, bizRenderToken = 0;
 ['copy', 'cut', 'paste'].forEach(type => document.addEventListener(type, (e) => {
   const c = bizSheetClip; if(!c || !c.wrap.isConnected || c.wrap.offsetParent === null) return;
   const ae = document.activeElement, typing = ae && ae.matches && ae.matches('input, textarea, select, [contenteditable]');
@@ -3988,7 +3998,7 @@ document.addEventListener('click', (e) => { if(!e.target.closest('.sheet-menu, .
 
 /* --- spreadsheet sections: tab.sheet = { rows, cols, cells: { 'A1': 'text or =formula' }, cache?: { 'B2': value } }
    `cache` keeps the value a file import carried for formulas this app can't work out itself (VLOOKUP, other sheets…), so they still show. --- */
-const SHEET_MAX_ROWS = 500, SHEET_MAX_COLS = 52;
+const SHEET_MAX_ROWS = 2000, SHEET_MAX_COLS = 52;
 const colName = (i) => { let n = i + 1, s = ''; while(n > 0){ const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
 const colFromLetters = (L) => { let n = 0; for(const ch of L.toUpperCase()) n = n * 26 + (ch.charCodeAt(0) - 64); return n - 1; };
 function newSheet(){ return { rows: 14, cols: 12, cells: {} }; }
@@ -5117,6 +5127,7 @@ function renderBizPanel(cur){
   const showCell = (ref, info) => {
     const inp = inputs[ref];
     const shown = sheetFormatNumber(info.text, (fmtOf(ref) || {}).nf);
+    if(inp.dataset.disp === shown && inp.value === shown && inp.classList.contains('cached-val') === info.cached) return;   // nothing changed: skip the repaint (big sheets)
     inp.value = shown; inp.dataset.disp = shown;
     inp.classList.toggle('cached-val', info.cached);
     inp.title = info.cached ? "This value was worked out by Google Sheets / Excel. This app can't calculate that formula, so it won't update when other cells change." : '';
@@ -5245,20 +5256,27 @@ function renderBizPanel(cur){
     Object.values(inputs).forEach(i => i.parentElement.classList.remove('sel'));
     colTh.forEach(t => t && t.classList.remove('sel')); rowTh.forEach(t => t && t.classList.remove('sel'));
     if(!sel) return;
-    forSel((ref) => inputs[ref].parentElement.classList.add('sel'));
+    forSel((ref) => { const i = inputs[ref]; if(i) i.parentElement.classList.add('sel'); });
     [sel, ...extra].forEach(g => { for(let c = g.c1; c <= g.c2; c++) if(colTh[c]) colTh[c].classList.add('sel'); for(let r = g.r1; r <= g.r2; r++) if(rowTh[r]) rowTh[r].classList.add('sel'); });
     updateBar();
   };
   const setSel = (r1, c1, r2, c2, keep) => { if(!keep) extra = []; sel = { r1: Math.min(r1, r2), r2: Math.max(r1, r2), c1: Math.min(c1, c2), c2: Math.max(c1, c2) }; paintSel(); };
 
   // column widths / row heights: sh.colW[c], sh.rowH[r] in px (drag the edge of a header; double-click resets)
-  let updateScroll = null;
+  let updateScroll = null, rowsDone = true;
   let fitWv = 0, fitHv = 0;   // default (auto-fitted) column width / row height
-  const applyColW = (c, w) => {
+  const applyColW = (c, w, r1, r2) => {
     w = w || fitWv;
     const v = w ? w + 'px' : '';
     colTh[c].style.minWidth = v; colTh[c].style.width = v;
-    for(let r = 1; r <= sh.rows; r++){ const i = inputs[colName(c) + r]; if(!i) continue; i.style.minWidth = v; i.parentNode.style.minWidth = v; i.parentNode.style.width = v; i.style.paddingLeft = i.style.paddingRight = w < 30 ? '0' : ''; }
+    for(let r = r1 || 1; r <= (r2 || sh.rows); r++){ const i = inputs[colName(c) + r]; if(!i) continue; i.style.minWidth = v; i.parentNode.style.minWidth = v; i.parentNode.style.width = v; i.style.paddingLeft = i.style.paddingRight = w < 30 ? '0' : ''; }
+    if(!r1) syncTableWidth();
+  };
+  const syncTableWidth = () => {
+    if(!table || !table.classList.contains('fixed')) return;
+    let w = 40;
+    for(let c = 0; c < sh.cols; c++){ const t = colTh[c]; w += (t ? parseFloat(t.style.width) : 0) + 1 || 111; }
+    table.style.width = w + 'px';
   };
   const applyRowH = (r, h) => {
     h = h || fitHv;
@@ -5314,7 +5332,7 @@ function renderBizPanel(cur){
     head.appendChild(th);
   }
   const body = table.createTBody();
-  for(let r = 1; r <= sh.rows; r++){
+  const buildRow = (r) => {
     const tr = body.insertRow();
     const rh = mk('th', null, String(r)); rowTh[r] = rh;
     rh.onclick = (ev) => { const add = ev.metaKey || ev.ctrlKey; if(add && sel) extra.push(sel); anchor = { r, c: 0 }; setSel(r, 0, r, sh.cols - 1, add); if(document.activeElement) document.activeElement.blur(); };
@@ -5351,7 +5369,7 @@ function renderBizPanel(cur){
             if(!tgt) return;
             const r2 = +tgt.dataset.r, c2 = +tgt.dataset.c, cells = [];
             const rr1 = Math.min(a.r, r2), rr2 = Math.max(a.r, r2), cc1 = Math.min(a.c, c2), cc2 = Math.max(a.c, c2);
-            for(let y = rr1; y <= rr2; y++) for(let x = cc1; x <= cc2; x++) cells.push(inputs[colName(x) + y].parentElement);
+            for(let y = rr1; y <= rr2; y++) for(let x = cc1; x <= cc2; x++) { const ii = inputs[colName(x) + y]; if(ii) cells.push(ii.parentElement); }
             putRef(ed, rr1 === rr2 && cc1 === cc2 ? colName(a.c) + a.r : colName(cc1) + rr1 + ':' + colName(cc2) + rr2, cells);
           };
           const upx = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', upx); };
@@ -5394,7 +5412,10 @@ function renderBizPanel(cur){
         if(move){ e.preventDefault(); let rr = r + move[0], nxt = inputs[colName(c) + rr]; while(nxt && nxt.parentNode.style.display === 'none'){ rr += move[0]; nxt = inputs[colName(c) + rr]; } if(nxt){ nxt.focus(); nxt.select(); } }
       });
     }
-  }
+  };
+  // big sheets: the first screenful is built at once, the remaining rows follow in the background so the page stays responsive
+  const FIRST_ROWS = 80;
+  for(let r = 1; r <= Math.min(sh.rows, FIRST_ROWS); r++) buildRow(r);
   { const memo = new Map(); for(const ref in inputs) showCell(ref, sheetShownInfo(sh, ref, memo)); }
   wrap.appendChild(table);
   table.addEventListener('mousedown', (e) => { if(table._noFocus) e.preventDefault(); });   // keep the caret in the formula being typed
@@ -5402,7 +5423,8 @@ function renderBizPanel(cur){
     Object.values(inputs).forEach(i => { const td = i.parentNode; td.style.display = ''; td.rowSpan = 1; td.colSpan = 1; td.classList.remove('mg'); });
     (sh.merges || []).forEach(m => {
       for(let r = m.r1; r <= m.r2; r++) for(let c = m.c1; c <= m.c2; c++){
-        const td = inputs[colName(c) + r].parentNode;
+        const cell = inputs[colName(c) + r]; if(!cell) continue;
+        const td = cell.parentNode;
         if(r === m.r1 && c === m.c1){ td.rowSpan = m.r2 - m.r1 + 1; td.colSpan = m.c2 - m.c1 + 1; td.classList.add('mg'); }
         else td.style.display = 'none';
       }
@@ -5581,7 +5603,7 @@ function renderBizPanel(cur){
   // no scrollbars when the whole sheet already fits the view
   updateScroll = () => {
     wrap.style.overflowX = wrap.style.overflowY = 'hidden';
-    const fitX = table.offsetWidth <= wrap.clientWidth + 1, fitY = table.offsetHeight <= wrap.clientHeight + 1;
+    const fitX = table.offsetWidth <= wrap.clientWidth + 1, fitY = rowsDone && table.offsetHeight <= wrap.clientHeight + 1;
     wrap.style.overflowX = fitX ? 'hidden' : 'auto'; wrap.style.overflowY = fitY ? 'hidden' : 'auto';
   };
   wrap._updateScroll = updateScroll;
@@ -5601,7 +5623,26 @@ function renderBizPanel(cur){
   const fitH = Math.max(24, Math.min(33, Math.floor(rowRoom / 14) - 1));   // −1 for each row's border
   if(fitH < 33) fitHv = fitH;
   if(fitH < 33) for(let r = 1; r <= sh.rows; r++) if(!(sh.rowH && sh.rowH[r])) applyRowH(r, fitH);
+  table.classList.add('fixed'); syncTableWidth();
   sizeMerged(); updateScroll();
+  if(sh.rows > FIRST_ROWS){
+    rowsDone = false; updateScroll();
+    let built = FIRST_ROWS;
+    const token = ++bizRenderToken;
+    const buildMore = () => {
+      if(token !== bizRenderToken || !table.isConnected) return;
+      const from = built + 1, to = Math.min(sh.rows, built + 120), memo = new Map();
+      for(let r = from; r <= to; r++) buildRow(r);
+      for(let r = from; r <= to; r++) for(let c = 0; c < sh.cols; c++){ const ref = colName(c) + r; showCell(ref, sheetShownInfo(sh, ref, memo)); }
+      for(let c = 0; c < sh.cols; c++) applyColW(c, sh.colW && sh.colW[c], from, to);
+      for(let r = from; r <= to; r++) applyRowH(r, sh.rowH && sh.rowH[r]);
+      built = to;
+      applyMerges();
+      if(built < sh.rows) setTimeout(buildMore, 0);
+      else { rowsDone = true; sizeMerged(); updateScroll(); paintSel(); }
+    };
+    setTimeout(buildMore, 0);
+  } else ++bizRenderToken;   // a newer render cancels an unfinished background build
   updateBar();
 }
 

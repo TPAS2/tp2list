@@ -4759,7 +4759,7 @@ const SHEET_FUNCS = [
   ['SUBSTITUTE', 'SUBSTITUTE(text, old, new, [which])', 'Replaces text'], ['TEXTBEFORE', 'TEXTBEFORE(text, delimiter, [which])', 'Text before a marker'], ['TEXTAFTER', 'TEXTAFTER(text, delimiter, [which])', 'Text after a marker'],
   ['VALUE', 'VALUE(text)', 'Text to a number'], ['ARRAYFORMULA', 'ARRAYFORMULA(formula)', 'Runs a formula on a whole range'], ['SUMPRODUCT', 'SUMPRODUCT(range, range, …)', 'Multiplies then adds'], ['REGEXEXTRACT', 'REGEXEXTRACT(text, pattern)', 'First match of a pattern'], ['REGEXMATCH', 'REGEXMATCH(text, pattern)', 'Does the pattern match?'], ['REGEXREPLACE', 'REGEXREPLACE(text, pattern, new)', 'Replaces matches']
 ];
-let fnPop = null, fnPopIdx = 0, fnPopMatches = [], fnPopInput = null;
+let fnPop = null, fnPopIdx = 0, fnPopMatches = [], fnPopInput = null, fnPopNav = false;   // fnPopNav: the suggestion was chosen with the arrow keys
 function fnPopClose(){ if(fnPop){ fnPop.remove(); fnPop = null; } fnPopMatches = []; fnPopInput = null; }
 function fnPopToken(inp){
   const v = inp.value, pos = inp.selectionStart;
@@ -4783,7 +4783,7 @@ function fnPopUpdate(inp){
   const up = tok && tok.text.toUpperCase();
   const list = tok ? SHEET_FUNCS.filter(f => f[0].startsWith(up) && !(f[0] === up && inp.value[tok.end] === '(')) : [];
   if(!list.length){ fnPopClose(); return; }
-  fnPopMatches = list.slice(0, 6); fnPopIdx = 0; fnPopInput = inp;
+  fnPopMatches = list.slice(0, 6); fnPopIdx = 0; fnPopInput = inp; fnPopNav = false;
   if(!fnPop){ fnPop = document.createElement('div'); fnPop.className = 'fn-pop'; document.body.appendChild(fnPop); }
   fnPopRender();
   const r = inp.getBoundingClientRect();
@@ -4802,8 +4802,8 @@ function fnPopAccept(){
 // returns true when the key was used by the popup
 function fnPopKey(e){
   if(!fnPop) return false;
-  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); fnPopIdx = (fnPopIdx + (e.key === 'ArrowDown' ? 1 : -1) + fnPopMatches.length) % fnPopMatches.length; fnPopRender(); return true; }
-  if(e.key === 'Tab' || e.key === 'Enter'){ e.preventDefault(); fnPopAccept(); return true; }
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){ e.preventDefault(); fnPopIdx = (fnPopIdx + (e.key === 'ArrowDown' ? 1 : -1) + fnPopMatches.length) % fnPopMatches.length; fnPopNav = true; fnPopRender(); return true; }
+  if(e.key === 'Tab' || (e.key === 'Enter' && fnPopNav)){ e.preventDefault(); fnPopAccept(); return true; }   // Enter only takes a suggestion you picked with the arrows; otherwise it saves the formula as typed
   if(e.key === 'Escape'){ e.preventDefault(); fnPopClose(); return true; }
   return false;
 }

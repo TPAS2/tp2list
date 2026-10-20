@@ -5298,9 +5298,13 @@ function renderBizPanel(cur){
     inp.style.color = f.fg || '';
     td.style.background = f.bg || '';
     const bd = f.bd || '', sd = [];
-    if(bd.includes('t')) sd.push('inset 0 1px 0 0 var(--text)');
+    // two touching cells share one line: the left / top edge is skipped when the neighbour already draws its right / bottom edge
+    const rr = +inp.dataset.r, cc = +inp.dataset.c;
+    const leftDrawn = cc > 0 && ((fmtOf(colName(cc - 1) + rr) || {}).bd || '').includes('r');
+    const topDrawn = rr > 1 && ((fmtOf(colName(cc) + (rr - 1)) || {}).bd || '').includes('b');
+    if(bd.includes('t') && !topDrawn) sd.push('inset 0 1px 0 0 var(--text)');
     if(bd.includes('b')) sd.push('inset 0 -1px 0 0 var(--text)');
-    if(bd.includes('l')) sd.push('inset 1px 0 0 0 var(--text)');
+    if(bd.includes('l') && !leftDrawn) sd.push('inset 1px 0 0 0 var(--text)');
     if(bd.includes('r')) sd.push('inset -1px 0 0 0 var(--text)');
     td.style.boxShadow = sd.join(',');
   };
@@ -5325,6 +5329,10 @@ function renderBizPanel(cur){
       if(Object.keys(f).length) sh.fmt[ref] = f; else delete sh.fmt[ref];
       paintCell(ref);
     });
+    // neighbours may now share an edge with the changed cells, so repaint them as well
+    const ring = new Set();
+    forSel((ref, r, c) => { ring.add(colName(c - 1) + r); ring.add(colName(c + 1) + r); ring.add(colName(c) + (r - 1)); ring.add(colName(c) + (r + 1)); });
+    ring.forEach(k => { if(inputs[k]) paintCell(k); });
     if(sh.fmt && !Object.keys(sh.fmt).length) delete sh.fmt;
     saveTasks(); updateBar();
   };

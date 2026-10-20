@@ -3954,7 +3954,7 @@ document.querySelector('#birthdayForm button.add').addEventListener('click', add
 /* ---------- business: sections with a Sheets-style tab strip. Each is { id, name }; blank for now ---------- */
 // clicking a cell on another section while typing a formula: the formula waits here until a cell is chosen
 // copy / cut / paste for the spreadsheet grid (set by renderBizPanel); formatting travels with copies made inside the app
-let bizSheetClip = null, bizLastCopy = null, bizRenderToken = 0;
+let bizSheetClip = null, bizLastCopy = null, bizRenderToken = 0, bizScrollRestore = null;   // bizScrollRestore: where to scroll back to after the sheet is redrawn
 ['copy', 'cut', 'paste'].forEach(type => document.addEventListener(type, (e) => {
   const c = bizSheetClip; if(!c || !c.wrap.isConnected || c.wrap.offsetParent === null) return;
   const ae = document.activeElement, typing = ae && ae.matches && ae.matches('input, textarea, select, [contenteditable]');
@@ -4824,7 +4824,7 @@ function sheetFormatNumber(text, nf){
 }
 
 // insert n blank rows (axis 'r', 1-based) or columns (axis 'c', 0-based) before index `at`; everything from there on shifts down / right
-function sheetInsertLines(sh, axis, at, n){
+function sheetInsertLines(sh, axis, at, n, src){   // src (optional): the row / column the new lines should copy their formatting and size from
   const map = (i) => i >= at ? i + n : i;
   const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
   const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o) out[key(k)] = o[k]; return out; };
@@ -4843,6 +4843,20 @@ function sheetInsertLines(sh, axis, at, n){
   if(axis === 'c'){ if(sh.colW) sh.colW = num(sh.colW); sh.cols += n; }
   else { if(sh.rowH) sh.rowH = num(sh.rowH); sh.rows += n; }
   if(sh.merges) sh.merges = sh.merges.map(m => axis === 'r' ? { r1: map(m.r1), r2: map(m.r2), c1: m.c1, c2: m.c2 } : { c1: map(m.c1), c2: map(m.c2), r1: m.r1, r2: m.r2 });
+  if(src !== undefined && src !== null){   // the new lines look like the selected one
+    const s2 = map(src);
+    if(axis === 'r'){
+      for(let i = 0; i < n; i++){
+        for(let c = 0; c < sh.cols; c++){ const f = sh.fmt && sh.fmt[colName(c) + s2]; if(f) sh.fmt[colName(c) + (at + i)] = Object.assign({}, f); }
+        if(sh.rowH && sh.rowH[s2]) sh.rowH[at + i] = sh.rowH[s2];
+      }
+    } else {
+      for(let i = 0; i < n; i++){
+        for(let r = 1; r <= sh.rows; r++){ const f = sh.fmt && sh.fmt[colName(s2) + r]; if(f) sh.fmt[colName(at + i) + r] = Object.assign({}, f); }
+        if(sh.colW && sh.colW[s2]) sh.colW[at + i] = sh.colW[s2];
+      }
+    }
+  }
 }
 
 // delete rows (axis 'r', 1-based) or columns (axis 'c', 0-based) from..to inclusive; everything after shifts up/left, like Google Sheets
@@ -5222,6 +5236,7 @@ function renderBizPanel(cur){
   // spreadsheet
   if(!cur.sheet) cur.sheet = newSheet();
   const sh = cur.sheet;
+  const redrawKeep = () => { bizScrollRestore = { top: wrap.scrollTop, left: wrap.scrollLeft }; renderBizPanel(cur); };   // redraw without jumping back to the top
   const mk = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
 
   // Import / Export, small buttons top right
@@ -5247,10 +5262,10 @@ function renderBizPanel(cur){
   // rows and columns
   const bar = mk('div', 'sheet-bar');
   const btn = (text, fn, disabled) => { const b = mk('button', null, text); b.type = 'button'; b.disabled = !!disabled; b.onclick = fn; bar.appendChild(b); };
-  btn('+ Row', () => { sh.rows = Math.min(SHEET_MAX_ROWS, sh.rows + 1); renderBizPanel(cur); saveTasks(); }, sh.rows >= SHEET_MAX_ROWS);
-  btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++){ delete sh.cells[colName(c) + sh.rows]; if(sh.fmt) delete sh.fmt[colName(c) + sh.rows]; } sh.rows = Math.max(1, sh.rows - 1); renderBizPanel(cur); saveTasks(); } }, sh.rows <= 1);
-  btn('+ Column', () => { sh.cols = Math.min(SHEET_MAX_COLS, sh.cols + 1); renderBizPanel(cur); saveTasks(); }, sh.cols >= SHEET_MAX_COLS);
-  btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++){ delete sh.cells[colName(sh.cols - 1) + r]; if(sh.fmt) delete sh.fmt[colName(sh.cols - 1) + r]; } sh.cols = Math.max(1, sh.cols - 1); renderBizPanel(cur); saveTasks(); } }, sh.cols <= 1);
+  btn('+ Row', () => { sh.rows = Math.min(SHEET_MAX_ROWS, sh.rows + 1); redrawKeep(); saveTasks(); }, sh.rows >= SHEET_MAX_ROWS);
+  btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++){ delete sh.cells[colName(c) + sh.rows]; if(sh.fmt) delete sh.fmt[colName(c) + sh.rows]; } sh.rows = Math.max(1, sh.rows - 1); redrawKeep(); saveTasks(); } }, sh.rows <= 1);
+  btn('+ Column', () => { sh.cols = Math.min(SHEET_MAX_COLS, sh.cols + 1); redrawKeep(); saveTasks(); }, sh.cols >= SHEET_MAX_COLS);
+  btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++){ delete sh.cells[colName(sh.cols - 1) + r]; if(sh.fmt) delete sh.fmt[colName(sh.cols - 1) + r]; } sh.cols = Math.max(1, sh.cols - 1); redrawKeep(); saveTasks(); } }, sh.cols <= 1);
   const hint = mk('span', 'sheet-hint', 'ⓘ'); hint.title = 'Formulas: =A1+B1, =SUM(A1:A5), IF, ROUND, AVERAGE… Other sections: =\'Section 2\'!B3-A1 or =SUM(Sales!A1:A5). Select cells by dragging, or tap a column / row header.';
   bar.appendChild(hint);
 
@@ -5687,7 +5702,7 @@ function renderBizPanel(cur){
       sh.merges = (sh.merges || []).filter(m => !hit(m)).concat(mine.filter(m => m.r2 <= sh.rows && m.c2 < sh.cols));
       if(!sh.merges.length) delete sh.merges;
     }
-    saveTasks(); renderBizPanel(cur);
+    saveTasks(); redrawKeep();
     if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
   };
   bizSheetClip = {
@@ -5717,7 +5732,7 @@ function renderBizPanel(cur){
         forSel((ref) => { delete sh.cells[ref]; if(sh.cache) delete sh.cache[ref]; if(sh.fmt) delete sh.fmt[ref]; });
         if(sh.fmt && !Object.keys(sh.fmt).length) delete sh.fmt;
         if(sh.merges){ sh.merges = sh.merges.filter(m => !(m.r1 >= sel.r1 && m.r2 <= sel.r2 && m.c1 >= sel.c1 && m.c2 <= sel.c2)); if(!sh.merges.length) delete sh.merges; }
-        saveTasks(); renderBizPanel(cur);
+        saveTasks(); redrawKeep();
       }
     },
     paste(e){
@@ -5748,7 +5763,7 @@ function renderBizPanel(cur){
         if(sh.cache) delete sh.cache[k];
         sh.rows = Math.max(sh.rows, rr); sh.cols = Math.max(sh.cols, cc + 1);
       }));
-      saveTasks(); renderBizPanel(cur);
+      saveTasks(); redrawKeep();
       if(cut) alert(`Only up to ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns fit, so the rest was left out.`);
     }
   };
@@ -5776,10 +5791,10 @@ function renderBizPanel(cur){
       const n = Math.round(parseFloat(v));
       return isNaN(n) || n < 1 ? 0 : Math.min(n, room);
     };
-    const insLines = (axis, at, n) => {
+    const insLines = (axis, at, n, src) => {
       if(axis === 'r' ? sh.rows + n > SHEET_MAX_ROWS : sh.cols + n > SHEET_MAX_COLS){ alert(`A spreadsheet can have at most ${SHEET_MAX_ROWS} rows and ${SHEET_MAX_COLS} columns.`); return; }
-      sheetInsertLines(sh, axis, at, n);
-      renderBizPanel(cur); saveTasks();
+      sheetInsertLines(sh, axis, at, n, src);
+      redrawKeep(); saveTasks();
     };
     const delLines = (axis, list) => {
       const total = axis === 'r' ? sh.rows : sh.cols;
@@ -5788,7 +5803,7 @@ function renderBizPanel(cur){
       if(!confirm(`Delete ${what}? Everything after it moves up / left. (A safety copy is kept.)`)) return;
       takeSafetyCopy('before delete');
       list.slice().sort((x, y) => y - x).forEach(k => sheetDeleteLines(sh, axis, k, k));   // highest first so earlier numbers stay valid
-      renderBizPanel(cur); saveTasks();
+      redrawKeep(); saveTasks();
     };
     closeSheetMenu();
     const menu = mk('div', 'sheet-menu');
@@ -5796,16 +5811,16 @@ function renderBizPanel(cur){
     const name = (a, b, f) => a === b ? f(a) : f(a) + '–' + f(b);
     if(cl){
       item(`Column ${label(cl, colName)} width…`, () => { const n = ask('Column width', colTh[cl[0]].offsetWidth, 10, 600); if(n) cl.forEach(k => setColW(k, n)); saveTasks(); });
-      item('Insert columns left…', () => { const n = askCount('columns', cl.length, SHEET_MAX_COLS - sh.cols); if(n) insLines('c', cl[0], n); });
-      item('Insert columns right…', () => { const n = askCount('columns', cl.length, SHEET_MAX_COLS - sh.cols); if(n) insLines('c', cl[cl.length - 1] + 1, n); });
+      item('Insert columns left…', () => { const n = askCount('columns', cl.length, SHEET_MAX_COLS - sh.cols); if(n) insLines('c', cl[0], n, cl[0]); });
+      item('Insert columns right…', () => { const n = askCount('columns', cl.length, SHEET_MAX_COLS - sh.cols); if(n) insLines('c', cl[cl.length - 1] + 1, n, cl[cl.length - 1]); });
       item(`Delete column${cl.length === 1 ? '' : 's'} ${label(cl, colName)}`, () => delLines('c', cl));
       item('Fit column to data', () => { cl.forEach(k => fitCol(k)); saveTasks(); });
       item('Reset column width', () => { cl.forEach(k => setColW(k, 0)); saveTasks(); });
     }
     if(rl){
       item(`Row ${label(rl, String)} height…`, () => { const n = ask('Row height', rowTh[rl[0]].offsetHeight, 24, 400); if(n) rl.forEach(k => setRowH(k, n)); saveTasks(); });
-      item('Insert rows above…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[0], n); });
-      item('Insert rows below…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[rl.length - 1] + 1, n); });
+      item('Insert rows above…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[0], n, rl[0]); });
+      item('Insert rows below…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[rl.length - 1] + 1, n, rl[rl.length - 1]); });
       item(`Delete row${rl.length === 1 ? '' : 's'} ${label(rl, String)}`, () => delLines('r', rl));
       item('Fit row to data', () => { rl.forEach(k => fitRow(k)); saveTasks(); });
       item('Reset row height', () => { rl.forEach(k => setRowH(k, 0)); saveTasks(); });
@@ -5860,10 +5875,12 @@ function renderBizPanel(cur){
       built = to;
       applyMerges();
       if(built < sh.rows) setTimeout(buildMore, 0);
-      else { rowsDone = true; sizeMerged(); updateScroll(); paintSel(); }
+      else { rowsDone = true; sizeMerged(); updateScroll(); paintSel(); restoreScroll(true); }
     };
     setTimeout(buildMore, 0);
   } else ++bizRenderToken;   // a newer render cancels an unfinished background build
+  const restoreScroll = (final) => { const r = bizScrollRestore; if(!r) return; wrap.scrollTop = r.top; wrap.scrollLeft = r.left; if(final) bizScrollRestore = null; };
+  restoreScroll(sh.rows <= FIRST_ROWS);
   updateBar();
 }
 

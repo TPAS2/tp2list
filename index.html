@@ -5298,23 +5298,23 @@ function renderBizPanel(cur){
     inp.style.color = f.fg || '';
     td.style.background = f.bg || '';
     const bd = f.bd || '', sd = [];
-    // two touching cells share one line: the left / top edge is skipped when the neighbour already draws its right / bottom edge
+    // every edge is drawn by ONE cell, always inside the cell on its left / above, so lines line up everywhere:
+    // a cell draws its right edge if it has one or the cell(s) to its right want a left edge there, and likewise the bottom edge;
+    // left / top edges are only drawn on the first column / row (nothing is left of / above them)
     const rr = +inp.dataset.r, cc = +inp.dataset.c;
     const mg = (sh.merges || []).find(m => m.r1 === rr && m.c1 === cc);   // this cell's own merged block, if it is one
     const r2 = mg ? mg.r2 : rr, c2 = mg ? mg.c2 : cc;
-    // does the cell at (r, c) draw its right (side 'r') / bottom (side 'b') edge? a cell covered by a merged block answers for the block
-    const edgeDrawn = (r, c, side) => {
+    const bdAt = (r, c) => {   // the borders of the cell at (r, c); a cell inside a merged block answers for the block
       const m = (sh.merges || []).find(x => r >= x.r1 && r <= x.r2 && c >= x.c1 && c <= x.c2);
-      if(m){ if((side === 'r' && c !== m.c2) || (side === 'b' && r !== m.r2)) return false; return (((fmtOf(colName(m.c1) + m.r1) || {}).bd) || '').includes(side); }
-      return (((fmtOf(colName(c) + r) || {}).bd) || '').includes(side);
+      return m ? (((fmtOf(colName(m.c1) + m.r1) || {}).bd) || '') : (((fmtOf(colName(c) + r) || {}).bd) || '');
     };
-    let leftDrawn = cc > 0, topDrawn = rr > 1;   // a (merged) block skips an edge only when every neighbour along it draws that edge
-    for(let r = rr; r <= r2 && leftDrawn; r++) if(!edgeDrawn(r, cc - 1, 'r')) leftDrawn = false;
-    for(let c = cc; c <= c2 && topDrawn; c++) if(!edgeDrawn(rr - 1, c, 'b')) topDrawn = false;
-    if(bd.includes('t') && !topDrawn) sd.push('inset 0 1px 0 0 var(--text)');
-    if(bd.includes('b')) sd.push('inset 0 -1px 0 0 var(--text)');
-    if(bd.includes('l') && !leftDrawn) sd.push('inset 1px 0 0 0 var(--text)');
-    if(bd.includes('r')) sd.push('inset -1px 0 0 0 var(--text)');
+    let wantR = bd.includes('r'), wantB = bd.includes('b');
+    for(let r = rr; r <= r2 && !wantR; r++) if(bdAt(r, c2 + 1).includes('l')) wantR = true;
+    for(let c = cc; c <= c2 && !wantB; c++) if(bdAt(r2 + 1, c).includes('t')) wantB = true;
+    if(bd.includes('t') && rr === 1) sd.push('inset 0 1px 0 0 var(--text)');
+    if(wantB) sd.push('inset 0 -1px 0 0 var(--text)');
+    if(bd.includes('l') && cc === 0) sd.push('inset 1px 0 0 0 var(--text)');
+    if(wantR) sd.push('inset -1px 0 0 0 var(--text)');
     td.style.boxShadow = sd.join(',');
   };
   const showCell = (ref, info) => {

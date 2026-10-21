@@ -5235,11 +5235,11 @@ const txKey = (y, m0, d) => y + '-' + String(m0 + 1).padStart(2, '0') + '-' + St
 const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 0);
 // a day is one ordered list of entries, each a trip (income) or an expense, so an expense can sit between the trips it happened between
 let txPct = 60;   // share of each fare kept (tab.taxi.cutPct); trips without `cut` store the full fare and count at this share
-const txShare = (e) => e.cut ? carNum(e.amount) : carNum(e.amount) * txPct / 100;
+const txShare = (e) => carNum(e.amount) * txPct / 100;   // a trip's amount is always the full fare; profit is the cut of it
 const txInc = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txShare(e), 0) : 0;
 // card trips: the customer paid you by card, so you hold the whole fare and owe him the other (100 − cut)% until the day is settled
 const txIsCard = (e) => e.kind !== 'expense' && !!e.card;
-const txFare = (e) => e.cut ? carNum(e.amount) * 100 / (txPct || 60) : carNum(e.amount);
+const txFare = (e) => carNum(e.amount);
 const txOwe = (e) => txIsCard(e) ? txFare(e) * (100 - txPct) / 100 : 0;
 const txCardOf = (d) => d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txFare(e), 0) : 0;
 const txOweOf = (d) => d ? (d.entries || []).reduce((s, e) => s + txOwe(e), 0) : 0;
@@ -5249,10 +5249,8 @@ function txMigrate(tx){   // older days kept trips and expenses in two lists: me
     const d = tx.days[k];
     if(!Array.isArray(d.entries)) d.entries = [...(d.trips || []).map(x => Object.assign({}, x, { kind: 'trip' })), ...(d.expenses || []).map(x => Object.assign({}, x, { kind: 'expense' }))];
     delete d.trips; delete d.expenses; delete d.paid;
-    if(!tx.cutDone) d.entries.forEach(e => { if(e.kind !== 'expense' && e.cut === undefined) e.cut = true; });   // trips saved before fares were cut automatically already hold the share
   }
   if(!tx.cardDone){ for(const k in tx.days) tx.days[k].entries.forEach(e => { if(e.kind !== 'expense' && /\bcard\b/i.test(e.desc || '')) e.card = true; }); tx.cardDone = true; }   // one-time: trips already labelled (Card)
-  tx.cutDone = true;
 }
 
 // reads a spreadsheet section laid out like: DATE | description | EXPENSE | REVENUE | MONEY PAID (header rows tell which column is which; other blocks go to the notes)
@@ -5313,8 +5311,8 @@ function taxiParseSheet(sh){
     if(!stats.last || key > stats.last) stats.last = key;
     let any = false;
     if(exp !== null){ day(key).entries.push({ id: carUid(), kind: 'expense', desc, amount: String(exp) }); stats.expenses++; any = true; }
-    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', cut: true, card: /\bcard\b/i.test(desc), desc, amount: String(rev) }); stats.trips++; any = true; }
-    if(!any && desc){ day(key).entries.push({ id: carUid(), kind: 'trip', cut: true, desc, amount: '' }); stats.trips++; }
+    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc, amount: String(Math.round(rev * 100 / (parseFloat(tx.cutPct) || 60) * 100) / 100) }); stats.trips++; any = true; }
+    if(!any && desc){ day(key).entries.push({ id: carUid(), kind: 'trip', desc, amount: '' }); stats.trips++; }
   }
   stats.days = Object.keys(days).length;
   shell.forEach(e => { e.id = carUid(); e.date = stats.last || ''; e.desc = 'Shell payable (imported)'; });
@@ -5476,7 +5474,7 @@ function renderTaxiPanel(cur){
   head.append(title, settleBtn); card.appendChild(head);
   const body = el('div', 'car-body');
   const sumBox = el('div', 'car-sum');
-  const sTrips = el('b'), sExp = el('b'), sProfit = el('b'), sCard = el('b'), sCash = el('b');
+  const sTrips = el('b'), sExp = el('b'), sProfit = el('b'), sCard = el('b'), sCash = el('b'), sShare = el('b');
   const mkLine = (label, v) => { const l = el('div'); l.append(el('span', null, label), v); sumBox.appendChild(l); };
   body.appendChild(el('div', 'car-sub', 'Trips & expenses'));
   const list = el('div', 'car-exps');
@@ -5497,7 +5495,7 @@ function renderTaxiPanel(cur){
     cardB.onclick = () => { item.card = !item.card; paintCard(); paintDay(key); updateAll(); saveTasks(); };
     paintCard(); kind.addEventListener('change', paintCard);
     const hint = el('span', 'tx-share');
-    const paintHint = () => { hint.textContent = item.kind !== 'expense' && !item.cut && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
+    const paintHint = () => { hint.textContent = item.kind !== 'expense' && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
     paintHint(); a.title = 'Trips: type the full fare, ' + txPct + '% counts as your profit';
     a.addEventListener('input', () => { item.amount = a.value; paintHint(); paintDay(key); updateAll(); save(); });
     const x = el('button', 'car-del', '✕'); x.type = 'button';
@@ -5552,7 +5550,7 @@ function renderTaxiPanel(cur){
   };
   adds.append(pic, picIn, picStatus);
   body.appendChild(adds);
-  mkLine('Trips total', sTrips); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (your share)', sCash); mkLine('Card payments (fare)', sCard);
+  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (your share)', sCash); mkLine('Card payments (fare)', sCard);
   body.appendChild(sumBox);
   const cashRow = el('div', 'tx-cashin'); const cashIn = el('input'); cashIn.type = 'text'; cashIn.inputMode = 'decimal'; cashIn.placeholder = '0.00'; cashIn.autocomplete = 'off';
   cashIn.value = (tx.days[key] && tx.days[key].cashIn) || '';
@@ -5638,7 +5636,7 @@ function renderTaxiPanel(cur){
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
-    sTrips.textContent = carMoney(di); sExp.textContent = carMoney(de);
+    sTrips.textContent = carMoney(d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txFare(e), 0) : 0); sShare.textContent = carMoney(di); sExp.textContent = carMoney(de);
     const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(di - (d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0) : 0));
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
   };

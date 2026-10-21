@@ -1254,6 +1254,22 @@
   .fill-handle::after{ content: ''; position: absolute; inset: -9px; }   /* a bigger target for fingers */
   .sheet-grid td.fillprev{ outline: 2px dashed var(--accent2); outline-offset: -2px; }
   html[data-theme="light"] .fill-handle{ background: #1a73e8; border-color: #fff; }
+  /* taxi management */
+  .tx-nav{ display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+  .tx-month{ flex: 1; text-align: center; font-size: 0.95rem; }
+  .tx-cal{ display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 10px; }
+  .tx-dow{ text-align: center; font-size: 0.64rem; color: var(--text-dim); letter-spacing: .06em; text-transform: uppercase; padding: 2px 0; }
+  .tx-day{ display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; min-height: 46px; padding: 4px 2px; border: 0; border-radius: 9px; background: var(--fill); color: var(--text); font: inherit; font-size: 0.82rem; cursor: pointer; }
+  .tx-day small{ font-size: 0.64rem; color: var(--text-dim); min-height: 0.8em; }
+  .tx-day.open{ background: rgba(255,170,0,.22); }
+  .tx-day.settled{ background: rgba(40,200,120,.22); }
+  .tx-day.today span{ font-weight: 800; text-decoration: underline; }
+  .tx-day.sel{ box-shadow: 0 0 0 2px var(--accent2); }
+  .tx-settle{ background: var(--panel-solid); color: var(--text-dim); border: 0; border-radius: 999px; font: inherit; font-size: 0.74rem; padding: 4px 11px; cursor: pointer; white-space: nowrap; }
+  .tx-settle.on{ background: rgba(40,200,120,.25); color: var(--text); font-weight: 700; }
+  .tx-daycard .car-head{ cursor: default; }
+  .car-body .car-exp input.tx-date{ width: 128px; flex: none; }
+  @media (max-width: 520px){ .tx-day{ min-height: 40px; } .car-body .car-exp input.tx-date{ width: 112px; } .tx-oexp{ flex-wrap: wrap; } }
   .pick-banner{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(34,224,255,.14); border: 1px dashed var(--accent2); font-size: 0.8rem; }
   .pick-banner span{ flex: 1; }
   /* Business page: less empty space above the grid so more rows show */
@@ -5196,6 +5212,147 @@ function renderCarsPanel(cur){
   updateAll();
 }
 
+/* --- taxi management sections: tab.taxi = { days: { 'YYYY-MM-DD': { trips: [{ id, desc, amount }], expenses: [{ id, desc, amount }], settled } }, otherExpenses: [{ id, date, desc, amount }] } --- */
+let taxiScrollKeep = 0;
+const txKey = (y, m0, d) => y + '-' + String(m0 + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 0);
+function renderTaxiPanel(cur){
+  if(!cur.taxi) cur.taxi = { days: {}, otherExpenses: [] };
+  const tx = cur.taxi;
+  if(!tx.days || typeof tx.days !== 'object') tx.days = {};
+  if(!Array.isArray(tx.otherExpenses)) tx.otherExpenses = [];
+  const now = new Date(), todayKey = txKey(now.getFullYear(), now.getMonth(), now.getDate());
+  if(!/^\d{4}-\d{2}$/.test(cur.taxiMonth || '')) cur.taxiMonth = todayKey.slice(0, 7);
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(cur.taxiSel || '')) cur.taxiSel = todayKey;
+  const [Y, M] = cur.taxiMonth.split('-').map(Number);   // M is 1-based
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
+  const save = (() => { let t = null; return () => { clearTimeout(t); t = setTimeout(saveTasks, 500); }; })();
+  const redraw = () => { const w = bizPanelEl.querySelector('.cars-wrap'); taxiScrollKeep = w ? w.scrollTop : 0; renderBizPanel(cur); };
+  const dayOf = (key, create) => { let d = tx.days[key]; if(!d && create){ d = tx.days[key] = { trips: [], expenses: [], settled: false }; } if(d){ if(!Array.isArray(d.trips)) d.trips = []; if(!Array.isArray(d.expenses)) d.expenses = []; } return d; };
+  const inMonth = (key) => key.slice(0, 7) === cur.taxiMonth;
+
+  const scroll = el('div', 'cars-wrap');
+
+  // totals for the month on screen
+  const totals = el('div', 'cars-totals');
+  const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses'), tProfit = stat('Profit'), tOpen = stat('Not settled');
+  scroll.appendChild(totals);
+
+  // month navigation
+  const nav = el('div', 'tx-nav');
+  const go = (delta) => { const d = new Date(Y, M - 1 + delta, 1); cur.taxiMonth = txKey(d.getFullYear(), d.getMonth(), 1).slice(0, 7); saveTasks(); redraw(); };
+  const prev = el('button', 'sheet-mini', '‹'); prev.type = 'button'; prev.onclick = () => go(-1);
+  const next = el('button', 'sheet-mini', '›'); next.type = 'button'; next.onclick = () => go(1);
+  const tdy = el('button', 'sheet-mini', 'Today'); tdy.type = 'button'; tdy.onclick = () => { cur.taxiMonth = todayKey.slice(0, 7); cur.taxiSel = todayKey; saveTasks(); redraw(); };
+  nav.append(prev, el('b', 'tx-month', new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' })), next, tdy);
+  scroll.appendChild(nav);
+
+  // calendar (Monday first): each day shows its income; green = settled, amber = trips not settled yet
+  const cal = el('div', 'tx-cal');
+  ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].forEach(n => cal.appendChild(el('div', 'tx-dow', n)));
+  const lead = (new Date(Y, M - 1, 1).getDay() + 6) % 7, dim = new Date(Y, M, 0).getDate();
+  for(let i = 0; i < lead; i++) cal.appendChild(el('div', 'tx-blank'));
+  const cells = {};
+  const paintDay = (key) => {
+    const b = cells[key]; if(!b) return;
+    const d = tx.days[key], inc = d ? txSum(d.trips) : 0, has = !!(d && (d.trips.length || d.expenses.length));
+    b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
+    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey);
+    b.querySelector('small').textContent = inc ? Math.round(inc * 100) / 100 + '' : '';
+  };
+  for(let d = 1; d <= dim; d++){
+    const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
+    b.append(el('span', null, String(d)), el('small'));
+    b.onclick = () => { cur.taxiSel = key; saveTasks(); redraw(); };
+    cells[key] = b; cal.appendChild(b); paintDay(key);
+  }
+  scroll.appendChild(cal);
+
+  // the selected day: trips, expenses, settled
+  const key = cur.taxiSel, day = dayOf(key, false) || { trips: [], expenses: [], settled: false };
+  const card = el('div', 'car-card open tx-daycard');
+  const head = el('div', 'car-head');
+  const title = el('span', 'car-name', new Date(key + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
+  const settleBtn = el('button', 'tx-settle'); settleBtn.type = 'button';
+  const paintSettle = () => { const d = tx.days[key]; const on = !!(d && d.settled); settleBtn.textContent = on ? '✓ Settled' : 'Not settled'; settleBtn.classList.toggle('on', on); };
+  settleBtn.onclick = () => { const d = dayOf(key, true); d.settled = !d.settled; paintSettle(); paintDay(key); updateAll(); saveTasks(); };
+  head.append(title, settleBtn); card.appendChild(head);
+  const body = el('div', 'car-body');
+  const sumBox = el('div', 'car-sum');
+  const sTrips = el('b'), sExp = el('b'), sProfit = el('b');
+  const mkLine = (label, v) => { const l = el('div'); l.append(el('span', null, label), v); sumBox.appendChild(l); };
+  const listEditor = (kind, placeholder, addLabel) => {
+    body.appendChild(el('div', 'car-sub', kind === 'trips' ? 'Trips' : 'Expenses'));
+    const list = el('div', 'car-exps');
+    (day[kind] || []).forEach(item => {
+      const row = el('div', 'car-exp');
+      const d = el('input'); d.type = 'text'; d.placeholder = placeholder; d.value = item.desc || ''; d.autocomplete = 'off';
+      d.addEventListener('input', () => { item.desc = d.value; save(); });
+      const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
+      a.addEventListener('input', () => { item.amount = a.value; paintDay(key); updateAll(); save(); });
+      const x = el('button', 'car-del', '✕'); x.type = 'button';
+      x.onclick = () => { const dd = dayOf(key, true); dd[kind] = dd[kind].filter(e => e.id !== item.id); saveTasks(); redraw(); };
+      row.append(d, a, x); list.appendChild(row);
+    });
+    body.appendChild(list);
+    const add = el('button', 'car-add-exp', addLabel); add.type = 'button';
+    add.onclick = () => { const dd = dayOf(key, true); dd[kind].push({ id: carUid(), desc: '', amount: '' }); saveTasks(); redraw();
+      const rows = bizPanelEl.querySelectorAll('.tx-daycard .car-sub'); const sub = [...rows].find(r => r.textContent === (kind === 'trips' ? 'Trips' : 'Expenses')); const inputs = sub && sub.nextElementSibling ? sub.nextElementSibling.querySelectorAll('.car-exp') : []; const last = inputs[inputs.length - 1]; if(last) last.querySelector('input').focus(); };
+    body.appendChild(add);
+  };
+  listEditor('trips', 'Trip (route, passenger…)', '+ Add trip');
+  listEditor('expenses', 'What for (fuel, tolls…)', '+ Add expense');
+  mkLine('Trips total', sTrips); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit);
+  body.appendChild(sumBox);
+  card.appendChild(body);
+  scroll.appendChild(card);
+
+  // other expenses: costs that aren't tied to one day (insurance, repairs, licence…), counted in the month of their date
+  const oth = el('div', 'car-group'); const othInfo = el('span', 'car-group-info');
+  const monthName = new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long' });
+  oth.append(el('span', 'car-group-title', 'Other expenses · ' + monthName), othInfo);
+  scroll.appendChild(oth);
+  const ocard = el('div', 'car-card car-other'), obody = el('div', 'car-body');
+  const olist = el('div', 'car-exps');
+  tx.otherExpenses.filter(e => inMonth(e.date || '')).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(ex => {
+    const row = el('div', 'car-exp tx-oexp');
+    const dt = el('input', 'tx-date'); dt.type = 'date'; dt.value = ex.date || '';
+    dt.addEventListener('change', () => { ex.date = dt.value; saveTasks(); redraw(); });
+    const d = el('input'); d.type = 'text'; d.placeholder = 'What for…'; d.value = ex.desc || ''; d.autocomplete = 'off';
+    d.addEventListener('input', () => { ex.desc = d.value; save(); });
+    const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = ex.amount == null ? '' : ex.amount; a.autocomplete = 'off';
+    a.addEventListener('input', () => { ex.amount = a.value; updateAll(); save(); });
+    const x = el('button', 'car-del', '✕'); x.type = 'button';
+    x.onclick = () => { tx.otherExpenses = tx.otherExpenses.filter(e => e.id !== ex.id); saveTasks(); redraw(); };
+    row.append(dt, d, a, x); olist.appendChild(row);
+  });
+  obody.appendChild(olist);
+  const oadd = el('button', 'car-add-exp', '+ Add expense'); oadd.type = 'button';
+  oadd.onclick = () => { tx.otherExpenses.push({ id: carUid(), date: inMonth(cur.taxiSel) ? cur.taxiSel : cur.taxiMonth + '-01', desc: '', amount: '' }); saveTasks(); redraw(); };
+  obody.appendChild(oadd); obody.style.borderTop = '0';
+  ocard.appendChild(obody); scroll.appendChild(ocard);
+
+  const updateAll = () => {
+    let inc = 0, exp = 0, open = 0;
+    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txSum(d.trips); inc += i; exp += txSum(d.expenses); if(d && !d.settled && i) open += i; });
+    const other = tx.otherExpenses.filter(e => inMonth(e.date || '')).reduce((a, e) => a + carNum(e.amount), 0);
+    const profit = inc - exp - other;
+    tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other);
+    tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
+    tOpen.textContent = carMoney(open);
+    othInfo.textContent = carMoney(other);
+    const d = tx.days[key], di = d ? txSum(d.trips) : 0, de = d ? txSum(d.expenses) : 0, dp = di - de;
+    sTrips.textContent = carMoney(di); sExp.textContent = carMoney(de);
+    sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
+  };
+  paintSettle(); paintDay(key);
+
+  bizPanelEl.appendChild(scroll);
+  updateAll();
+  if(taxiScrollKeep){ scroll.scrollTop = taxiScrollKeep; taxiScrollKeep = 0; }
+}
+
 function renderBizPanel(cur){
   bizSheetClip = null;   // set again below when this section is a spreadsheet
   document.querySelectorAll('#businessPage .other-bar .sheet-io, #businessPage .other-bar .fx-bar').forEach(x => x.remove());   // Import / Export live in the top bar, spreadsheet sections only
@@ -5216,12 +5373,13 @@ function renderBizPanel(cur){
       b.onclick = () => { cur.type = type; if(type === 'sheet' && !cur.sheet) cur.sheet = newSheet(); renderBusiness(); saveTasks(); };
       return b;
     };
-    ask.append(mk('▦', 'Spreadsheet', 'Grid of cells with formulas, like Google Sheets', 'sheet'), mk('📝', 'Notes', 'A plain text page', 'notes'), mk('🚗', 'Car reselling', 'Vehicles, expenses, sale price and profit', 'cars'));
+    ask.append(mk('▦', 'Spreadsheet', 'Grid of cells with formulas, like Google Sheets', 'sheet'), mk('📝', 'Notes', 'A plain text page', 'notes'), mk('🚗', 'Car reselling', 'Vehicles, expenses, sale price and profit', 'cars'), mk('🚕', 'Taxi management', 'Calendar of trips by day, expenses, profit and settled days', 'taxi'));
     bizPanelEl.appendChild(ask);
     return;
   }
 
   if(cur.type === 'cars'){ h.classList.add('compact'); renderCarsPanel(cur); return; }
+  if(cur.type === 'taxi'){ h.classList.add('compact'); renderTaxiPanel(cur); return; }
 
   if(cur.type === 'notes'){
     const box = document.createElement('textarea');
@@ -6112,6 +6270,7 @@ function renderBusiness(){
       if(t.type !== 'notes') item('Switch to notes', () => { t.type = 'notes'; renderBusiness(); saveTasks(); });
       if(t.type !== 'sheet') item('Switch to spreadsheet', () => { t.type = 'sheet'; renderBusiness(); saveTasks(); });
       if(t.type !== 'cars') item('Switch to car reselling', () => { t.type = 'cars'; renderBusiness(); saveTasks(); });
+      if(t.type !== 'taxi') item('Switch to taxi management', () => { t.type = 'taxi'; renderBusiness(); saveTasks(); });
       item('Delete', () => {
         if(!confirm(`Delete the section "${t.name}"?`)) return;
         data.businessTabs = tabs.filter(x => x.id !== t.id);

@@ -1961,8 +1961,7 @@
     <div class="ds-backup">
       <div class="ds-or">Backup</div>
       <div class="ds-actions">
-        <button type="button" class="ds-btn" id="dsBackupNow">Backup now</button>
-        <button type="button" class="ds-btn" id="dsExport">Download backup</button>
+        <button type="button" class="ds-btn" id="dsExport">Download backup (save to PC / phone)</button>
         <button type="button" class="ds-btn" id="dsImport">Restore from file…</button>
         <input type="file" id="dsFile" accept=".json,application/json" hidden>
       </div>
@@ -1973,7 +1972,7 @@
         <select class="ds-input" id="dsSafety"></select>
         <button type="button" class="ds-btn" id="dsRestoreSafety">Restore</button>
       </div>
-      <p class="ds-hint">Safety copies are saved on this device every day, and just before a sync update or a restore replaces your data.</p>
+      <p class="ds-hint">The downloaded file is your real backup (it survives losing the device). Undo copies are kept on this device automatically, every day and just before a sync update, import or restore replaces your data; pick one and press Restore to undo.</p>
     </div>
     <p class="ds-hint">This is only for your own devices. It's separate from the SL shopping list code, which never gives access to this data.</p>
   </div>
@@ -5341,8 +5340,8 @@ async function ocrReadPicture(file, onProgress){
 function taxiParsePictureText(text, cutPct){
   const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
   const entries = []; let skipped = 0;
-  String(text).split(/\r?\n/).map(l => l.replace(/^[\-•*·|~_\s]+/, '').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
-    line = line.replace(/^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\s*/, '').replace(/^[\-•*·|~_\s]+/, '').trim();   // a leading date is not used (everything goes to the open day)
+  String(text).split(/\r?\n/).map(l => l.replace(/^[\-•*·|~_\s]+/, '').replace(/[|~_\s]+$/, '').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
+    line = line.replace(/^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\s*/, '').replace(/^[\-•*·|~_\s]+/, '').replace(/\s*\|\s*/g, ' ').trim();   // a leading date is not used (everything goes to the open day)
     const m = /(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur(?:os?)?)?\s*$/i.exec(line);
     if(!m || !/[A-Za-z]{2}/.test(line)){ skipped++; return; }
     const n = parseFloat(m[1].replace(',', '.'));
@@ -6835,14 +6834,14 @@ function fillSafetyList(){
   const sel = document.getElementById('dsSafety'), btn = document.getElementById('dsRestoreSafety');
   const list = readSafety();
   sel.innerHTML = '';
+  let last = ''; try{ last = localStorage.getItem('tpas2:lastBackup') || ''; }catch(e){}
+  document.getElementById('dsBackupInfo').textContent = last ? 'Last backup downloaded: ' + new Date(+last).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No backup downloaded yet.';
   if(!list.length){ sel.appendChild(new Option('No safety copies yet', '')); btn.disabled = true; return; }
   btn.disabled = false;
   list.slice().reverse().forEach(c => {
     const when = new Date(c.t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
     sel.appendChild(new Option(`${when} · ${SAFETY_REASONS[c.reason] || c.reason}`, String(c.t)));
   });
-  let last = ''; try{ last = localStorage.getItem('tpas2:lastBackup') || ''; }catch(e){}
-  document.getElementById('dsBackupInfo').textContent = last ? 'Last backup downloaded: ' + new Date(+last).toLocaleString([], { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No backup downloaded yet.';
 }
 // reminder bar under the header: no downloaded backup for 7+ days (snooze 1 day), or browser storage nearly full (always shown)
 function updateBackupNudge(){
@@ -6869,12 +6868,6 @@ document.getElementById('dsClearSafety').addEventListener('click', () => {
   if(!confirm('Delete all the automatic safety copies on this device? Your data stays. (Download a backup first if you want one.)')) return;
   try{ localStorage.removeItem(SAFETY_KEY); }catch(e){}
   fillSafetyList(); persistData(); showStatus('safety copies cleared');
-});
-document.getElementById('dsBackupNow').addEventListener('click', (e) => {
-  const b = e.currentTarget;
-  if(!dataHasContent(data)){ b.textContent = 'Nothing to back up'; }
-  else { takeSafetyCopy('manual'); fillSafetyList(); b.textContent = 'Saved ✓'; }
-  setTimeout(() => { b.textContent = 'Backup now'; }, 1800);
 });
 document.getElementById('dsExport').addEventListener('click', () => {
   const payload = { app: 'tp2list', version: 1, exportedAt: new Date().toISOString(), data };

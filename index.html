@@ -6379,7 +6379,7 @@ function dataHasContent(d){
     (d.other || []).some(o => (o.items || []).length) || Object.keys(d.calendar || {}).length ||
     (d.businessTabs || []).some(t => t.type || t.sheet || t.cars || t.text)));
 }
-// keep a snapshot of the current data (at most 8, newest last); minGapMs limits how often the same reason is saved
+// keep a snapshot of the current data (only the newest one is kept); minGapMs limits how often the same reason is saved
 function takeSafetyCopy(reason, minGapMs){
   if(!dataHasContent(data)) return;
   const list = readSafety();
@@ -6388,7 +6388,7 @@ function takeSafetyCopy(reason, minGapMs){
   const json = JSON.stringify(data, (k, v) => (k === 'img' && typeof v === 'string' && v.startsWith('data:')) ? '' : v);   // photos are left out so copies stay small
   if(list.length && list[list.length - 1].json === json) return;
   list.push({ t: Date.now(), reason, json });
-  while(list.length > 8) list.shift();
+  while(list.length > 1) list.shift();   // only the newest safety copy is kept (older ones just used up the browser's storage)
   // never let safety copies crowd out the real data: keep total storage under ~4 million characters, dropping the oldest copies first
   const used = () => { let u = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(k === SAFETY_KEY) continue; u += k.length + (localStorage.getItem(k) || '').length; } }catch(e){} return u; };
   const others = used(), size = (l) => l.reduce((a, c) => a + c.json.length + 60, 0);
@@ -6588,7 +6588,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('load', () => {
   window.scrollTo(0, 0);
   pullFromSync();
-  setTimeout(() => takeSafetyCopy('daily', 20 * 3600 * 1000), 3000);   // one automatic copy a day
+  setTimeout(() => { const l = readSafety(); if(l.length > 1) writeSafety(l.slice(-1)); takeSafetyCopy('daily', 20 * 3600 * 1000); }, 3000);   // one automatic copy a day; older copies from before are trimmed to the newest
 });
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ pullFromSync(); }

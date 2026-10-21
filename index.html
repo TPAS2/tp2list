@@ -5315,7 +5315,7 @@ function renderTaxiPanel(cur){
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses'), tShell = stat('Shell payable'), tProfit = stat('Profit'), tOpen = stat('Not settled'), tPaid = stat('Money paid');
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled'), tPaid = stat('Money paid');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import
@@ -5432,10 +5432,10 @@ function renderTaxiPanel(cur){
   const rest = el('div');   // everything below the day: only shown with the calendar
   const dated = (listKey, heading, addDefaultDesc) => {
     const gh = el('div', 'car-group'); const info = el('span', 'car-group-info'); infos[listKey] = info;
-    gh.append(el('span', 'car-group-title', heading + ' · ' + monthName), info);
+    gh.append(el('span', 'car-group-title', heading + ' · all time'), info);
     rest.appendChild(gh);
     const bc = el('div', 'car-card car-other'), bb = el('div', 'car-body'), bl = el('div', 'car-exps');
-    tx[listKey].filter(e => inMonth(e.date || '')).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(ex => {
+    tx[listKey].slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).forEach(ex => {   // every entry, whatever the month
       const row = el('div', 'car-exp tx-oexp');
       const dt = el('input', 'tx-date'); dt.type = 'date'; dt.value = ex.date || '';
       dt.addEventListener('change', () => { ex.date = dt.value; saveTasks(); redraw(); });
@@ -5490,11 +5490,14 @@ function renderTaxiPanel(cur){
   const updateAll = () => {
     let inc = 0, exp = 0, open = 0, paid = 0;
     Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txSum(d.trips); inc += i; exp += txSum(d.expenses); paid += txSum(d.paid); if(!d.settled && i) open += i; });
-    const monthSum = (list) => tx[list].filter(e => inMonth(e.date || '')).reduce((a, e) => a + carNum(e.amount), 0);
-    const other = monthSum('otherExpenses'), shell = monthSum('shell');
-    const profit = inc - exp - other - shell;
+    const other = txSum(tx.otherExpenses), shell = txSum(tx.shell);   // all time
+    const profit = inc - exp;   // this month: income minus the day expenses
+    let allInc = 0, allExp = 0;
+    Object.keys(tx.days).forEach(k => { const d = dayOf(k, false); allInc += txSum(d.trips); allExp += txSum(d.expenses); });
+    const net = allInc - allExp - other - shell;   // like the sheet's NET P/L: everything, all time
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
+    tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
     tOpen.textContent = carMoney(open); tPaid.textContent = carMoney(paid);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));

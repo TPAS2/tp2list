@@ -41,27 +41,27 @@
   }
   /* light theme */
   html[data-theme="light"]{
-    --bg: #f3f4fb;
-    --bg2: #e9ebf7;
-    --panel: rgba(90, 100, 170, 0.07);
+    --bg: #ffffff;
+    --bg2: #f3f4f8;
+    --panel: #ffffff;
     --panel-solid: #ffffff;
-    --panel-raised: #f0f1fa;
-    --text: #1a1d33;
-    --text-dim: #565d82;
-    --text-faint: #8b91ae;
-    --line: rgba(50, 60, 130, 0.2);
-    --accent: #6a4bff;
-    --accent2: #0b8fb4;
-    --success: #0c9566;
-    --danger: #d3265a;
-    --divider: rgba(25,30,80,.2);
+    --panel-raised: #f4f5f9;
+    --text: #0a0c18;
+    --text-dim: #3a3f60;
+    --text-faint: #666c8c;
+    --line: rgba(15, 22, 65, 0.3);
+    --accent: #5a3df0;
+    --accent2: #0a7396;
+    --success: #067553;
+    --danger: #c4123e;
+    --divider: rgba(10,15,50,.3);
     --on-accent: #ffffff;
-    --text-strong: #1a1d33;
-    --empty-cell: rgba(30,40,110,.045);
-    --glow-opacity: .45;
-    --item-text: #1a1d33;
+    --text-strong: #05060f;
+    --empty-cell: rgba(15,25,80,.05);
+    --glow-opacity: .12;
+    --item-text: #0a0c18;
     --text-glow: none;
-    --fill: rgba(60,70,150,.08);
+    --fill: rgba(15,23,60,.06);
     color-scheme: light;
   }
   *{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -1255,6 +1255,8 @@
   .sheet-grid td.fillprev{ outline: 2px dashed var(--accent2); outline-offset: -2px; }
   html[data-theme="light"] .fill-handle{ background: #1a73e8; border-color: #fff; }
   /* taxi management */
+  .cars-totals.tx-totals{ grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+  .tx-nav{ flex-wrap: wrap; }
   .tx-nav{ display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
   .tx-month{ flex: 1; text-align: center; font-size: 0.95rem; }
   .tx-cal{ display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 10px; }
@@ -5214,13 +5216,84 @@ function renderCarsPanel(cur){
 
 /* --- taxi management sections: tab.taxi = { days: { 'YYYY-MM-DD': { trips: [{ id, desc, amount }], expenses: [{ id, desc, amount }], settled } }, otherExpenses: [{ id, date, desc, amount }] } --- */
 let taxiScrollKeep = 0;
+const taxiDayView = {};   // section id -> true while a single day is open (not saved; the calendar is the starting view)
 const txKey = (y, m0, d) => y + '-' + String(m0 + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 0);
+
+// reads a spreadsheet section laid out like: DATE | description | EXPENSE | REVENUE | MONEY PAID (header rows tell which column is which; other blocks go to the notes)
+function taxiParseSheet(sh){
+  const memo = new Map();
+  const text = (r, c) => { const ref = colName(c) + r; if(sheetRaw(sh, ref).trim() === '') return ''; return String(sheetShownInfo(sh, ref, memo).text).trim(); };
+  const num = (t) => (t ? sheetNumberFromText(t) : null);
+  const toKey = (t) => {
+    let m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(t), y, mo, d;
+    if(m){ d = +m[1]; mo = +m[2]; y = +m[3]; }
+    else if((m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t))){ y = +m[1]; mo = +m[2]; d = +m[3]; }
+    else return '';
+    return (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) ? txKey(y, mo - 1, d) : '';
+  };
+  const days = {}, notes = [], shell = [], credit = [], stats = { days: 0, trips: 0, expenses: 0, paid: 0, first: '', last: '' };
+  const day = (k) => days[k] || (days[k] = { trips: [], expenses: [], paid: [], settled: false });
+  let map = null, lastKey = '', pendingShell = -1;
+  for(let r = 1; r <= sh.rows; r++){
+    const cells = []; for(let c = 0; c < sh.cols; c++) cells.push(text(r, c));
+    if(cells.every(x => x === '')) continue;
+    if(cells.some(x => /^totals?:?$/i.test(x) || /^net p\/?l/i.test(x))) continue;   // computed rows
+    const idx = (re) => cells.findIndex(x => re.test(x));
+    const hDate = idx(/^date$/i), hExp = idx(/^expenses?$/i), hRev = idx(/^revenue$/i), hPaid = idx(/^money paid$/i);
+    const hShell = idx(/shell\s*payable/i);
+    if(hShell >= 0) pendingShell = hShell;   // its amount is further down the same column
+    const hCredit = idx(/credit\s*note/i);
+    if(hDate >= 0 && hCredit >= 0){ map = { credit: true, name: hCredit, date: hDate, amt: idx(/^amount$/i) }; continue; }   // "Credit Note Account | DATE | Amount"
+    if(hDate >= 0){
+      if(hExp >= 0 || hRev >= 0 || hPaid >= 0){ map = { date: hDate, desc: hDate + 1, exp: hExp, rev: hRev, paid: hPaid }; }
+      else { map = null; notes.push(cells.filter(Boolean).join(' | ')); }   // another kind of block (a ledger): its rows are kept as notes
+      continue;
+    }
+    if(!map){ notes.push(cells.filter(Boolean).join(' | ')); continue; }
+    if(map.credit){
+      const nm = cells[map.name] || '', dk = toKey(cells[map.date]), am = map.amt >= 0 ? num(cells[map.amt]) : null;
+      if(!nm && !dk) continue;   // the total line under the block
+      if(am !== null) credit.push({ id: carUid(), date: dk, desc: nm, amount: String(am) }); else notes.push(cells.filter(Boolean).join(' | '));
+      continue;
+    }
+    const used = new Set([map.date, map.desc, map.exp, map.rev, map.paid].filter(i => i >= 0));
+    const stray = [];
+    cells.forEach((x, i) => {
+      if(!x || used.has(i)) return;
+      if(/shell\s*payable/i.test(x)){ pendingShell = i; return; }
+      if(pendingShell === i && num(x) !== null){ shell.push({ amount: String(num(x)) }); pendingShell = -1; return; }   // the amount under a "Shell Payable" heading
+      stray.push(x);
+    });
+    if(stray.length) notes.push(stray.join(' | '));
+    const desc = cells[map.desc] || '';
+    const exp = map.exp >= 0 ? num(cells[map.exp]) : null, rev = map.rev >= 0 ? num(cells[map.rev]) : null, pd = map.paid >= 0 ? num(cells[map.paid]) : null;
+    let key = toKey(cells[map.date]);
+    if(!key){
+      if(!desc && exp === null && rev === null && pd === null) continue;
+      if(!lastKey){ notes.push([cells[map.date], desc].filter(Boolean).join(' | ')); continue; }
+      key = lastKey;   // a line without a date belongs to the previous day
+    } else lastKey = key;
+    if(!stats.first || key < stats.first) stats.first = key;
+    if(!stats.last || key > stats.last) stats.last = key;
+    let any = false;
+    if(exp !== null){ day(key).expenses.push({ id: carUid(), desc, amount: String(exp) }); stats.expenses++; any = true; }
+    if(rev !== null){ day(key).trips.push({ id: carUid(), desc, amount: String(rev) }); stats.trips++; any = true; }
+    if(pd !== null){ day(key).paid.push({ id: carUid(), desc, amount: String(pd) }); stats.paid++; any = true; }
+    if(!any && desc){ day(key).trips.push({ id: carUid(), desc, amount: '' }); stats.trips++; }
+  }
+  stats.days = Object.keys(days).length;
+  shell.forEach(e => { e.id = carUid(); e.date = stats.last || ''; e.desc = 'Shell payable (imported)'; });
+  return { days, notes, shell, credit, stats };
+}
+
 function renderTaxiPanel(cur){
   if(!cur.taxi) cur.taxi = { days: {}, otherExpenses: [] };
   const tx = cur.taxi;
   if(!tx.days || typeof tx.days !== 'object') tx.days = {};
   if(!Array.isArray(tx.otherExpenses)) tx.otherExpenses = [];
+  if(!Array.isArray(tx.shell)) tx.shell = [];
+  if(!Array.isArray(tx.credit)) tx.credit = [];
   const now = new Date(), todayKey = txKey(now.getFullYear(), now.getMonth(), now.getDate());
   if(!/^\d{4}-\d{2}$/.test(cur.taxiMonth || '')) cur.taxiMonth = todayKey.slice(0, 7);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(cur.taxiSel || '')) cur.taxiSel = todayKey;
@@ -5228,25 +5301,59 @@ function renderTaxiPanel(cur){
   const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
   const save = (() => { let t = null; return () => { clearTimeout(t); t = setTimeout(saveTasks, 500); }; })();
   const redraw = () => { const w = bizPanelEl.querySelector('.cars-wrap'); taxiScrollKeep = w ? w.scrollTop : 0; renderBizPanel(cur); };
-  const dayOf = (key, create) => { let d = tx.days[key]; if(!d && create){ d = tx.days[key] = { trips: [], expenses: [], settled: false }; } if(d){ if(!Array.isArray(d.trips)) d.trips = []; if(!Array.isArray(d.expenses)) d.expenses = []; } return d; };
-  const inMonth = (key) => key.slice(0, 7) === cur.taxiMonth;
+  const dayOf = (key, create) => {
+    let d = tx.days[key];
+    if(!d && create) d = tx.days[key] = { trips: [], expenses: [], paid: [], settled: false };
+    if(d){ ['trips', 'expenses', 'paid'].forEach(k => { if(!Array.isArray(d[k])) d[k] = []; }); }
+    return d;
+  };
+  const inMonth = (key) => String(key).slice(0, 7) === cur.taxiMonth;
 
+  const dayView = !!taxiDayView[cur.id];
   const scroll = el('div', 'cars-wrap');
 
   // totals for the month on screen
-  const totals = el('div', 'cars-totals');
+  const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses'), tProfit = stat('Profit'), tOpen = stat('Not settled');
-  scroll.appendChild(totals);
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses'), tShell = stat('Shell payable'), tProfit = stat('Profit'), tOpen = stat('Not settled'), tPaid = stat('Money paid');
+  if(!dayView) scroll.appendChild(totals);
 
-  // month navigation
+  // month navigation + import
   const nav = el('div', 'tx-nav');
   const go = (delta) => { const d = new Date(Y, M - 1 + delta, 1); cur.taxiMonth = txKey(d.getFullYear(), d.getMonth(), 1).slice(0, 7); saveTasks(); redraw(); };
   const prev = el('button', 'sheet-mini', '‹'); prev.type = 'button'; prev.onclick = () => go(-1);
   const next = el('button', 'sheet-mini', '›'); next.type = 'button'; next.onclick = () => go(1);
   const tdy = el('button', 'sheet-mini', 'Today'); tdy.type = 'button'; tdy.onclick = () => { cur.taxiMonth = todayKey.slice(0, 7); cur.taxiSel = todayKey; saveTasks(); redraw(); };
-  nav.append(prev, el('b', 'tx-month', new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' })), next, tdy);
-  scroll.appendChild(nav);
+  const imp = el('button', 'sheet-mini', '⤒ Import'); imp.type = 'button'; imp.title = 'Import a spreadsheet section into the taxi calendar';
+  imp.onclick = () => {
+    const sources = (data.businessTabs || []).filter(t => t.sheet && t.id !== cur.id);
+    if(!sources.length){ alert('First import your Google Sheet into a spreadsheet section (open one, then use Import at the top right), then come back here and press Import.'); return; }
+    let src = sources[0];
+    if(sources.length > 1){
+      const v = prompt('Which spreadsheet section do you want to import?\n' + sources.map((t, i) => `${i + 1} = ${t.name}`).join('\n'), '1');
+      if(v === null) return;
+      src = sources[Math.max(0, Math.min(sources.length - 1, (parseInt(v, 10) || 1) - 1))];
+    }
+    const res = taxiParseSheet(src.sheet), st = res.stats;
+    if(!st.days && !res.notes.length && !res.shell.length && !res.credit.length){ alert('Nothing was found. The sheet needs a header row with DATE and EXPENSE / REVENUE / MONEY PAID.'); return; }
+    if(!confirm(`Import from "${src.name}":\n\n${st.days} days (${st.first || '–'} to ${st.last || '–'})\n${st.trips} trips / revenue lines, ${st.expenses} expenses, ${st.paid} money-paid lines\n${res.shell.length} Shell payable amount${res.shell.length === 1 ? '' : 's'}, ${res.credit.length} credit note${res.credit.length === 1 ? '' : 's'}\n${res.notes.length} other lines (ledgers, notes) kept in the Notes box\n\nA safety copy is taken first. Continue?`)) return;
+    const replace = Object.keys(tx.days).length ? confirm('This taxi section already has days in it.\n\nOK = replace them with the imported data\nCancel = add the imported data on top') : true;
+    const settled = confirm('Mark the imported days as already settled?\n\nOK = settled\nCancel = not settled');
+    takeSafetyCopy('before import');
+    if(replace){ tx.days = {}; tx.shell = []; tx.credit = []; }
+    for(const k in res.days){
+      const d = dayOf(k, true), n = res.days[k], isNew = !d.trips.length && !d.expenses.length && !d.paid.length;
+      d.trips.push(...n.trips); d.expenses.push(...n.expenses); d.paid.push(...n.paid);
+      if(isNew) d.settled = settled;
+    }
+    tx.shell.push(...res.shell); tx.credit.push(...res.credit);
+    if(res.notes.length) tx.notes = (replace ? '' : (tx.notes ? tx.notes + '\n\n' : '')) + `— imported from "${src.name}" —\n` + res.notes.join('\n');
+    if(st.last){ cur.taxiMonth = st.last.slice(0, 7); cur.taxiSel = st.last; }
+    saveTasks(); redraw();
+  };
+  const infos = { otherExpenses: el('span'), shell: el('span') }, creditInfo = el('span');
+  nav.append(prev, el('b', 'tx-month', new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' })), next, tdy, imp);
+  if(!dayView) scroll.appendChild(nav);
 
   // calendar (Monday first): each day shows its income; green = settled, amber = trips not settled yet
   const cal = el('div', 'tx-cal');
@@ -5256,7 +5363,7 @@ function renderTaxiPanel(cur){
   const cells = {};
   const paintDay = (key) => {
     const b = cells[key]; if(!b) return;
-    const d = tx.days[key], inc = d ? txSum(d.trips) : 0, has = !!(d && (d.trips.length || d.expenses.length));
+    const d = dayOf(key, false), inc = d ? txSum(d.trips) : 0, has = !!(d && (d.trips.length || d.expenses.length || d.paid.length));
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
     b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey);
     b.querySelector('small').textContent = inc ? Math.round(inc * 100) / 100 + '' : '';
@@ -5264,13 +5371,23 @@ function renderTaxiPanel(cur){
   for(let d = 1; d <= dim; d++){
     const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
     b.append(el('span', null, String(d)), el('small'));
-    b.onclick = () => { cur.taxiSel = key; saveTasks(); redraw(); };
+    b.onclick = () => { cur.taxiSel = key; taxiDayView[cur.id] = true; saveTasks(); redraw(); };   // open just this day
     cells[key] = b; cal.appendChild(b); paintDay(key);
   }
-  scroll.appendChild(cal);
+  if(!dayView) scroll.appendChild(cal);
 
-  // the selected day: trips, expenses, settled
-  const key = cur.taxiSel, day = dayOf(key, false) || { trips: [], expenses: [], settled: false };
+  // the selected day: trips, expenses, money paid, settled
+  const key = cur.taxiSel, day = dayOf(key, false) || { trips: [], expenses: [], paid: [], settled: false };
+  if(dayView){   // one day on its own: back to the calendar, previous / next day
+    const bar = el('div', 'tx-nav');
+    const back = el('button', 'sheet-mini', '‹ Calendar'); back.type = 'button';
+    back.onclick = () => { delete taxiDayView[cur.id]; cur.taxiMonth = cur.taxiSel.slice(0, 7); saveTasks(); redraw(); };
+    const step = (n) => { const d = new Date(cur.taxiSel + 'T12:00:00'); d.setDate(d.getDate() + n); cur.taxiSel = txKey(d.getFullYear(), d.getMonth(), d.getDate()); cur.taxiMonth = cur.taxiSel.slice(0, 7); saveTasks(); redraw(); };
+    const pd = el('button', 'sheet-mini', '‹ Day'); pd.type = 'button'; pd.onclick = () => step(-1);
+    const nd = el('button', 'sheet-mini', 'Day ›'); nd.type = 'button'; nd.onclick = () => step(1);
+    const gap = el('span'); gap.style.flex = '1';
+    bar.append(back, gap, pd, nd); scroll.appendChild(bar);
+  }
   const card = el('div', 'car-card open tx-daycard');
   const head = el('div', 'car-head');
   const title = el('span', 'car-name', new Date(key + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
@@ -5282,8 +5399,9 @@ function renderTaxiPanel(cur){
   const sumBox = el('div', 'car-sum');
   const sTrips = el('b'), sExp = el('b'), sProfit = el('b');
   const mkLine = (label, v) => { const l = el('div'); l.append(el('span', null, label), v); sumBox.appendChild(l); };
+  const HEADINGS = { trips: 'Trips', expenses: 'Expenses', paid: 'Money paid' };
   const listEditor = (kind, placeholder, addLabel) => {
-    body.appendChild(el('div', 'car-sub', kind === 'trips' ? 'Trips' : 'Expenses'));
+    body.appendChild(el('div', 'car-sub', HEADINGS[kind]));
     const list = el('div', 'car-exps');
     (day[kind] || []).forEach(item => {
       const row = el('div', 'car-exp');
@@ -5298,50 +5416,88 @@ function renderTaxiPanel(cur){
     body.appendChild(list);
     const add = el('button', 'car-add-exp', addLabel); add.type = 'button';
     add.onclick = () => { const dd = dayOf(key, true); dd[kind].push({ id: carUid(), desc: '', amount: '' }); saveTasks(); redraw();
-      const rows = bizPanelEl.querySelectorAll('.tx-daycard .car-sub'); const sub = [...rows].find(r => r.textContent === (kind === 'trips' ? 'Trips' : 'Expenses')); const inputs = sub && sub.nextElementSibling ? sub.nextElementSibling.querySelectorAll('.car-exp') : []; const last = inputs[inputs.length - 1]; if(last) last.querySelector('input').focus(); };
+      const sub = [...bizPanelEl.querySelectorAll('.tx-daycard .car-sub')].find(r => r.textContent === HEADINGS[kind]); const rows = sub && sub.nextElementSibling ? sub.nextElementSibling.querySelectorAll('.car-exp') : []; const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
     body.appendChild(add);
   };
   listEditor('trips', 'Trip (route, passenger…)', '+ Add trip');
   listEditor('expenses', 'What for (fuel, tolls…)', '+ Add expense');
+  listEditor('paid', 'Paid to (owner, driver…)', '+ Add payment');
   mkLine('Trips total', sTrips); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit);
   body.appendChild(sumBox);
   card.appendChild(body);
   scroll.appendChild(card);
 
-  // other expenses: costs that aren't tied to one day (insurance, repairs, licence…), counted in the month of their date
-  const oth = el('div', 'car-group'); const othInfo = el('span', 'car-group-info');
+  // dated blocks that aren't tied to one day: Other expenses (insurance, repairs…) and Shell payable; each counts in the month of its date
   const monthName = new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long' });
-  oth.append(el('span', 'car-group-title', 'Other expenses · ' + monthName), othInfo);
-  scroll.appendChild(oth);
-  const ocard = el('div', 'car-card car-other'), obody = el('div', 'car-body');
-  const olist = el('div', 'car-exps');
-  tx.otherExpenses.filter(e => inMonth(e.date || '')).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(ex => {
+  const rest = el('div');   // everything below the day: only shown with the calendar
+  const dated = (listKey, heading, addDefaultDesc) => {
+    const gh = el('div', 'car-group'); const info = el('span', 'car-group-info'); infos[listKey] = info;
+    gh.append(el('span', 'car-group-title', heading + ' · ' + monthName), info);
+    rest.appendChild(gh);
+    const bc = el('div', 'car-card car-other'), bb = el('div', 'car-body'), bl = el('div', 'car-exps');
+    tx[listKey].filter(e => inMonth(e.date || '')).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(ex => {
+      const row = el('div', 'car-exp tx-oexp');
+      const dt = el('input', 'tx-date'); dt.type = 'date'; dt.value = ex.date || '';
+      dt.addEventListener('change', () => { ex.date = dt.value; saveTasks(); redraw(); });
+      const d = el('input'); d.type = 'text'; d.placeholder = 'What for…'; d.value = ex.desc || ''; d.autocomplete = 'off';
+      d.addEventListener('input', () => { ex.desc = d.value; save(); });
+      const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = ex.amount == null ? '' : ex.amount; a.autocomplete = 'off';
+      a.addEventListener('input', () => { ex.amount = a.value; updateAll(); save(); });
+      const x = el('button', 'car-del', '✕'); x.type = 'button';
+      x.onclick = () => { tx[listKey] = tx[listKey].filter(e => e.id !== ex.id); saveTasks(); redraw(); };
+      row.append(dt, d, a, x); bl.appendChild(row);
+    });
+    bb.appendChild(bl);
+    const add = el('button', 'car-add-exp', '+ Add'); add.type = 'button';
+    add.onclick = () => { tx[listKey].push({ id: carUid(), date: inMonth(cur.taxiSel) ? cur.taxiSel : cur.taxiMonth + '-01', desc: addDefaultDesc || '', amount: '' }); saveTasks(); redraw(); };
+    bb.appendChild(add); bb.style.borderTop = '0';
+    bc.appendChild(bb); rest.appendChild(bc);
+  };
+  dated('otherExpenses', 'Other expenses', '');
+  dated('shell', 'Shell payable', '');
+
+  // credit notes: a running list of credits owed to accounts (not limited to the month, not part of the profit)
+  const ch = el('div', 'car-group'); creditInfo.className = 'car-group-info';
+  ch.append(el('span', 'car-group-title', 'Credit notes'), creditInfo); rest.appendChild(ch);
+  const cc = el('div', 'car-card car-other'), cb = el('div', 'car-body'), cl = el('div', 'car-exps');
+  tx.credit.slice().sort((a, b) => String(a.date || '').localeCompare(String(b.date || ''))).forEach(ex => {
     const row = el('div', 'car-exp tx-oexp');
     const dt = el('input', 'tx-date'); dt.type = 'date'; dt.value = ex.date || '';
     dt.addEventListener('change', () => { ex.date = dt.value; saveTasks(); redraw(); });
-    const d = el('input'); d.type = 'text'; d.placeholder = 'What for…'; d.value = ex.desc || ''; d.autocomplete = 'off';
+    const d = el('input'); d.type = 'text'; d.placeholder = 'Account / name…'; d.value = ex.desc || ''; d.autocomplete = 'off';
     d.addEventListener('input', () => { ex.desc = d.value; save(); });
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = ex.amount == null ? '' : ex.amount; a.autocomplete = 'off';
     a.addEventListener('input', () => { ex.amount = a.value; updateAll(); save(); });
     const x = el('button', 'car-del', '✕'); x.type = 'button';
-    x.onclick = () => { tx.otherExpenses = tx.otherExpenses.filter(e => e.id !== ex.id); saveTasks(); redraw(); };
-    row.append(dt, d, a, x); olist.appendChild(row);
+    x.onclick = () => { tx.credit = tx.credit.filter(e => e.id !== ex.id); saveTasks(); redraw(); };
+    row.append(dt, d, a, x); cl.appendChild(row);
   });
-  obody.appendChild(olist);
-  const oadd = el('button', 'car-add-exp', '+ Add expense'); oadd.type = 'button';
-  oadd.onclick = () => { tx.otherExpenses.push({ id: carUid(), date: inMonth(cur.taxiSel) ? cur.taxiSel : cur.taxiMonth + '-01', desc: '', amount: '' }); saveTasks(); redraw(); };
-  obody.appendChild(oadd); obody.style.borderTop = '0';
-  ocard.appendChild(obody); scroll.appendChild(ocard);
+  cb.appendChild(cl);
+  const cadd = el('button', 'car-add-exp', '+ Add credit note'); cadd.type = 'button';
+  cadd.onclick = () => { tx.credit.push({ id: carUid(), date: todayKey, desc: '', amount: '' }); saveTasks(); redraw(); };
+  cb.appendChild(cadd); cb.style.borderTop = '0'; cc.appendChild(cb); rest.appendChild(cc);
+
+  // notes (imported ledgers and anything else)
+  rest.appendChild(el('div', 'car-sub notes-head', 'Notes'));
+  const notes = el('textarea', 'other-text car-notes');
+  notes.placeholder = 'Notes…'; notes.spellcheck = false; notes.value = tx.notes || '';
+  let nt = null;
+  notes.addEventListener('input', () => { tx.notes = notes.value; clearTimeout(nt); nt = setTimeout(saveTasks, 400); });
+  notes.addEventListener('blur', () => { clearTimeout(nt); saveTasks(); });
+  rest.appendChild(notes);
+  if(!dayView){ scroll.appendChild(rest); autoGrow(notes); }
 
   const updateAll = () => {
-    let inc = 0, exp = 0, open = 0;
-    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txSum(d.trips); inc += i; exp += txSum(d.expenses); if(d && !d.settled && i) open += i; });
-    const other = tx.otherExpenses.filter(e => inMonth(e.date || '')).reduce((a, e) => a + carNum(e.amount), 0);
-    const profit = inc - exp - other;
-    tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other);
+    let inc = 0, exp = 0, open = 0, paid = 0;
+    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txSum(d.trips); inc += i; exp += txSum(d.expenses); paid += txSum(d.paid); if(!d.settled && i) open += i; });
+    const monthSum = (list) => tx[list].filter(e => inMonth(e.date || '')).reduce((a, e) => a + carNum(e.amount), 0);
+    const other = monthSum('otherExpenses'), shell = monthSum('shell');
+    const profit = inc - exp - other - shell;
+    tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
-    tOpen.textContent = carMoney(open);
-    othInfo.textContent = carMoney(other);
+    tOpen.textContent = carMoney(open); tPaid.textContent = carMoney(paid);
+    infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
+    creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = d ? txSum(d.trips) : 0, de = d ? txSum(d.expenses) : 0, dp = di - de;
     sTrips.textContent = carMoney(di); sExp.textContent = carMoney(de);
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';

@@ -1940,6 +1940,7 @@
         <input type="file" id="dsFile" accept=".json,application/json" hidden>
       </div>
       <p class="ds-hint" id="dsStorage" style="margin-top:6px"></p>
+      <div class="ds-actions"><button type="button" class="ds-btn" id="dsClearSafety">Free up space (clear safety copies)</button></div>
       <p class="ds-hint" id="dsBackupInfo" style="margin-top:6px"></p>
       <div class="ds-row">
         <select class="ds-input" id="dsSafety"></select>
@@ -2090,8 +2091,7 @@ async function saveTasks(){
   }
 
   data.updatedAt = Date.now();
-  let localOk = true;
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){ localOk = false; }
+  const localOk = persistData();
   lastSavedSnapshot = JSON.stringify(data);
   pushToSync();
 
@@ -6303,7 +6303,7 @@ async function fbSync(){
       if(!Array.isArray(data.businessTabs)) data.businessTabs = [];
       if(!data.calendar || typeof data.calendar !== 'object') data.calendar = {};
       data.updatedAt = now;
-      try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+      persistData();
       lastSavedSnapshot = JSON.stringify(data);
       renderAll();
       window.scrollTo(0, scrollY);
@@ -6357,6 +6357,18 @@ function fbRenderSheet(){
 /* ---------- backups and safety copies ---------- */
 const SAFETY_KEY = 'tpas2:safety';
 const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', manual: 'backup now', 'before delete': 'before a row/column delete', 'before paste': 'before a spreadsheet paste' };
+// save the real data; when the browser says it is full, safety copies give way (oldest first) so the real data always wins
+function persistData(){
+  const json = JSON.stringify(data);
+  try{ localStorage.setItem(STORAGE_KEY, json); return true; }catch(e){}
+  let list = readSafety();
+  while(list.length){
+    list.shift(); writeSafety(list);
+    try{ localStorage.setItem(STORAGE_KEY, json); return true; }catch(e){}
+  }
+  try{ localStorage.removeItem(SAFETY_KEY); localStorage.setItem(STORAGE_KEY, json); return true; }catch(e){}
+  return false;
+}
 function readSafety(){ try{ const l = JSON.parse(localStorage.getItem(SAFETY_KEY) || '[]'); return Array.isArray(l) ? l : []; }catch(e){ return []; } }
 function writeSafety(list){
   while(list.length){ try{ localStorage.setItem(SAFETY_KEY, JSON.stringify(list)); return; }catch(e){ list.shift(); } }   // storage full: drop the oldest until it fits
@@ -6377,6 +6389,11 @@ function takeSafetyCopy(reason, minGapMs){
   if(list.length && list[list.length - 1].json === json) return;
   list.push({ t: Date.now(), reason, json });
   while(list.length > 8) list.shift();
+  // never let safety copies crowd out the real data: keep total storage under ~4 million characters, dropping the oldest copies first
+  const used = () => { let u = 0; try{ for(let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if(k === SAFETY_KEY) continue; u += k.length + (localStorage.getItem(k) || '').length; } }catch(e){} return u; };
+  const others = used(), size = (l) => l.reduce((a, c) => a + c.json.length + 60, 0);
+  while(list.length && others + size(list) > 4000000) list.shift();
+  if(!list.length){ try{ localStorage.removeItem(SAFETY_KEY); }catch(e){} return; }   // too big for a safety copy: skip it, the real data matters more
   writeSafety(list);
 }
 function restoreData(d){
@@ -6393,7 +6410,9 @@ function storageUsed(){ let used = 0; try{ for(let i = 0; i < localStorage.lengt
 function showStorage(){
   const el = document.getElementById('dsStorage'); if(!el) return;
   const used = storageUsed(), pct = Math.min(100, used / 50000);   // 5,000,000 characters = 100 %
-  el.textContent = `Browser storage: ${pct < 10 ? pct.toFixed(1) : Math.round(pct)}% used (${(used / 1e6).toFixed(2)} of about 5 million characters)`;
+  let mine = 0, safe = 0; try{ mine = (localStorage.getItem(STORAGE_KEY) || '').length; safe = (localStorage.getItem(SAFETY_KEY) || '').length; }catch(e){}
+  const pc = (n) => { const v = n / 50000; return v < 10 ? v.toFixed(1) : Math.round(v); };
+  el.textContent = `Browser storage: ${pct < 10 ? pct.toFixed(1) : Math.round(pct)}% used (${(used / 1e6).toFixed(2)} of about 5 million characters) — your data ${pc(mine)}%, safety copies ${pc(safe)}%, other ${pc(Math.max(0, used - mine - safe))}%`;
 }
 function fillSafetyList(){
   showStorage();
@@ -6430,6 +6449,11 @@ updateBackupNudge();
 setTimeout(updateBackupNudge, 1500);   // again once the data and any first sync have loaded
 document.addEventListener('visibilitychange', () => { if(!document.hidden) updateBackupNudge(); });
 setInterval(updateBackupNudge, 5 * 60 * 1000);
+document.getElementById('dsClearSafety').addEventListener('click', () => {
+  if(!confirm('Delete all the automatic safety copies on this device? Your data stays. (Download a backup first if you want one.)')) return;
+  try{ localStorage.removeItem(SAFETY_KEY); }catch(e){}
+  fillSafetyList(); persistData(); showStatus('safety copies cleared');
+});
 document.getElementById('dsBackupNow').addEventListener('click', (e) => {
   const b = e.currentTarget;
   if(!dataHasContent(data)){ b.textContent = 'Nothing to back up'; }
@@ -6612,7 +6636,7 @@ async function undoLastChange(){
   data = JSON.parse(prev);
   lastSavedSnapshot = prev;
   renderAll();
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  persistData();
   pushToSync();
   updateUndoButtonState();
   showStatus('undone');
@@ -6664,11 +6688,11 @@ loadTasks().catch(() => {
 
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'hidden'){
-    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+    persistData();
   }
 });
 window.addEventListener('pagehide', () => {
-  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  persistData();
 });
 
 /* fully disable pinch/gesture zoom on iOS Safari */

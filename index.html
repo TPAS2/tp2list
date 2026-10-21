@@ -5476,7 +5476,7 @@ function renderTaxiPanel(cur){
   head.append(title, settleBtn); card.appendChild(head);
   const body = el('div', 'car-body');
   const sumBox = el('div', 'car-sum');
-  const sTrips = el('b'), sExp = el('b'), sProfit = el('b'), sCard = el('b'), sCash = el('b'), sShare = el('b');
+  const sTrips = el('b'), sExp = el('b'), sProfit = el('b'), sCard = el('b'), sCash = el('b'), sShare = el('b'), sCardShare = el('b');
   const mkLine = (label, v) => { const l = el('div'); l.append(el('span', null, label), v); sumBox.appendChild(l); };
   body.appendChild(el('div', 'car-sub', 'Trips & expenses'));
   const list = el('div', 'car-exps');
@@ -5552,7 +5552,7 @@ function renderTaxiPanel(cur){
   };
   adds.append(pic, picIn, picStatus);
   body.appendChild(adds);
-  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (share − expenses)', sCash); mkLine('Card payments (fare)', sCard);
+  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (share − expenses)', sCash); mkLine('Card trips (your share)', sCardShare); mkLine('Card payments (fare)', sCard);
   body.appendChild(sumBox);
   const cashRow = el('div', 'tx-cashin'); const cashIn = el('input'); cashIn.type = 'text'; cashIn.inputMode = 'decimal'; cashIn.placeholder = '0.00'; cashIn.autocomplete = 'off';
   cashIn.value = (tx.days[key] && tx.days[key].cashIn) || '';
@@ -5639,7 +5639,7 @@ function renderTaxiPanel(cur){
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
     sTrips.textContent = carMoney(d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txFare(e), 0) : 0); sShare.textContent = carMoney(di); sExp.textContent = carMoney(de);
-    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(txCashNet(d));
+    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(txCashNet(d)); sCardShare.textContent = carMoney(d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0) : 0);
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
   };
   paintSettle(); paintDay(key);

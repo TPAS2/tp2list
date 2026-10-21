@@ -1271,6 +1271,8 @@
   .car-body .car-exp select.tx-kind{ flex: none; width: 84px; background: var(--panel-solid); color: var(--text); border: 0; border-radius: 8px; font: inherit; font-size: 0.78rem; padding: 6px 4px; }
   .tx-entry.is-exp{ border-left: 3px solid var(--danger); padding-left: 5px; }
   .tx-grip{ flex: none; cursor: grab; touch-action: none; user-select: none; color: var(--text-faint); padding: 0 4px; font-size: 1rem; }
+  .tx-card{ flex: none; background: var(--panel-solid); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.7rem; padding: 3px 7px; cursor: pointer; }
+  .tx-card.on{ background: #c026d3; color: #fff; border-color: #c026d3; }
   .tx-entry.dragging{ opacity: .6; background: var(--fill); }
   .tx-mv{ display: inline-flex; flex-direction: column; gap: 1px; flex: none; }
   .tx-mv button{ background: none; border: 0; color: var(--text-dim); font-size: 0.6rem; line-height: 1; padding: 1px 4px; cursor: pointer; }
@@ -5233,6 +5235,12 @@ const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 
 let txPct = 60;   // share of each fare kept (tab.taxi.cutPct); trips without `cut` store the full fare and count at this share
 const txShare = (e) => e.cut ? carNum(e.amount) : carNum(e.amount) * txPct / 100;
 const txInc = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txShare(e), 0) : 0;
+// card trips: the customer paid you by card, so you hold the whole fare and owe him the other (100 − cut)% until the day is settled
+const txIsCard = (e) => e.kind !== 'expense' && !!e.card;
+const txFare = (e) => e.cut ? carNum(e.amount) * 100 / (txPct || 60) : carNum(e.amount);
+const txOwe = (e) => txIsCard(e) ? txFare(e) * (100 - txPct) / 100 : 0;
+const txCardOf = (d) => d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txFare(e), 0) : 0;
+const txOweOf = (d) => d ? (d.entries || []).reduce((s, e) => s + txOwe(e), 0) : 0;
 const txExpOf = (d) => d ? txSum((d.entries || []).filter(e => e.kind === 'expense')) : 0;
 function txMigrate(tx){   // older days kept trips and expenses in two lists: merge them (trips first, then expenses)
   for(const k in tx.days){
@@ -5241,6 +5249,7 @@ function txMigrate(tx){   // older days kept trips and expenses in two lists: me
     delete d.trips; delete d.expenses; delete d.paid;
     if(!tx.cutDone) d.entries.forEach(e => { if(e.kind !== 'expense' && e.cut === undefined) e.cut = true; });   // trips saved before fares were cut automatically already hold the share
   }
+  if(!tx.cardDone){ for(const k in tx.days) tx.days[k].entries.forEach(e => { if(e.kind !== 'expense' && /\bcard\b/i.test(e.desc || '')) e.card = true; }); tx.cardDone = true; }   // one-time: trips already labelled (Card)
   tx.cutDone = true;
 }
 
@@ -5302,7 +5311,7 @@ function taxiParseSheet(sh){
     if(!stats.last || key > stats.last) stats.last = key;
     let any = false;
     if(exp !== null){ day(key).entries.push({ id: carUid(), kind: 'expense', desc, amount: String(exp) }); stats.expenses++; any = true; }
-    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', cut: true, desc, amount: String(rev) }); stats.trips++; any = true; }
+    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', cut: true, card: /\bcard\b/i.test(desc), desc, amount: String(rev) }); stats.trips++; any = true; }
     if(!any && desc){ day(key).entries.push({ id: carUid(), kind: 'trip', cut: true, desc, amount: '' }); stats.trips++; }
   }
   stats.days = Object.keys(days).length;
@@ -5348,7 +5357,7 @@ function taxiParsePictureText(text, cutPct){
     if(!m || !/[A-Za-z]{2}/.test(line)){ skipped++; return; }
     const n = parseFloat(m[1].replace(',', '.'));
     if(EXP.test(line)) entries.push({ id: carUid(), kind: 'expense', desc: line, amount: String(n) });
-    else entries.push({ id: carUid(), kind: 'trip', desc: line, amount: String(n) });
+    else entries.push({ id: carUid(), kind: 'trip', card: /\bcard\b/i.test(line), desc: line, amount: String(n) });
   });
   return { entries, skipped };
 }
@@ -5383,7 +5392,7 @@ function renderTaxiPanel(cur){
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled');
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled'), tCard = stat('Unsettled card payments (you owe him)');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import
@@ -5465,7 +5474,7 @@ function renderTaxiPanel(cur){
   head.append(title, settleBtn); card.appendChild(head);
   const body = el('div', 'car-body');
   const sumBox = el('div', 'car-sum');
-  const sTrips = el('b'), sExp = el('b'), sProfit = el('b');
+  const sTrips = el('b'), sExp = el('b'), sProfit = el('b'), sCard = el('b'), sCash = el('b');
   const mkLine = (label, v) => { const l = el('div'); l.append(el('span', null, label), v); sumBox.appendChild(l); };
   body.appendChild(el('div', 'car-sub', 'Trips & expenses'));
   const list = el('div', 'car-exps');
@@ -5479,6 +5488,10 @@ function renderTaxiPanel(cur){
     const d = el('input'); d.type = 'text'; d.placeholder = item.kind === 'expense' ? 'What for (fuel, tolls…)' : 'Trip (route, passenger…)'; d.value = item.desc || ''; d.autocomplete = 'off';
     d.addEventListener('input', () => { item.desc = d.value; save(); });
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
+    const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe him his share';
+    const paintCard = () => { cardB.classList.toggle('on', !!item.card); cardB.style.display = item.kind === 'expense' ? 'none' : ''; };
+    cardB.onclick = () => { item.card = !item.card; paintCard(); paintDay(key); updateAll(); saveTasks(); };
+    paintCard(); kind.addEventListener('change', paintCard);
     const hint = el('span', 'tx-share');
     const paintHint = () => { hint.textContent = item.kind !== 'expense' && !item.cut && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
     paintHint(); a.title = 'Trips: type the full fare, ' + txPct + '% counts as your profit';
@@ -5509,7 +5522,7 @@ function renderTaxiPanel(cur){
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     });
     row.dataset.id = item.id;
-    row.append(grip, kind, d, a, hint, mv, x); list.appendChild(row);
+    row.append(grip, kind, d, a, cardB, hint, mv, x); list.appendChild(row);
   });
   body.appendChild(list);
   const adds = el('div', 'tx-adds');
@@ -5540,7 +5553,7 @@ function renderTaxiPanel(cur){
   };
   adds.append(pic, picIn, picStatus);
   body.appendChild(adds);
-  mkLine('Trips total', sTrips); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit);
+  mkLine('Trips total', sTrips); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (your share)', sCash); mkLine('Card payments (fare)', sCard);
   body.appendChild(sumBox);
   card.appendChild(body);
   scroll.appendChild(card);
@@ -5616,11 +5629,13 @@ function renderTaxiPanel(cur){
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
     tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
-    tOpen.textContent = carMoney(open);
+    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(!dd.settled) owe += txOweOf(dd); });   // all time, days not settled yet
+    tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
     sTrips.textContent = carMoney(di); sExp.textContent = carMoney(de);
+    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(di - (d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0) : 0));
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
   };
   paintSettle(); paintDay(key);

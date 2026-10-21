@@ -5392,7 +5392,7 @@ function renderTaxiPanel(cur){
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled'), tCard = stat('Unsettled card payments (you owe him)');
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe him');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import
@@ -5620,7 +5620,7 @@ function renderTaxiPanel(cur){
 
   const updateAll = () => {
     let inc = 0, exp = 0, open = 0;
-    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txInc(d); inc += i; exp += txExpOf(d); if(!d.settled && i) open += i; });
+    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txInc(d); inc += i; exp += txExpOf(d); });
     const other = txSum(tx.otherExpenses), shell = txSum(tx.shell);   // all time
     const profit = inc - exp;   // this month: income minus the day expenses
     let allInc = 0, allExp = 0;
@@ -5629,7 +5629,7 @@ function renderTaxiPanel(cur){
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
     tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
-    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(!dd.settled) owe += txOweOf(dd); });   // all time, days not settled yet
+    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txInc(dd) - (dd.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0); });   // all time, days not settled yet: cash trips (your share) and card owed
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));

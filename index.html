@@ -5408,7 +5408,7 @@ function renderTaxiPanel(cur){
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe him'), tRecv = stat('Cash received · all time');
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe him'), tRecv = stat('Cash received · all time'), tRecvCard = stat('Card received · all time');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import
@@ -5459,7 +5459,7 @@ function renderTaxiPanel(cur){
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
     b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey);
-    b.querySelector('small').textContent = (carNum(d && d.cashIn) ? '💵 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
+    b.querySelector('small').textContent = (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){
     const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
@@ -5581,6 +5581,10 @@ function renderTaxiPanel(cur){
   cashIn.value = (tx.days[key] && tx.days[key].cashIn) || '';
   cashIn.addEventListener('input', () => { dayOf(key, true).cashIn = cashIn.value; paintDay(key); updateAll(); save(); });
   cashRow.append(el('span', null, '💵 Cash received from the driver on this day'), cashIn); body.appendChild(cashRow);
+  const cardRow = el('div', 'tx-cashin'); const cardIn = el('input'); cardIn.type = 'text'; cardIn.inputMode = 'decimal'; cardIn.placeholder = '0.00'; cardIn.autocomplete = 'off';
+  cardIn.value = (tx.days[key] && tx.days[key].cardIn) || '';
+  cardIn.addEventListener('input', () => { dayOf(key, true).cardIn = cardIn.value; paintDay(key); updateAll(); save(); });
+  cardRow.append(el('span', null, '💳 Card received on this day'), cardIn); body.appendChild(cardRow);
   card.appendChild(body);
   scroll.appendChild(card);
 
@@ -5677,7 +5681,7 @@ function renderTaxiPanel(cur){
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
     tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
     let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txCashNet(dd); });   // all time, days not settled yet: cash trips (your share) and card owed
-    let recv = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); }); tRecv.textContent = carMoney(recv);
+    let recv = 0, recvC = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); recvC += carNum(tx.days[k].cardIn); }); tRecv.textContent = carMoney(recv); tRecvCard.textContent = carMoney(recvC);
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));

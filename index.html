@@ -1279,9 +1279,6 @@
   .tx-card{ flex: none; background: var(--panel-solid); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.7rem; padding: 3px 7px; cursor: pointer; }
   .tx-card.on{ background: #c026d3; color: #fff; border-color: #c026d3; }
   .tx-entry.dragging{ opacity: .6; background: var(--fill); }
-  .tx-mv{ display: inline-flex; flex-direction: column; gap: 1px; flex: none; }
-  .tx-mv button{ background: none; border: 0; color: var(--text-dim); font-size: 0.6rem; line-height: 1; padding: 1px 4px; cursor: pointer; }
-  .tx-mv button:disabled{ opacity: .25; cursor: default; }
   .tx-adds{ display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
   .tx-ocr-status{ color: var(--text-dim); font-size: 0.74rem; }
   @media (max-width: 520px){ .tx-entry{ flex-wrap: wrap; } .car-body .car-exp select.tx-kind{ width: 76px; } }
@@ -5503,11 +5500,6 @@ function renderTaxiPanel(cur){
     const paintHint = () => { hint.textContent = item.kind !== 'expense' && !item.cut && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
     paintHint(); a.title = 'Trips: type the full fare, ' + txPct + '% counts as your profit';
     a.addEventListener('input', () => { item.amount = a.value; paintHint(); paintDay(key); updateAll(); save(); });
-    const mv = el('span', 'tx-mv');
-    const move = (dir) => { const dd = dayOf(key, true), at = dd.entries.findIndex(e => e.id === item.id), to = at + dir; if(to < 0 || to >= dd.entries.length) return; [dd.entries[at], dd.entries[to]] = [dd.entries[to], dd.entries[at]]; saveTasks(); redraw(); };
-    const up = el('button', null, '▲'); up.type = 'button'; up.title = 'Move up'; up.disabled = i === 0; up.onclick = () => move(-1);
-    const dn = el('button', null, '▼'); dn.type = 'button'; dn.title = 'Move down'; dn.disabled = i === dayEntries.length - 1; dn.onclick = () => move(1);
-    mv.append(up, dn);
     const x = el('button', 'car-del', '✕'); x.type = 'button';
     x.onclick = () => { const dd = dayOf(key, true); dd.entries = dd.entries.filter(e => e.id !== item.id); saveTasks(); redraw(); };
     const grip = el('span', 'tx-grip', '⠿'); grip.title = 'Drag to reorder';
@@ -5529,7 +5521,7 @@ function renderTaxiPanel(cur){
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     });
     row.dataset.id = item.id;
-    row.append(grip, kind, d, a, cardB, bank, hint, mv, x); list.appendChild(row);
+    row.append(grip, kind, d, a, cardB, bank, hint, x); list.appendChild(row);
   });
   body.appendChild(list);
   const adds = el('div', 'tx-adds');

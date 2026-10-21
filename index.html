@@ -1267,6 +1267,14 @@
   .tx-day.settled{ background: rgba(40,200,120,.22); }
   .tx-day.today span{ font-weight: 800; text-decoration: underline; }
   .tx-day.sel{ box-shadow: 0 0 0 2px var(--accent2); }
+  .car-body .car-exp select.tx-kind{ flex: none; width: 84px; background: var(--panel-solid); color: var(--text); border: 0; border-radius: 8px; font: inherit; font-size: 0.78rem; padding: 6px 4px; }
+  .tx-entry.is-exp{ border-left: 3px solid var(--danger); padding-left: 5px; }
+  .tx-mv{ display: inline-flex; flex-direction: column; gap: 1px; flex: none; }
+  .tx-mv button{ background: none; border: 0; color: var(--text-dim); font-size: 0.6rem; line-height: 1; padding: 1px 4px; cursor: pointer; }
+  .tx-mv button:disabled{ opacity: .25; cursor: default; }
+  .tx-adds{ display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  .tx-ocr-status{ color: var(--text-dim); font-size: 0.74rem; }
+  @media (max-width: 520px){ .tx-entry{ flex-wrap: wrap; } .car-body .car-exp select.tx-kind{ width: 76px; } }
   .tx-settle{ background: var(--panel-solid); color: var(--text-dim); border: 0; border-radius: 999px; font: inherit; font-size: 0.74rem; padding: 4px 11px; cursor: pointer; white-space: nowrap; }
   .tx-settle.on{ background: rgba(40,200,120,.25); color: var(--text); font-weight: 700; }
   .tx-daycard .car-head{ cursor: default; }
@@ -5219,6 +5227,16 @@ let taxiScrollKeep = 0;
 const taxiDayView = {};   // section id -> true while a single day is open (not saved; the calendar is the starting view)
 const txKey = (y, m0, d) => y + '-' + String(m0 + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 0);
+// a day is one ordered list of entries, each a trip (income) or an expense, so an expense can sit between the trips it happened between
+const txInc = (d) => d ? txSum((d.entries || []).filter(e => e.kind !== 'expense')) : 0;
+const txExpOf = (d) => d ? txSum((d.entries || []).filter(e => e.kind === 'expense')) : 0;
+function txMigrate(tx){   // older days kept trips and expenses in two lists: merge them (trips first, then expenses)
+  for(const k in tx.days){
+    const d = tx.days[k];
+    if(!Array.isArray(d.entries)) d.entries = [...(d.trips || []).map(x => Object.assign({}, x, { kind: 'trip' })), ...(d.expenses || []).map(x => Object.assign({}, x, { kind: 'expense' }))];
+    delete d.trips; delete d.expenses; delete d.paid;
+  }
+}
 
 // reads a spreadsheet section laid out like: DATE | description | EXPENSE | REVENUE | MONEY PAID (header rows tell which column is which; other blocks go to the notes)
 function taxiParseSheet(sh){
@@ -5232,8 +5250,8 @@ function taxiParseSheet(sh){
     else return '';
     return (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) ? txKey(y, mo - 1, d) : '';
   };
-  const days = {}, notes = [], shell = [], credit = [], stats = { days: 0, trips: 0, expenses: 0, paid: 0, first: '', last: '' };
-  const day = (k) => days[k] || (days[k] = { trips: [], expenses: [], paid: [], settled: false });
+  const days = {}, notes = [], shell = [], credit = [], stats = { days: 0, trips: 0, expenses: 0, first: '', last: '' };
+  const day = (k) => days[k] || (days[k] = { entries: [], settled: false });
   let map = null, lastKey = '', pendingShell = -1;
   for(let r = 1; r <= sh.rows; r++){
     const cells = []; for(let c = 0; c < sh.cols; c++) cells.push(text(r, c));
@@ -5267,24 +5285,61 @@ function taxiParseSheet(sh){
     });
     if(stray.length) notes.push(stray.join(' | '));
     const desc = cells[map.desc] || '';
-    const exp = map.exp >= 0 ? num(cells[map.exp]) : null, rev = map.rev >= 0 ? num(cells[map.rev]) : null, pd = map.paid >= 0 ? num(cells[map.paid]) : null;
+    const exp = map.exp >= 0 ? num(cells[map.exp]) : null, rev = map.rev >= 0 ? num(cells[map.rev]) : null;   // a MONEY PAID column is not imported
     let key = toKey(cells[map.date]);
     if(!key){
-      if(!desc && exp === null && rev === null && pd === null) continue;
+      if(!desc && exp === null && rev === null) continue;
       if(!lastKey){ notes.push([cells[map.date], desc].filter(Boolean).join(' | ')); continue; }
       key = lastKey;   // a line without a date belongs to the previous day
     } else lastKey = key;
     if(!stats.first || key < stats.first) stats.first = key;
     if(!stats.last || key > stats.last) stats.last = key;
     let any = false;
-    if(exp !== null){ day(key).expenses.push({ id: carUid(), desc, amount: String(exp) }); stats.expenses++; any = true; }
-    if(rev !== null){ day(key).trips.push({ id: carUid(), desc, amount: String(rev) }); stats.trips++; any = true; }
-    if(pd !== null){ day(key).paid.push({ id: carUid(), desc, amount: String(pd) }); stats.paid++; any = true; }
-    if(!any && desc){ day(key).trips.push({ id: carUid(), desc, amount: '' }); stats.trips++; }
+    if(exp !== null){ day(key).entries.push({ id: carUid(), kind: 'expense', desc, amount: String(exp) }); stats.expenses++; any = true; }
+    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', desc, amount: String(rev) }); stats.trips++; any = true; }
+    if(!any && desc){ day(key).entries.push({ id: carUid(), kind: 'trip', desc, amount: '' }); stats.trips++; }
   }
   stats.days = Object.keys(days).length;
   shell.forEach(e => { e.id = carUid(); e.date = stats.last || ''; e.desc = 'Shell payable (imported)'; });
   return { days, notes, shell, credit, stats };
+}
+
+// ---- reading a picture (OCR): runs in the browser with the files in vendor/ocr; the picture is never stored ----
+function ocrLoadScript(){
+  if(window.Tesseract) return Promise.resolve();
+  return new Promise((ok, fail) => { const sc = document.createElement('script'); sc.src = 'vendor/ocr/tesseract.min.js'; sc.onload = ok; sc.onerror = () => fail(new Error('the text-reading files could not be loaded')); document.head.appendChild(sc); });
+}
+async function ocrPrepare(file){   // shrink big photos and use greyscale with stretched contrast, which helps the text recognition
+  const bmp = await createImageBitmap(file), k = Math.min(1, 2200 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height);
+  const im = g.getImageData(0, 0, c.width, c.height), d = im.data; let lo = 255, hi = 0;
+  for(let i = 0; i < d.length; i += 4){ const v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; d[i] = v; if(v < lo) lo = v; if(v > hi) hi = v; }
+  const span = Math.max(1, hi - lo);
+  for(let i = 0; i < d.length; i += 4){ const v = Math.max(0, Math.min(255, (d[i] - lo) * 255 / span)); d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+  g.putImageData(im, 0, 0);
+  return new Promise(ok => c.toBlob(ok, 'image/png'));
+}
+async function ocrReadPicture(file, onProgress){
+  await ocrLoadScript();
+  const blob = await ocrPrepare(file), abs = (path) => new URL(path, location.href).href;
+  const worker = await Tesseract.createWorker('eng', 1, { workerPath: abs('vendor/ocr/worker.min.js'), corePath: abs('vendor/ocr/'), langPath: abs('vendor/ocr'), gzip: true,
+    logger: (m) => { if(m.status === 'recognizing text' && onProgress) onProgress(m.progress); } });
+  try{ const { data } = await worker.recognize(blob); return data.text || ''; }
+  finally{ await worker.terminate(); }   // frees the memory the engine used
+}
+// lines like "Germasogia 75" become trips (your share = cut % of the number), lines about diesel / car wash / tolls… become expenses (the full number)
+function taxiParsePictureText(text, cutPct){
+  const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
+  const entries = []; let skipped = 0;
+  String(text).split(/\r?\n/).map(l => l.replace(/^[\-•*·|~_\s]+/, '').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
+    const m = /(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur(?:os?)?)?\s*$/i.exec(line);
+    if(!m || !/[A-Za-z]{2}/.test(line)){ skipped++; return; }
+    const n = parseFloat(m[1].replace(',', '.'));
+    if(EXP.test(line)) entries.push({ id: carUid(), kind: 'expense', desc: line, amount: String(n) });
+    else entries.push({ id: carUid(), kind: 'trip', desc: line, amount: String(Math.round(n * cutPct) / 100) });
+  });
+  return { entries, skipped };
 }
 
 function renderTaxiPanel(cur){
@@ -5294,6 +5349,7 @@ function renderTaxiPanel(cur){
   if(!Array.isArray(tx.otherExpenses)) tx.otherExpenses = [];
   if(!Array.isArray(tx.shell)) tx.shell = [];
   if(!Array.isArray(tx.credit)) tx.credit = [];
+  txMigrate(tx);
   const now = new Date(), todayKey = txKey(now.getFullYear(), now.getMonth(), now.getDate());
   if(!/^\d{4}-\d{2}$/.test(cur.taxiMonth || '')) cur.taxiMonth = todayKey.slice(0, 7);
   if(!/^\d{4}-\d{2}-\d{2}$/.test(cur.taxiSel || '')) cur.taxiSel = todayKey;
@@ -5303,8 +5359,8 @@ function renderTaxiPanel(cur){
   const redraw = () => { const w = bizPanelEl.querySelector('.cars-wrap'); taxiScrollKeep = w ? w.scrollTop : 0; renderBizPanel(cur); };
   const dayOf = (key, create) => {
     let d = tx.days[key];
-    if(!d && create) d = tx.days[key] = { trips: [], expenses: [], paid: [], settled: false };
-    if(d){ ['trips', 'expenses', 'paid'].forEach(k => { if(!Array.isArray(d[k])) d[k] = []; }); }
+    if(!d && create) d = tx.days[key] = { entries: [], settled: false };
+    if(d && !Array.isArray(d.entries)) d.entries = [];
     return d;
   };
   const inMonth = (key) => String(key).slice(0, 7) === cur.taxiMonth;
@@ -5315,7 +5371,7 @@ function renderTaxiPanel(cur){
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled'), tPaid = stat('Money paid');
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import
@@ -5336,14 +5392,14 @@ function renderTaxiPanel(cur){
     }
     const res = taxiParseSheet(src.sheet), st = res.stats;
     if(!st.days && !res.notes.length && !res.shell.length && !res.credit.length){ alert('Nothing was found. The sheet needs a header row with DATE and EXPENSE / REVENUE / MONEY PAID.'); return; }
-    if(!confirm(`Import from "${src.name}":\n\n${st.days} days (${st.first || '–'} to ${st.last || '–'})\n${st.trips} trips / revenue lines, ${st.expenses} expenses, ${st.paid} money-paid lines\n${res.shell.length} Shell payable amount${res.shell.length === 1 ? '' : 's'}, ${res.credit.length} credit note${res.credit.length === 1 ? '' : 's'}\n${res.notes.length} other lines (ledgers, notes) kept in the Notes box\n\nA safety copy is taken first. Continue?`)) return;
+    if(!confirm(`Import from "${src.name}":\n\n${st.days} days (${st.first || '–'} to ${st.last || '–'})\n${st.trips} trips / revenue lines, ${st.expenses} expenses\n${res.shell.length} Shell payable amount${res.shell.length === 1 ? '' : 's'}, ${res.credit.length} credit note${res.credit.length === 1 ? '' : 's'}\n${res.notes.length} other lines (ledgers, notes) kept in the Notes box\n\nA safety copy is taken first. Continue?`)) return;
     const replace = Object.keys(tx.days).length ? confirm('This taxi section already has days in it.\n\nOK = replace them with the imported data\nCancel = add the imported data on top') : true;
     const settled = confirm('Mark the imported days as already settled?\n\nOK = settled\nCancel = not settled');
     takeSafetyCopy('before import');
     if(replace){ tx.days = {}; tx.shell = []; tx.credit = []; }
     for(const k in res.days){
-      const d = dayOf(k, true), n = res.days[k], isNew = !d.trips.length && !d.expenses.length && !d.paid.length;
-      d.trips.push(...n.trips); d.expenses.push(...n.expenses); d.paid.push(...n.paid);
+      const d = dayOf(k, true), n = res.days[k], isNew = !d.entries.length;
+      d.entries.push(...n.entries);
       if(isNew) d.settled = settled;
     }
     tx.shell.push(...res.shell); tx.credit.push(...res.credit);
@@ -5363,7 +5419,7 @@ function renderTaxiPanel(cur){
   const cells = {};
   const paintDay = (key) => {
     const b = cells[key]; if(!b) return;
-    const d = dayOf(key, false), inc = d ? txSum(d.trips) : 0, has = !!(d && (d.trips.length || d.expenses.length || d.paid.length));
+    const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
     b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey);
     b.querySelector('small').textContent = inc ? Math.round(inc * 100) / 100 + '' : '';
@@ -5377,7 +5433,7 @@ function renderTaxiPanel(cur){
   if(!dayView) scroll.appendChild(cal);
 
   // the selected day: trips, expenses, money paid, settled
-  const key = cur.taxiSel, day = dayOf(key, false) || { trips: [], expenses: [], paid: [], settled: false };
+  const key = cur.taxiSel, day = dayOf(key, false) || { entries: [], settled: false };
   if(dayView){   // one day on its own: back to the calendar, previous / next day
     const bar = el('div', 'tx-nav');
     const back = el('button', 'sheet-mini', '‹ Calendar'); back.type = 'button';
@@ -5399,29 +5455,59 @@ function renderTaxiPanel(cur){
   const sumBox = el('div', 'car-sum');
   const sTrips = el('b'), sExp = el('b'), sProfit = el('b');
   const mkLine = (label, v) => { const l = el('div'); l.append(el('span', null, label), v); sumBox.appendChild(l); };
-  const HEADINGS = { trips: 'Trips', expenses: 'Expenses', paid: 'Money paid' };
-  const listEditor = (kind, placeholder, addLabel) => {
-    body.appendChild(el('div', 'car-sub', HEADINGS[kind]));
-    const list = el('div', 'car-exps');
-    (day[kind] || []).forEach(item => {
-      const row = el('div', 'car-exp');
-      const d = el('input'); d.type = 'text'; d.placeholder = placeholder; d.value = item.desc || ''; d.autocomplete = 'off';
-      d.addEventListener('input', () => { item.desc = d.value; save(); });
-      const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
-      a.addEventListener('input', () => { item.amount = a.value; paintDay(key); updateAll(); save(); });
-      const x = el('button', 'car-del', '✕'); x.type = 'button';
-      x.onclick = () => { const dd = dayOf(key, true); dd[kind] = dd[kind].filter(e => e.id !== item.id); saveTasks(); redraw(); };
-      row.append(d, a, x); list.appendChild(row);
-    });
-    body.appendChild(list);
-    const add = el('button', 'car-add-exp', addLabel); add.type = 'button';
-    add.onclick = () => { const dd = dayOf(key, true); dd[kind].push({ id: carUid(), desc: '', amount: '' }); saveTasks(); redraw();
-      const sub = [...bizPanelEl.querySelectorAll('.tx-daycard .car-sub')].find(r => r.textContent === HEADINGS[kind]); const rows = sub && sub.nextElementSibling ? sub.nextElementSibling.querySelectorAll('.car-exp') : []; const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
-    body.appendChild(add);
+  body.appendChild(el('div', 'car-sub', 'Trips & expenses'));
+  const list = el('div', 'car-exps');
+  const dayEntries = day.entries;
+  dayEntries.forEach((item, i) => {
+    const row = el('div', 'car-exp tx-entry' + (item.kind === 'expense' ? ' is-exp' : ''));
+    const kind = el('select', 'tx-kind');
+    [['trip', 'Trip'], ['expense', 'Expense']].forEach(([v, l]) => { const o = el('option', null, l); o.value = v; kind.appendChild(o); });
+    kind.value = item.kind === 'expense' ? 'expense' : 'trip';
+    kind.addEventListener('change', () => { item.kind = kind.value; row.classList.toggle('is-exp', item.kind === 'expense'); paintDay(key); updateAll(); saveTasks(); });
+    const d = el('input'); d.type = 'text'; d.placeholder = item.kind === 'expense' ? 'What for (fuel, tolls…)' : 'Trip (route, passenger…)'; d.value = item.desc || ''; d.autocomplete = 'off';
+    d.addEventListener('input', () => { item.desc = d.value; save(); });
+    const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
+    a.addEventListener('input', () => { item.amount = a.value; paintDay(key); updateAll(); save(); });
+    const mv = el('span', 'tx-mv');
+    const move = (dir) => { const dd = dayOf(key, true), at = dd.entries.findIndex(e => e.id === item.id), to = at + dir; if(to < 0 || to >= dd.entries.length) return; [dd.entries[at], dd.entries[to]] = [dd.entries[to], dd.entries[at]]; saveTasks(); redraw(); };
+    const up = el('button', null, '▲'); up.type = 'button'; up.title = 'Move up'; up.disabled = i === 0; up.onclick = () => move(-1);
+    const dn = el('button', null, '▼'); dn.type = 'button'; dn.title = 'Move down'; dn.disabled = i === dayEntries.length - 1; dn.onclick = () => move(1);
+    mv.append(up, dn);
+    const x = el('button', 'car-del', '✕'); x.type = 'button';
+    x.onclick = () => { const dd = dayOf(key, true); dd.entries = dd.entries.filter(e => e.id !== item.id); saveTasks(); redraw(); };
+    row.append(kind, d, a, mv, x); list.appendChild(row);
+  });
+  body.appendChild(list);
+  const adds = el('div', 'tx-adds');
+  [['trip', '+ Add trip'], ['expense', '+ Add expense']].forEach(([k, label]) => {
+    const add = el('button', 'car-add-exp', label); add.type = 'button';
+    add.onclick = () => { const dd = dayOf(key, true); dd.entries.push({ id: carUid(), kind: k, desc: '', amount: '' }); saveTasks(); redraw();
+      const rows = bizPanelEl.querySelectorAll('.tx-daycard .tx-entry'); const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
+    adds.appendChild(add);
+  });
+  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read the text in a picture and add it to this day (the picture is not saved)';
+  const picIn = el('input'); picIn.type = 'file'; picIn.accept = 'image/*'; picIn.hidden = true;
+  const picStatus = el('span', 'tx-ocr-status');
+  pic.onclick = () => picIn.click();
+  picIn.onchange = async () => {
+    const f = picIn.files[0]; picIn.value = ''; if(!f) return;
+    pic.disabled = true; picStatus.textContent = 'Reading the picture…';
+    try{
+      const text = await ocrReadPicture(f, (pr) => { picStatus.textContent = 'Reading the picture… ' + Math.round(pr * 100) + '%'; });
+      const cutIn = prompt('What share of each fare do you keep?\n(60 = 60%, 100 = the full fare). Expenses like diesel are added in full.', String(tx.cutPct || 60));
+      if(cutIn === null) return;
+      const cut = Math.max(0, Math.min(100, parseFloat(cutIn) || 60)); tx.cutPct = cut;
+      const { entries, skipped } = taxiParsePictureText(text, cut);
+      if(!entries.length){ alert('No lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
+      const lines = entries.slice(0, 15).map(e => `${e.kind === 'expense' ? 'Expense' : 'Trip'}: ${e.desc}  →  €${e.amount}`).join('\n') + (entries.length > 15 ? `\n… and ${entries.length - 15} more` : '');
+      if(confirm(`Add these ${entries.length} lines to ${title.textContent}?\n\n${lines}${skipped ? `\n\n(${skipped} lines without an amount were skipped)` : ''}\n\nThe picture itself is not saved. You can edit or delete any line afterwards.`)){
+        const dd = dayOf(key, true); dd.entries.push(...entries); saveTasks(); redraw();
+      }
+    }catch(err){ alert('Could not read the picture: ' + (err && err.message ? err.message : err)); }
+    finally{ pic.disabled = false; picStatus.textContent = ''; }
   };
-  listEditor('trips', 'Trip (route, passenger…)', '+ Add trip');
-  listEditor('expenses', 'What for (fuel, tolls…)', '+ Add expense');
-  listEditor('paid', 'Paid to (owner, driver…)', '+ Add payment');
+  adds.append(pic, picIn, picStatus);
+  body.appendChild(adds);
   mkLine('Trips total', sTrips); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit);
   body.appendChild(sumBox);
   card.appendChild(body);
@@ -5488,20 +5574,20 @@ function renderTaxiPanel(cur){
   if(!dayView){ scroll.appendChild(rest); autoGrow(notes); }
 
   const updateAll = () => {
-    let inc = 0, exp = 0, open = 0, paid = 0;
-    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txSum(d.trips); inc += i; exp += txSum(d.expenses); paid += txSum(d.paid); if(!d.settled && i) open += i; });
+    let inc = 0, exp = 0, open = 0;
+    Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txInc(d); inc += i; exp += txExpOf(d); if(!d.settled && i) open += i; });
     const other = txSum(tx.otherExpenses), shell = txSum(tx.shell);   // all time
     const profit = inc - exp;   // this month: income minus the day expenses
     let allInc = 0, allExp = 0;
-    Object.keys(tx.days).forEach(k => { const d = dayOf(k, false); allInc += txSum(d.trips); allExp += txSum(d.expenses); });
+    Object.keys(tx.days).forEach(k => { const d = dayOf(k, false); allInc += txInc(d); allExp += txExpOf(d); });
     const net = allInc - allExp - other - shell;   // like the sheet's NET P/L: everything, all time
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
     tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
-    tOpen.textContent = carMoney(open); tPaid.textContent = carMoney(paid);
+    tOpen.textContent = carMoney(open);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
-    const d = tx.days[key], di = d ? txSum(d.trips) : 0, de = d ? txSum(d.expenses) : 0, dp = di - de;
+    const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
     sTrips.textContent = carMoney(di); sExp.textContent = carMoney(de);
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
   };

@@ -1978,7 +1978,17 @@
         <select class="ds-input" id="dsSafety"></select>
         <button type="button" class="ds-btn" id="dsRestoreSafety">Restore</button>
       </div>
-      <p class="ds-hint">The downloaded file is your real backup (it survives losing the device). Undo copies are kept on this device automatically, every day and just before a sync update, import or restore replaces your data; pick one and press Restore to undo.</p>
+      <div class="ds-or" style="margin-top:10px">Cloud backups (stored with your sync code, not on this device)</div>
+      <div class="ds-actions">
+        <button type="button" class="ds-btn" id="dsCloudNow">Back up to cloud now</button>
+        <button type="button" class="ds-btn" id="dsCloudShow">Show cloud backups</button>
+      </div>
+      <div class="ds-row">
+        <select class="ds-input" id="dsCloudList"></select>
+        <button type="button" class="ds-btn" id="dsCloudRestore" disabled>Restore</button>
+      </div>
+      <p class="ds-hint" id="dsCloudInfo">Needs a sync code. A copy is uploaded every hour while the app is open (the last 6 hours and the last 7 days are kept).</p>
+      <p class="ds-hint">The downloaded file is your real backup (it survives losing the device). Undo copies are kept on this device automatically, every hour and just before a sync update, import or restore replaces your data; pick one and press Restore to undo.</p>
     </div>
     <p class="ds-hint">This is only for your own devices. It's separate from the SL shopping list code, which never gives access to this data.</p>
   </div>
@@ -6859,7 +6869,7 @@ function fbRenderSheet(){
 }
 /* ---------- backups and safety copies ---------- */
 const SAFETY_KEY = 'tpas2:safety';
-const SAFETY_REASONS = { daily: 'daily copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', manual: 'backup now', 'before delete': 'before a row/column delete', 'before paste': 'before a spreadsheet paste' };
+const SAFETY_REASONS = { daily: 'daily copy', hourly: 'hourly copy', 'before sync update': 'before a sync update', 'before restore': 'before a restore', 'before import': 'before a spreadsheet import', manual: 'backup now', 'before delete': 'before a row/column delete', 'before paste': 'before a spreadsheet paste' };
 // save the real data; when the browser says it is full, safety copies give way (oldest first) so the real data always wins
 function persistData(){
   const json = JSON.stringify(data);
@@ -6890,6 +6900,7 @@ function takeSafetyCopy(reason, minGapMs){
   if(minGapMs && last && Date.now() - last.t < minGapMs) return;
   const json = JSON.stringify(data, (k, v) => (k === 'img' && typeof v === 'string' && v.startsWith('data:')) ? '' : v);   // photos are left out so copies stay small
   if(list.length && list[list.length - 1].json === json) return;
+  if((reason === 'hourly' || reason === 'daily') && list.length && json.length < list[list.length - 1].json.length * 0.5) return;   // data suddenly less than half the size: keep the last good copy instead of replacing it
   list.push({ t: Date.now(), reason, json });
   while(list.length > 1) list.shift();   // only the newest safety copy is kept (older ones just used up the browser's storage)
   // never let safety copies crowd out the real data: keep total storage under ~4 million characters, dropping the oldest copies first
@@ -7085,7 +7096,61 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('load', () => {
   window.scrollTo(0, 0);
   pullFromSync();
-  setTimeout(() => { const l = readSafety(); if(l.length > 1) writeSafety(l.slice(-1)); takeSafetyCopy('daily', 20 * 3600 * 1000); }, 3000);   // one automatic copy a day; older copies from before are trimmed to the newest
+  setTimeout(() => { const l = readSafety(); if(l.length > 1) writeSafety(l.slice(-1)); takeSafetyCopy('hourly', 55 * 60 * 1000); cloudBackup(false); }, 3500);   // an automatic copy every hour (on open, then checked every 10 minutes while the app is open); only the newest is kept
+setInterval(() => { takeSafetyCopy('hourly', 55 * 60 * 1000); cloudBackup(false); }, 10 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if(!document.hidden){ takeSafetyCopy('hourly', 55 * 60 * 1000); cloudBackup(false); } });
+
+});
+/* cloud backups: /sync/<CODE>/backups/<slot> = { t, json }. Slots h0..h5 (hour mod 6) and d0..d6 (day mod 7) rotate, so the last 6 hours and 7 days stay. Skipped when data is empty or suddenly under half the size of the last upload (unless forced). */
+const CLOUD_LAST_KEY = 'tpas2:cloudBackup';
+function cloudJson(){ return JSON.stringify(data, (k, v) => (k === 'img' && typeof v === 'string' && v.startsWith('data:')) ? '' : v); }
+async function cloudBackup(force){
+  const code = fbCode(); if(!code || !navigator.onLine || !dataHasContent(data)) return false;
+  let last = {}; try{ last = JSON.parse(localStorage.getItem(CLOUD_LAST_KEY) || '{}'); }catch(e){}
+  const now = Date.now();
+  if(!force && last.t && now - last.t < 55 * 60 * 1000) return false;
+  const json = cloudJson();
+  if(!force && last.len && json.length < last.len * 0.5) return false;   // looks like a wipe: keep the good copies
+  if(!force && last.json === fbHash(json)) { last.t = now; try{ localStorage.setItem(CLOUD_LAST_KEY, JSON.stringify(last)); }catch(e){} return false; }
+  const hour = Math.floor(now / 3600000), day = Math.floor(now / 86400000);
+  const body = { t: now, json };
+  try{
+    const w = await fetch(fbUrl(code, '/backups'), { method: 'PATCH', body: JSON.stringify({ ['h' + (hour % 6)]: body, ['d' + (day % 7)]: body }) });
+    if(!w.ok) return false;
+    try{ localStorage.setItem(CLOUD_LAST_KEY, JSON.stringify({ t: now, len: json.length, json: fbHash(json) })); }catch(e){}
+    return true;
+  }catch(e){ return false; }
+}
+let cloudCopies = [];
+document.getElementById('dsCloudNow').addEventListener('click', async (e) => {
+  const b = e.currentTarget, info = document.getElementById('dsCloudInfo');
+  if(!fbCode()){ info.textContent = 'Join or create a sync code first (top of this sheet).'; return; }
+  if(!dataHasContent(data)){ info.textContent = 'Nothing to back up.'; return; }
+  b.disabled = true; info.textContent = 'Uploading…';
+  const ok = await cloudBackup(true); b.disabled = false;
+  info.textContent = ok ? '✓ Uploaded to the cloud ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Could not upload (offline?). Try again.';
+});
+document.getElementById('dsCloudShow').addEventListener('click', async () => {
+  const info = document.getElementById('dsCloudInfo'), sel = document.getElementById('dsCloudList'), rb = document.getElementById('dsCloudRestore');
+  const code = fbCode(); sel.innerHTML = ''; rb.disabled = true;
+  if(!code){ info.textContent = 'Join or create a sync code first (top of this sheet).'; return; }
+  info.textContent = 'Loading…';
+  try{
+    const res = await fetch(fbUrl(code, '/backups')); if(!res.ok) throw new Error(res.status);
+    const all = (await res.json()) || {};
+    cloudCopies = Object.keys(all).map(k => all[k]).filter(x => x && typeof x.json === 'string').sort((a, b) => b.t - a.t).filter((x, i, arr) => !i || x.t !== arr[i - 1].t);
+    if(!cloudCopies.length){ info.textContent = 'No cloud backups yet.'; sel.appendChild(new Option('No cloud backups yet', '')); return; }
+    cloudCopies.forEach((x, i) => sel.appendChild(new Option(new Date(x.t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + Math.round(x.json.length / 1000) + ' KB', String(i))));
+    rb.disabled = false; info.textContent = cloudCopies.length + ' cloud backups found.';
+  }catch(e){ info.textContent = 'Could not load cloud backups (offline?).'; }
+});
+document.getElementById('dsCloudRestore').addEventListener('click', () => {
+  const x = cloudCopies[+document.getElementById('dsCloudList').value]; if(!x) return;
+  if(!confirm('Replace everything on this device with the cloud backup from ' + new Date(x.t).toLocaleString() + '? Your current data is kept as a safety copy first.')) return;
+  let d = null; try{ d = JSON.parse(x.json); }catch(e){}
+  if(!d){ alert("That backup couldn't be read."); return; }
+  takeSafetyCopy('before restore');
+  restoreData(d); dsModal.classList.remove('open'); showStatus('cloud backup restored');
 });
 document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ pullFromSync(); }

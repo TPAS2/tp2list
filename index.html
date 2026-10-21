@@ -5243,6 +5243,8 @@ const txFare = (e) => carNum(e.amount);
 const txOwe = (e) => txIsCard(e) ? txFare(e) * (100 - txPct) / 100 : 0;
 const txCardOf = (d) => d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txFare(e), 0) : 0;
 const txOweOf = (d) => d ? (d.entries || []).reduce((s, e) => s + txOwe(e), 0) : 0;
+const txCashNet = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense' && !e.card).reduce((s, e) => s + txShare(e), 0) - txExpOfRaw(d) : 0;   // cash trips × cut% − the day's expenses
+const txExpOfRaw = (d) => (d.entries || []).filter(e => e.kind === 'expense').reduce((s, e) => s + carNum(e.amount), 0);
 const txExpOf = (d) => d ? txSum((d.entries || []).filter(e => e.kind === 'expense')) : 0;
 function txMigrate(tx){   // older days kept trips and expenses in two lists: merge them (trips first, then expenses)
   for(const k in tx.days){
@@ -5550,7 +5552,7 @@ function renderTaxiPanel(cur){
   };
   adds.append(pic, picIn, picStatus);
   body.appendChild(adds);
-  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (your share)', sCash); mkLine('Card payments (fare)', sCard);
+  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (share − expenses)', sCash); mkLine('Card payments (fare)', sCard);
   body.appendChild(sumBox);
   const cashRow = el('div', 'tx-cashin'); const cashIn = el('input'); cashIn.type = 'text'; cashIn.inputMode = 'decimal'; cashIn.placeholder = '0.00'; cashIn.autocomplete = 'off';
   cashIn.value = (tx.days[key] && tx.days[key].cashIn) || '';
@@ -5630,14 +5632,14 @@ function renderTaxiPanel(cur){
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
     tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
-    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txInc(dd) - (dd.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0); });   // all time, days not settled yet: cash trips (your share) and card owed
+    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txCashNet(dd); });   // all time, days not settled yet: cash trips (your share) and card owed
     let recv = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); }); tRecv.textContent = carMoney(recv);
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
     sTrips.textContent = carMoney(d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txFare(e), 0) : 0); sShare.textContent = carMoney(di); sExp.textContent = carMoney(de);
-    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(di - (d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0) : 0));
+    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(txCashNet(d));
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
   };
   paintSettle(); paintDay(key);

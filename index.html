@@ -5402,7 +5402,7 @@ function renderTaxiPanel(cur){
   };
   const inMonth = (key) => String(key).slice(0, 7) === cur.taxiMonth;
 
-  const dayView = !!taxiDayView[cur.id];
+  const dayView = false;   // the full-screen single-day view was removed: the day card sits under the calendar
   const scroll = el('div', 'cars-wrap');
 
   // totals for the month on screen
@@ -5464,7 +5464,7 @@ function renderTaxiPanel(cur){
   for(let d = 1; d <= dim; d++){
     const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
     b.append(el('span', null, String(d)), el('small'));
-    b.onclick = () => { cur.taxiSel = key; taxiDayView[cur.id] = true; saveTasks(); redraw(); };   // open just this day
+    b.onclick = () => { cur.taxiSel = key; taxiScrollKeep = scroll.scrollTop; saveTasks(); redraw(); };   // show this day under the calendar
     cells[key] = b; cal.appendChild(b); paintDay(key);
   }
   if(!dayView) scroll.appendChild(cal);

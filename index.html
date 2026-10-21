@@ -1270,6 +1270,8 @@
   .tx-day.sel{ box-shadow: 0 0 0 2px var(--accent2); }
   .car-body .car-exp select.tx-kind{ flex: none; width: 84px; background: var(--panel-solid); color: var(--text); border: 0; border-radius: 8px; font: inherit; font-size: 0.78rem; padding: 6px 4px; }
   .tx-entry.is-exp{ border-left: 3px solid var(--danger); padding-left: 5px; }
+  .tx-grip{ flex: none; cursor: grab; touch-action: none; user-select: none; color: var(--text-faint); padding: 0 4px; font-size: 1rem; }
+  .tx-entry.dragging{ opacity: .6; background: var(--fill); }
   .tx-mv{ display: inline-flex; flex-direction: column; gap: 1px; flex: none; }
   .tx-mv button{ background: none; border: 0; color: var(--text-dim); font-size: 0.6rem; line-height: 1; padding: 1px 4px; cursor: pointer; }
   .tx-mv button:disabled{ opacity: .25; cursor: default; }
@@ -5488,7 +5490,26 @@ function renderTaxiPanel(cur){
     mv.append(up, dn);
     const x = el('button', 'car-del', '✕'); x.type = 'button';
     x.onclick = () => { const dd = dayOf(key, true); dd.entries = dd.entries.filter(e => e.id !== item.id); saveTasks(); redraw(); };
-    row.append(kind, d, a, hint, mv, x); list.appendChild(row);
+    const grip = el('span', 'tx-grip', '⠿'); grip.title = 'Drag to reorder';
+    grip.addEventListener('pointerdown', (ev) => {   // drag the row up / down; the new order is read back from the DOM on drop
+      if(ev.button > 0) return; ev.preventDefault(); row.classList.add('dragging');
+      const move = (e) => {
+        for(const o of list.querySelectorAll('.tx-entry')){
+          if(o === row) continue; const b = o.getBoundingClientRect();
+          if(e.clientY > b.top && e.clientY < b.bottom){ list.insertBefore(row, e.clientY < b.top + b.height / 2 ? o : o.nextSibling); break; }
+        }
+      };
+      const end = () => {
+        window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); row.classList.remove('dragging');
+        const order = [...list.querySelectorAll('.tx-entry')].map(o => o.dataset.id), dd = dayOf(key, true);
+        const byId = new Map(dd.entries.map(e => [e.id, e])); const next = order.map(id => byId.get(id)).filter(Boolean);
+        if(next.length === dd.entries.length && next.some((e, n) => e !== dd.entries[n])){ dd.entries = next; saveTasks(); }
+        redraw();
+      };
+      window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+    });
+    row.dataset.id = item.id;
+    row.append(grip, kind, d, a, hint, mv, x); list.appendChild(row);
   });
   body.appendChild(list);
   const adds = el('div', 'tx-adds');

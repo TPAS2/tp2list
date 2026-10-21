@@ -1,6 +1,6 @@
 /* Offline support: serve the cached app instantly, refresh the cache in the background.
    A new version shows up on the next open after it's been fetched. */
-const CACHE = 'tp2list-v106';
+const CACHE = 'tp2list-v107';
 const APP_SHELL = ['./', './index.html', './stock/index.html', './stock/vendor/jsQR.js', './stock/vendor/qrcode.js'];
 
 self.addEventListener('install', (e) => {

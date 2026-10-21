@@ -5364,6 +5364,20 @@ function taxiParsePictureText(text, cutPct){
   return { entries, skipped };
 }
 
+// lines like "12/01/2026  FynxPath GPS  €86.98" (a dated table, e.g. a screenshot of an expenses sheet) → dated entries; Total / header rows are skipped
+function taxiParseDatedText(text){
+  const out = []; let skipped = 0;
+  String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
+    const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*?)\s*[€£]?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*$/.exec(line);
+    if(!m || !/[A-Za-z]{2}/.test(m[4]) || /^total$/i.test(m[4].trim())){ skipped++; return; }
+    let amt = m[5]; amt = /^\d+,\d{2}$/.test(amt) ? amt.replace(',', '.') : amt.replace(/,/g, '');
+    const y = m[3].length === 2 ? '20' + m[3] : m[3], mo = +m[2], da = +m[1];
+    if(mo < 1 || mo > 12 || da < 1 || da > 31){ skipped++; return; }
+    out.push({ id: carUid(), date: y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'), desc: m[4].replace(/[€£]\s*$/, '').trim(), amount: amt });
+  });
+  return { entries: out, skipped };
+}
+
 function renderTaxiPanel(cur){
   if(!cur.taxi) cur.taxi = { days: {}, otherExpenses: [] };
   const tx = cur.taxi;
@@ -5496,6 +5510,15 @@ function renderTaxiPanel(cur){
     const paintCard = () => { const isC = txIsCard(item); cardB.classList.toggle('on', !!item.card); cardB.style.display = item.kind === 'expense' ? 'none' : ''; row.classList.toggle('is-card', isC); row.classList.toggle('is-banked', isC && !!item.banked); bank.style.display = isC ? '' : 'none'; };
     cardB.onclick = () => { item.card = !item.card; paintCard(); paintDay(key); updateAll(); saveTasks(); };
     paintCard(); kind.addEventListener('change', paintCard);
+    const othB = el('button', 'tx-card tx-oth'); othB.type = 'button';
+    const paintOth = () => { const inO = !!item.otherId && tx.otherExpenses.some(o => o.id === item.otherId); othB.textContent = inO ? '✓ In Other expenses' : '+ Other expenses'; othB.classList.toggle('on', inO); othB.style.display = item.kind === 'expense' ? '' : 'none'; othB.title = 'Also list this expense in the Other expenses table (all time), dated this day'; };
+    othB.onclick = () => {
+      const at = tx.otherExpenses.findIndex(o => o.id === item.otherId);
+      if(at >= 0){ tx.otherExpenses.splice(at, 1); item.otherId = null; }
+      else { const o = { id: carUid(), date: key, desc: item.desc || '', amount: item.amount || '' }; tx.otherExpenses.push(o); item.otherId = o.id; }
+      saveTasks(); redraw();
+    };
+    paintOth(); kind.addEventListener('change', paintOth);
     const hint = el('span', 'tx-share');
     const paintHint = () => { hint.textContent = item.kind !== 'expense' && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
     paintHint(); a.title = 'Trips: type the full fare, ' + txPct + '% counts as your profit';
@@ -5521,7 +5544,7 @@ function renderTaxiPanel(cur){
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     });
     row.dataset.id = item.id;
-    row.append(grip, kind, d, a, cardB, bank, hint, x); list.appendChild(row);
+    row.append(grip, kind, d, a, cardB, bank, othB, hint, x); list.appendChild(row);
   });
   body.appendChild(list);
   const adds = el('div', 'tx-adds');
@@ -5585,6 +5608,27 @@ function renderTaxiPanel(cur){
     const add = el('button', 'car-add-exp', '+ Add'); add.type = 'button';
     add.onclick = () => { tx[listKey].push({ id: carUid(), date: inMonth(cur.taxiSel) ? cur.taxiSel : cur.taxiMonth + '-01', desc: addDefaultDesc || '', amount: '' }); saveTasks(); redraw(); };
     bb.appendChild(add); bb.style.borderTop = '0';
+    if(listKey === 'otherExpenses'){
+      const imp = el('button', 'car-add-exp', '📷 Import picture'); imp.type = 'button'; imp.title = 'Read dates, descriptions and amounts from a picture of a table (the picture is not saved)';
+      const inF = el('input'); inF.type = 'file'; inF.accept = 'image/*'; inF.hidden = true; const st = el('span', 'tx-ocr-status');
+      imp.onclick = () => inF.click();
+      inF.onchange = async () => {
+        const f = inF.files && inF.files[0]; inF.value = ''; if(!f) return;
+        imp.disabled = true; st.textContent = 'Reading the picture…';
+        try{
+          const text = await ocrReadPicture(f, (pr, s) => { st.textContent = pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (s || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'; });
+          const { entries, skipped } = taxiParseDatedText(text);
+          if(!entries.length){ alert('No dated lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
+          const total = entries.reduce((s, e) => s + carNum(e.amount), 0);
+          const lines = entries.slice(0, 12).map(e => `${e.date}  ${e.desc}  →  €${e.amount}`).join('\n') + (entries.length > 12 ? `\n… and ${entries.length - 12} more` : '');
+          if(confirm(`Add these ${entries.length} expenses to Other expenses (total ${carMoney(total)})?\n\n${lines}${skipped ? `\n\n(${skipped} other lines were skipped)` : ''}\n\nCheck the total against your picture. The picture itself is not saved.`)){
+            tx.otherExpenses.push(...entries); saveTasks(); redraw();
+          }
+        }catch(err){ alert('Could not read the picture: ' + (err && err.message ? err.message : err)); }
+        finally{ imp.disabled = false; st.textContent = ''; }
+      };
+      bb.append(imp, inF, st);
+    }
     bc.appendChild(bb); rest.appendChild(bc);
   };
   dated('otherExpenses', 'Other expenses', '');

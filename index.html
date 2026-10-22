@@ -5239,6 +5239,8 @@ function renderCarsPanel(cur){
 }
 
 /* --- taxi management sections: tab.taxi = { days: { 'YYYY-MM-DD': { trips: [{ id, desc, amount }], expenses: [{ id, desc, amount }], settled } }, otherExpenses: [{ id, date, desc, amount }] } --- */
+// imported descriptions get a capital first letter on every word ("ermou card" → "Ermou Card"); the rest of each word is left as typed (LCE stays LCE)
+const txTitle = (s) => String(s || '').replace(/(^|[\s(\/\-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 let taxiScrollKeep = 0;
 const taxiDayView = {};   // section id -> true while a single day is open (not saved; the calendar is the starting view)
 const txKey = (y, m0, d) => y + '-' + String(m0 + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
@@ -5322,9 +5324,9 @@ function taxiParseSheet(sh){
     if(!stats.first || key < stats.first) stats.first = key;
     if(!stats.last || key > stats.last) stats.last = key;
     let any = false;
-    if(exp !== null){ day(key).entries.push({ id: carUid(), kind: 'expense', desc, amount: String(exp) }); stats.expenses++; any = true; }
-    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc, amount: String(Math.round(rev * 100 / (parseFloat(tx.cutPct) || 60) * 100) / 100) }); stats.trips++; any = true; }
-    if(!any && desc){ day(key).entries.push({ id: carUid(), kind: 'trip', desc, amount: '' }); stats.trips++; }
+    if(exp !== null){ day(key).entries.push({ id: carUid(), kind: 'expense', desc: txTitle(desc), amount: String(exp) }); stats.expenses++; any = true; }
+    if(rev !== null){ day(key).entries.push({ id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc: txTitle(desc), amount: String(Math.round(rev * 100 / (parseFloat(tx.cutPct) || 60) * 100) / 100) }); stats.trips++; any = true; }
+    if(!any && desc){ day(key).entries.push({ id: carUid(), kind: 'trip', desc: txTitle(desc), amount: '' }); stats.trips++; }
   }
   stats.days = Object.keys(days).length;
   shell.forEach(e => { e.id = carUid(); e.date = stats.last || ''; e.desc = 'Shell payable (imported)'; });
@@ -5368,8 +5370,8 @@ function taxiParsePictureText(text, cutPct){
     const m = /(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur(?:os?)?)?\s*$/i.exec(line);
     if(!m || !/[A-Za-z]{2}/.test(line)){ skipped++; return; }
     const n = parseFloat(m[1].replace(',', '.'));
-    if(EXP.test(line)) entries.push({ id: carUid(), kind: 'expense', desc: line, amount: String(n) });
-    else entries.push({ id: carUid(), kind: 'trip', card: /\bcard\b/i.test(line), desc: line, amount: String(n) });
+    if(EXP.test(line)) entries.push({ id: carUid(), kind: 'expense', desc: txTitle(line), amount: String(n) });
+    else entries.push({ id: carUid(), kind: 'trip', card: /\bcard\b/i.test(line), desc: txTitle(line), amount: String(n) });
   });
   return { entries, skipped };
 }
@@ -5395,7 +5397,7 @@ function taxiParseNotes(text, defaultKey){
     if(amt !== null && (desc.replace(/[^A-Za-z .'()&\/-]/g, '').length < desc.length * 0.85 || /\b(english|gif)\b/i.test(desc))) amt = null;   // keyboard / status-bar text in a screenshot, not a trip
     if(amt === null){ skipped++; return; }
     const n = String(parseFloat(amt.replace(',', '.')));
-    const e = (neg || EXP.test(desc)) ? { id: carUid(), kind: 'expense', desc: desc.trim(), amount: n } : { id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc: desc.trim(), amount: n };
+    const e = (neg || EXP.test(desc)) ? { id: carUid(), kind: 'expense', desc: txTitle(desc.trim()), amount: n } : { id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc: txTitle(desc.trim()), amount: n };
     if(!byDay[cur]){ byDay[cur] = []; order.push(cur); }
     byDay[cur].push(e);
   });
@@ -5409,7 +5411,7 @@ function taxiParseDatedText(text){
     let amt = m[5]; amt = /^\d+,\d{2}$/.test(amt) ? amt.replace(',', '.') : amt.replace(/,/g, '');
     const y = m[3].length === 2 ? '20' + m[3] : m[3], mo = +m[2], da = +m[1];
     if(mo < 1 || mo > 12 || da < 1 || da > 31){ skipped++; return; }
-    out.push({ id: carUid(), date: y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'), desc: m[4].replace(/[€£]\s*$/, '').trim(), amount: amt });
+    out.push({ id: carUid(), date: y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'), desc: txTitle(m[4].replace(/[€£]\s*$/, '').trim()), amount: amt });
   });
   return { entries: out, skipped };
 }

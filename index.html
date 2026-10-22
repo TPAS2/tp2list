@@ -1266,6 +1266,8 @@
   .tx-dow{ text-align: center; font-size: 0.64rem; color: var(--text-dim); letter-spacing: .06em; text-transform: uppercase; padding: 2px 0; }
   .tx-day{ display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; min-height: 46px; padding: 4px 2px; border: 0; border-radius: 9px; background: var(--fill); color: var(--text); font: inherit; font-size: 0.82rem; cursor: pointer; }
   .tx-day small{ font-size: 0.64rem; color: var(--text-dim); min-height: 0.8em; }
+  .tx-day{ position: relative; }
+  .tx-day.nodiesel::before{ content: ''; position: absolute; left: 0; top: 5px; bottom: 5px; width: 4px; border-radius: 2px; background: #e5484d; }   /* a diesel line with no amount */
   .tx-day.open{ background: rgba(255,170,0,.22); }
   .tx-day.settled{ background: rgba(40,200,120,.22); }
   .tx-day.today span{ font-weight: 800; text-decoration: underline; }
@@ -5301,6 +5303,7 @@ const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 
 // a day is one ordered list of entries, each a trip (income) or an expense, so an expense can sit between the trips it happened between
 let txPct = 60;   // share of each fare kept (tab.taxi.cutPct); trips without `cut` store the full fare and count at this share
 const txShare = (e) => carNum(e.amount) * txPct / 100;   // a trip's amount is always the full fare; profit is the cut of it
+const txDieselNoAmount = (d) => !!d && (d.entries || []).some(e => /diesel/i.test(e.desc || '') && !carNum(e.amount));   // a diesel line with no number (empty or 0): flagged with a red stripe on the calendar
 const txInc = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txShare(e), 0) : 0;
 // card trips: the customer paid you by card, so you hold the whole fare and owe him the other (100 − cut)% until the day is settled
 const txIsCard = (e) => e.kind !== 'expense' && !!e.card;
@@ -5555,7 +5558,7 @@ function renderTaxiPanel(cur){
     const b = cells[key]; if(!b) return;
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
-    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey);
+    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.classList.toggle('nodiesel', txDieselNoAmount(d));
     b.querySelector('small').textContent = (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){
@@ -5608,7 +5611,7 @@ function renderTaxiPanel(cur){
     kind.value = item.kind === 'expense' ? 'expense' : 'trip';
     kind.addEventListener('change', () => { item.kind = kind.value; row.classList.toggle('is-exp', item.kind === 'expense'); paintDay(key); updateAll(); saveTasks(); });
     const d = el('input'); d.type = 'text'; d.placeholder = item.kind === 'expense' ? 'What for (fuel, tolls…)' : 'Trip (route, passenger…)'; d.value = item.desc || ''; d.autocomplete = 'off';
-    d.addEventListener('input', () => { item.desc = d.value; if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } save(); });
+    d.addEventListener('input', () => { item.desc = d.value; if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } paintDay(key); save(); });
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
     const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe him his share';
     const bank = el('input', 'tx-bank'); bank.type = 'checkbox'; bank.checked = !!item.banked; bank.title = 'Tick when this card payment has reached your bank';

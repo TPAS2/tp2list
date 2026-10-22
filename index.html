@@ -7385,6 +7385,31 @@ document.addEventListener('touchend', (e) => {
   }
   lastTouchEnd = now;
 }, { passive: false });
+
+/* the pages keep 90px of empty room at the bottom (so the "Saved" pill never covers the last item), but that room must not
+   create a scrollbar when everything already fits: use only as much bottom room as fits, and the full 90px once the page really scrolls */
+(function(){
+  const fit = (p) => {
+    if(!p.clientHeight) return;   // hidden / not laid out
+    const room = p.clientHeight;
+    p.style.paddingBottom = '0px'; p.style.height = 'max-content';   // natural height of the content (scrollHeight can't be smaller than the page)
+    const need = p.offsetHeight;
+    p.style.height = '';
+    p.style.paddingBottom = need + 90 <= room ? '' : need <= room ? (room - need) + 'px' : '';
+  };
+  const pageEls = () => document.querySelectorAll('.page-columns .page');
+  let queued = false;
+  const all = () => { queued = false; pageEls().forEach(fit); };
+  const queue = () => { if(!queued){ queued = true; setTimeout(all, 40); } };
+  const ro = window.ResizeObserver ? new ResizeObserver(queue) : null;   // a block growing / shrinking (notes box, drop-down opening) changes the page height
+  const watch = (p) => { if(ro){ ro.observe(p); Array.from(p.children).forEach(c => ro.observe(c)); } };
+  const mo = new MutationObserver(() => { pageEls().forEach(watch); queue(); });
+  pageEls().forEach(p => { watch(p); mo.observe(p, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden'] }); });
+  window.addEventListener('resize', queue);
+  window.addEventListener('load', queue);
+  document.addEventListener('input', queue, true);
+  queue();
+})();
 </script>
 </body>
 </html>

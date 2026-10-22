@@ -4925,7 +4925,7 @@ function sheetInsertLines(sh, axis, at, n, src){   // src (optional): the row / 
   const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
   const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o) out[key(k)] = o[k]; return out; };
   const num = (o) => { if(!o) return o; const out = {}; for(const k in o) out[map(+k)] = o[k]; return out; };
-  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(?<!!\$?[A-Z]{1,3}\$?\d+:)(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
+  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(?<!!\$?[A-Za-z]{1,3}\$?\d+:)(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?::(\$?)([A-Za-z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
     const one = (c, r) => axis === 'r' ? [c, map(+r)] : [colName(map(colFromLetters(c))), r];
     const [ca, ra] = one(c1, r1);
     if(c2 === undefined) return d1 + ca + d2 + ra;
@@ -4964,7 +4964,7 @@ function sheetDeleteLines(sh, axis, from, to){
   const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? map(p.r) : map(p.c)) === null ? null : (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
   const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o){ const nk = key(k); if(nk !== null) out[nk] = o[k]; } return out; };
   const num = (o) => { if(!o) return o; const out = {}; for(const k in o){ const nk = map(+k); if(nk !== null) out[nk] = o[k]; } return out; };
-  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(?<!!\$?[A-Z]{1,3}\$?\d+:)(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
+  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(?<!!\$?[A-Za-z]{1,3}\$?\d+:)(\$?)([A-Za-z]{1,3})(\$?)(\d+)(?::(\$?)([A-Za-z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
     const one = (c, r, isEnd) => { const ci = colFromLetters(c), ri = +r; const v = axis === 'r' ? mapEdge(ri, isEnd) : mapEdge(ci, isEnd); return v; };
     if(c2 === undefined){
       const v = axis === 'r' ? map(+r1) : map(colFromLetters(c1));
@@ -5882,7 +5882,7 @@ function renderBizPanel(cur){
   // rows and columns
   const bar = mk('div', 'sheet-bar');
   const btn = (text, fn, disabled) => { const b = mk('button', null, text); b.type = 'button'; b.disabled = !!disabled; b.onclick = fn; bar.appendChild(b); };
-  btn('+ Row', () => { sh.rows = Math.min(SHEET_MAX_ROWS, sh.rows + 1); redrawKeep(); saveTasks(); }, sh.rows >= SHEET_MAX_ROWS);
+  btn('+ Row', () => { if(sh.rows < SHEET_MAX_ROWS) sheetInsertLines(sh, 'r', sh.rows + 1, 1, sh.rows); redrawKeep(); saveTasks(); }, sh.rows >= SHEET_MAX_ROWS);
   btn('− Row', () => { if(confirm('Remove the last row?')){ for(let c = 0; c < sh.cols; c++){ delete sh.cells[colName(c) + sh.rows]; if(sh.fmt) delete sh.fmt[colName(c) + sh.rows]; } sh.rows = Math.max(1, sh.rows - 1); redrawKeep(); saveTasks(); } }, sh.rows <= 1);
   btn('+ Column', () => { sh.cols = Math.min(SHEET_MAX_COLS, sh.cols + 1); redrawKeep(); saveTasks(); }, sh.cols >= SHEET_MAX_COLS);
   btn('− Column', () => { if(confirm('Remove the last column?')){ for(let r = 1; r <= sh.rows; r++){ delete sh.cells[colName(sh.cols - 1) + r]; if(sh.fmt) delete sh.fmt[colName(sh.cols - 1) + r]; } sh.cols = Math.max(1, sh.cols - 1); redrawKeep(); saveTasks(); } }, sh.cols <= 1);
@@ -6560,7 +6560,7 @@ function renderBizPanel(cur){
     }
     if(rl){
       item(`Row ${label(rl, String)} height…`, () => { const n = ask('Row height', rowTh[rl[0]].offsetHeight, 24, 400); if(n) rl.forEach(k => setRowH(k, n)); saveTasks(); });
-      item('Insert rows above…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[0], n, rl[0]); });
+      item('Insert rows above…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[0], n, rl[0] > 1 ? rl[0] - 1 : rl[0]); });
       item('Insert rows below…', () => { const n = askCount('rows', rl.length, SHEET_MAX_ROWS - sh.rows); if(n) insLines('r', rl[rl.length - 1] + 1, n, rl[rl.length - 1]); });
       item(`Delete row${rl.length === 1 ? '' : 's'} ${label(rl, String)}`, () => delLines('r', rl));
       item('Fit row to data', () => { rl.forEach(k => fitRow(k)); saveTasks(); });

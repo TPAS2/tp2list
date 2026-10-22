@@ -5382,7 +5382,7 @@ function taxiParsePictureText(text, cutPct){
 function taxiParseNotes(text, defaultKey){
   const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
   const year = +defaultKey.slice(0, 4);
-  const byDay = {}, order = []; let skipped = 0, cur = defaultKey;
+  const byDay = {}, order = []; let skipped = 0, zeros = 0, cur = defaultKey;
   String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/[–−—]/g, '-').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
     const dm = /^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?$/.exec(line);
     if(dm){   // date-only line
@@ -5390,23 +5390,25 @@ function taxiParseNotes(text, defaultKey){
       if(mo >= 1 && mo <= 12 && da >= 1 && da <= 31){ const y = dm[3] ? (dm[3].length === 2 ? 2000 + +dm[3] : +dm[3]) : year; cur = y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'); }
       return;
     }
-    let amt = null, desc = '', neg = false, m;
+    let amt = null, desc = '', neg = false, m, zero = false;
     if((m = /^(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s+(.*[A-Za-z].*)$/.exec(line))){ neg = !!m[1]; amt = m[2]; desc = m[3]; }
     else if((m = /^(.*[A-Za-z].*?)\s+(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s*€?$/.exec(line))){ desc = m[1]; neg = !!m[2]; amt = m[3]; }
-    else if(EXP.test(line) && /[A-Za-z]{3}/.test(line)){ desc = line.replace(/^-\s*/, ''); amt = '0'; neg = true; }   // "diesel" with nothing next to it: keep it, at 0
+    else if(/[A-Za-z]{2}/.test(line)){ desc = line.replace(/^-\s*/, ''); amt = '0'; neg = EXP.test(line); zero = true; }   // a line with no amount is kept, in order, at 0
     if(amt !== null && (desc.replace(/[^A-Za-z .'()&\/-]/g, '').length < desc.length * 0.85 || /\b(english|gif)\b/i.test(desc))) amt = null;   // keyboard / status-bar text in a screenshot, not a trip
     if(amt === null){ skipped++; return; }
+    if(zero) zeros++;
     const n = String(parseFloat(amt.replace(',', '.')));
     const e = (neg || EXP.test(desc)) ? { id: carUid(), kind: 'expense', desc: txTitle(desc.trim()), amount: n } : { id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc: txTitle(desc.trim()), amount: n };
     if(!byDay[cur]){ byDay[cur] = []; order.push(cur); }
     byDay[cur].push(e);
   });
-  return { byDay, order, count: order.reduce((s, k) => s + byDay[k].length, 0), skipped };
+  return { byDay, order, count: order.reduce((s, k) => s + byDay[k].length, 0), skipped, zeros };
 }
 function taxiParseDatedText(text){
   const out = []; let skipped = 0;
   String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
-    const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*?)\s*[€£]?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*$/.exec(line);
+    let m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*?)\s*[€£]?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*$/.exec(line);
+    if(!m){ const d0 = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*[A-Za-z]{2}.*)$/.exec(line); if(d0) m = [d0[0], d0[1], d0[2], d0[3], d0[4], '0']; }   // a dated line with no amount is kept at 0
     if(!m || !/[A-Za-z]{2}/.test(m[4]) || /^total$/i.test(m[4].trim())){ skipped++; return; }
     let amt = m[5]; amt = /^\d+,\d{2}$/.test(amt) ? amt.replace(',', '.') : amt.replace(/,/g, '');
     const y = m[3].length === 2 ? '20' + m[3] : m[3], mo = +m[2], da = +m[1];
@@ -5612,7 +5614,7 @@ function renderTaxiPanel(cur){
       const lines = []; let shown = 0;
       for(const k of res.order){ lines.push(nice(k) + ':'); for(const e of res.byDay[k]){ if(shown++ < 25) lines.push(`  ${e.kind === 'expense' ? 'Expense' : e.card ? 'Card trip' : 'Trip'}: ${e.desc}  →  €${e.amount}`); } }
       if(shown > 25) lines.push(`  … and ${shown - 25} more`);
-      if(confirm(`Add these ${res.count} lines${res.order.length > 1 ? ' to ' + res.order.length + ' days' : ' to ' + nice(res.order[0])}?\n\n${lines.join('\n')}${res.skipped ? `\n\n(${res.skipped} lines without an amount were skipped)` : ''}\n\nThe pictures themselves are not saved. You can edit or delete any line afterwards.`)){
+      if(confirm(`Add these ${res.count} lines${res.order.length > 1 ? ' to ' + res.order.length + ' days' : ' to ' + nice(res.order[0])}?\n\n${lines.join('\n')}${res.zeros ? `\n\n(${res.zeros} lines had no amount and were added as €0)` : ''}${res.skipped ? `\n(${res.skipped} symbol-only lines were skipped)` : ''}\n\nThe pictures themselves are not saved. You can edit or delete any line afterwards.`)){
         for(const k of res.order){ dayOf(k, true).entries.push(...res.byDay[k]); }
         saveTasks(); redraw();
       }

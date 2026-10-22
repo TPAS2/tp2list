@@ -1287,6 +1287,7 @@
   .tx-settle{ background: var(--panel-solid); color: var(--text-dim); border: 0; border-radius: 999px; font: inherit; font-size: 0.74rem; padding: 4px 11px; cursor: pointer; white-space: nowrap; }
   .tx-settle.on{ background: rgba(40,200,120,.25); color: var(--text); font-weight: 700; }
   .tx-daycard .car-head{ cursor: default; }
+  @media (max-width: 480px){ .tx-daycard .car-head{ flex-wrap: wrap; } .tx-daycard .car-name{ flex-basis: 100%; } }   /* phones: the date gets its own line so it isn't cut off */
   .car-body .car-exp input.tx-date{ width: 128px; flex: none; }
   @media (max-width: 520px){ .tx-day{ min-height: 40px; } .car-body .car-exp input.tx-date{ width: 112px; } .tx-oexp{ flex-wrap: wrap; } }
   .pick-banner{ display: flex; align-items: center; gap: 10px; margin-bottom: 8px; padding: 6px 10px; border-radius: 8px; background: rgba(34,224,255,.14); border: 1px dashed var(--accent2); font-size: 0.8rem; }
@@ -5583,7 +5584,16 @@ function renderTaxiPanel(cur){
   const settleBtn = el('button', 'tx-settle'); settleBtn.type = 'button';
   const paintSettle = () => { const d = tx.days[key]; const on = !!(d && d.settled); settleBtn.textContent = on ? '✓ Settled' : 'Not settled'; settleBtn.classList.toggle('on', on); };
   settleBtn.onclick = () => { const d = dayOf(key, true); d.settled = !d.settled; paintSettle(); paintDay(key); updateAll(); saveTasks(); };
-  head.append(title, settleBtn); card.appendChild(head);
+  const prevBtn = el('button', 'tx-settle', 'Settle all previous'); prevBtn.type = 'button';   // every earlier day (before the open one) that has entries and isn't settled yet
+  prevBtn.onclick = () => {
+    const open = Object.keys(tx.days).filter(k => /^\d{4}-\d{2}-\d{2}$/.test(k) && k < key).filter(k => { const d = dayOf(k, false); return d && d.entries.length && !d.settled; });
+    if(!open.length){ alert('Every earlier day with entries is already settled.'); return; }
+    if(!confirm(`Mark ${open.length} earlier day${open.length > 1 ? 's' : ''} (everything before ${title.textContent}) as settled? (A safety copy is kept.)`)) return;
+    takeSafetyCopy('before settle all');
+    open.forEach(k => { dayOf(k, false).settled = true; });
+    updateAll(); saveTasks(); redraw();
+  };
+  head.append(title, prevBtn, settleBtn); card.appendChild(head);
   const body = el('div', 'car-body');
   const sumBox = el('div', 'car-sum');
   const sTrips = el('b'), sExp = el('b'), sProfit = el('b'), sCard = el('b'), sCash = el('b'), sShare = el('b'), sCardShare = el('b');

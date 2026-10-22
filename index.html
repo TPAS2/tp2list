@@ -5625,6 +5625,15 @@ function renderTaxiPanel(cur){
       saveTasks(); redraw();
     };
     paintOth(); kind.addEventListener('change', paintOth);
+    const shB = el('button', 'tx-card tx-oth'); shB.type = 'button';   // same idea for the Shell payable table (item.shellId)
+    const paintSh = () => { const inS = !!item.shellId && tx.shell.some(o => o.id === item.shellId); shB.textContent = inS ? '✓ In Shell payable' : '+ Shell payable'; shB.classList.toggle('on', inS); shB.style.display = item.kind === 'expense' ? '' : 'none'; shB.title = 'Also list this expense in the Shell payable table (all time), dated this day'; };
+    shB.onclick = () => {
+      const at = tx.shell.findIndex(o => o.id === item.shellId);
+      if(at >= 0){ tx.shell.splice(at, 1); item.shellId = null; }
+      else { const o = { id: carUid(), date: key, desc: item.desc || '', amount: item.amount || '' }; tx.shell.push(o); item.shellId = o.id; }
+      saveTasks(); redraw();
+    };
+    paintSh(); kind.addEventListener('change', paintSh);
     const hint = el('span', 'tx-share');
     const paintHint = () => { hint.textContent = item.kind !== 'expense' && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
     paintHint(); a.title = 'Trips: type the full fare, ' + txPct + '% counts as your profit';
@@ -5650,7 +5659,7 @@ function renderTaxiPanel(cur){
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     });
     row.dataset.id = item.id;
-    row.append(grip, kind, d, a, cardB, bank, othB, hint, x); list.appendChild(row);
+    row.append(grip, kind, d, a, cardB, bank, othB, shB, hint, x); list.appendChild(row);
   });
   body.appendChild(list);
   const adds = el('div', 'tx-adds');

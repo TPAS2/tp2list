@@ -5375,6 +5375,32 @@ function taxiParsePictureText(text, cutPct){
 }
 
 // lines like "12/01/2026  FynxPath GPS  €86.98" (a dated table, e.g. a screenshot of an expenses sheet) → dated entries; Total / header rows are skipped
+// a notes-app screenshot: a date line ("21/10") starts a day, then lines like "20 san remo" (amount first), "-80 diesel" (minus = expense) or "26 ermou card" (card trip); "Name 75" (amount last) works too.
+// An expense word with no number ("diesel") is still added, at 0. Lines before any date line go to defaultKey. Returns the entries grouped by day, in order.
+function taxiParseNotes(text, defaultKey){
+  const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
+  const year = +defaultKey.slice(0, 4);
+  const byDay = {}, order = []; let skipped = 0, cur = defaultKey;
+  String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/[–−—]/g, '-').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
+    const dm = /^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?$/.exec(line);
+    if(dm){   // date-only line
+      const da = +dm[1], mo = +dm[2];
+      if(mo >= 1 && mo <= 12 && da >= 1 && da <= 31){ const y = dm[3] ? (dm[3].length === 2 ? 2000 + +dm[3] : +dm[3]) : year; cur = y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'); }
+      return;
+    }
+    let amt = null, desc = '', neg = false, m;
+    if((m = /^(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s+(.*[A-Za-z].*)$/.exec(line))){ neg = !!m[1]; amt = m[2]; desc = m[3]; }
+    else if((m = /^(.*[A-Za-z].*?)\s+(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s*€?$/.exec(line))){ desc = m[1]; neg = !!m[2]; amt = m[3]; }
+    else if(EXP.test(line) && /[A-Za-z]{3}/.test(line)){ desc = line.replace(/^-\s*/, ''); amt = '0'; neg = true; }   // "diesel" with nothing next to it: keep it, at 0
+    if(amt !== null && (desc.replace(/[^A-Za-z .'()&\/-]/g, '').length < desc.length * 0.85 || /\b(english|gif)\b/i.test(desc))) amt = null;   // keyboard / status-bar text in a screenshot, not a trip
+    if(amt === null){ skipped++; return; }
+    const n = String(parseFloat(amt.replace(',', '.')));
+    const e = (neg || EXP.test(desc)) ? { id: carUid(), kind: 'expense', desc: desc.trim(), amount: n } : { id: carUid(), kind: 'trip', card: /\bcard\b/i.test(desc), desc: desc.trim(), amount: n };
+    if(!byDay[cur]){ byDay[cur] = []; order.push(cur); }
+    byDay[cur].push(e);
+  });
+  return { byDay, order, count: order.reduce((s, k) => s + byDay[k].length, 0), skipped };
+}
 function taxiParseDatedText(text){
   const out = []; let skipped = 0;
   String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
@@ -5564,21 +5590,29 @@ function renderTaxiPanel(cur){
       const rows = bizPanelEl.querySelectorAll('.tx-daycard .tx-entry'); const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
     adds.appendChild(add);
   });
-  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read the text in a picture and add it to this day (the picture is not saved)';
-  const picIn = el('input'); picIn.type = 'file'; picIn.accept = 'image/*'; picIn.hidden = true;
+  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read one or more pictures (e.g. a screenshot of your notes) and add the lines; a date line like 21/10 starts a new day (pictures are not saved)';
+  const picIn = el('input'); picIn.type = 'file'; picIn.accept = 'image/*'; picIn.multiple = true; picIn.hidden = true;
   const picStatus = el('span', 'tx-ocr-status');
   pic.onclick = () => picIn.click();
   picIn.onchange = async () => {
-    const f = picIn.files[0]; picIn.value = ''; if(!f) return;
-    pic.disabled = true; picStatus.textContent = 'Reading the picture…';
+    const files = [...picIn.files]; picIn.value = ''; if(!files.length) return;
+    pic.disabled = true;
     try{
-      const text = await ocrReadPicture(f, (pr, st) => { picStatus.textContent = pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (st || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'; });
-      const cut = tx.cutPct || 60;
-      const { entries, skipped } = taxiParsePictureText(text, cut);
-      if(!entries.length){ alert('No lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
-      const lines = entries.slice(0, 15).map(e => `${e.kind === 'expense' ? 'Expense' : 'Trip'}: ${e.desc}  →  €${e.amount}`).join('\n') + (entries.length > 15 ? `\n… and ${entries.length - 15} more` : '');
-      if(confirm(`Add these ${entries.length} lines to ${title.textContent}?\n\n${lines}${skipped ? `\n\n(${skipped} lines without an amount were skipped)` : ''}\n\nThe picture itself is not saved. You can edit or delete any line afterwards.`)){
-        const dd = dayOf(key, true); dd.entries.push(...entries); saveTasks(); redraw();
+      let text = '';
+      for(let i = 0; i < files.length; i++){   // several pictures in a row: their text is joined, so a day carries on into the next picture
+        const tag = files.length > 1 ? `Picture ${i + 1} of ${files.length}: ` : '';
+        picStatus.textContent = tag + 'Reading the picture…';
+        text += (await ocrReadPicture(files[i], (pr, st) => { picStatus.textContent = tag + (pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (st || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'); })) + '\n';
+      }
+      const res = taxiParseNotes(text, key);
+      if(!res.count){ alert('No lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
+      const nice = (k) => new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+      const lines = []; let shown = 0;
+      for(const k of res.order){ lines.push(nice(k) + ':'); for(const e of res.byDay[k]){ if(shown++ < 25) lines.push(`  ${e.kind === 'expense' ? 'Expense' : e.card ? 'Card trip' : 'Trip'}: ${e.desc}  →  €${e.amount}`); } }
+      if(shown > 25) lines.push(`  … and ${shown - 25} more`);
+      if(confirm(`Add these ${res.count} lines${res.order.length > 1 ? ' to ' + res.order.length + ' days' : ' to ' + nice(res.order[0])}?\n\n${lines.join('\n')}${res.skipped ? `\n\n(${res.skipped} lines without an amount were skipped)` : ''}\n\nThe pictures themselves are not saved. You can edit or delete any line afterwards.`)){
+        for(const k of res.order){ dayOf(k, true).entries.push(...res.byDay[k]); }
+        saveTasks(); redraw();
       }
     }catch(err){ alert('Could not read the picture: ' + (err && err.message ? err.message : err)); }
     finally{ pic.disabled = false; picStatus.textContent = ''; }

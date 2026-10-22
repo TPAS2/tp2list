@@ -5379,13 +5379,14 @@ function taxiParsePictureText(text, cutPct){
 // lines like "12/01/2026  FynxPath GPS  €86.98" (a dated table, e.g. a screenshot of an expenses sheet) → dated entries; Total / header rows are skipped
 // a notes-app screenshot: a date line ("21/10") starts a day, then lines like "20 san remo" (amount first), "-80 diesel" (minus = expense) or "26 ermou card" (card trip); "Name 75" (amount last) works too.
 // An expense word with no number ("diesel") is still added, at 0. Lines before any date line go to defaultKey. Returns the entries grouped by day, in order.
-function taxiParseNotes(text, defaultKey){
+function taxiParseNotes(text, defaultKey, ignoreDates){
   const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
   const year = +defaultKey.slice(0, 4);
   const byDay = {}, order = []; let skipped = 0, zeros = 0, cur = defaultKey;
   String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/[–−—]/g, '-').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
     const dm = /^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?$/.exec(line);
-    if(dm){   // date-only line
+    if(dm){   // date-only line (skipped when ignoreDates: everything goes to defaultKey)
+      if(ignoreDates) return;
       const da = +dm[1], mo = +dm[2];
       if(mo >= 1 && mo <= 12 && da >= 1 && da <= 31){ const y = dm[3] ? (dm[3].length === 2 ? 2000 + +dm[3] : +dm[3]) : year; cur = y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'); }
       return;
@@ -5393,7 +5394,10 @@ function taxiParseNotes(text, defaultKey){
     let amt = null, desc = '', neg = false, m, zero = false;
     if((m = /^(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s+(.*[A-Za-z].*)$/.exec(line))){ neg = !!m[1]; amt = m[2]; desc = m[3]; }
     else if((m = /^(.*[A-Za-z].*?)\s+(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s*€?$/.exec(line))){ desc = m[1]; neg = !!m[2]; amt = m[3]; }
-    else if(/[A-Za-z]{2}/.test(line)){ desc = line.replace(/^-\s*/, ''); amt = '0'; neg = EXP.test(line); zero = true; }   // a line with no amount is kept, in order, at 0
+    else {   // a line with no amount is kept, in order, at 0, but only if it reads like a real note (no symbols, mostly proper words): screenshot status bars and keyboards are junk
+      const plain = line.replace(/^-\s*/, ''), words = plain.split(/\s+/);
+      if(/^[A-Za-z .'()&\/-]+$/.test(plain) && words.filter(w => w.replace(/[^A-Za-z]/g, '').length >= 3).length * 2 >= words.length && !/qwerty|asdf|zxcv|english|\bgif\b/i.test(plain)){ desc = plain; amt = '0'; neg = EXP.test(plain); zero = true; }
+    }
     if(amt !== null && (desc.replace(/[^A-Za-z .'()&\/-]/g, '').length < desc.length * 0.85 || /\b(english|gif)\b/i.test(desc))) amt = null;   // keyboard / status-bar text in a screenshot, not a trip
     if(amt === null){ skipped++; return; }
     if(zero) zeros++;
@@ -5594,7 +5598,7 @@ function renderTaxiPanel(cur){
       const rows = bizPanelEl.querySelectorAll('.tx-daycard .tx-entry'); const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
     adds.appendChild(add);
   });
-  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read one or more pictures (e.g. a screenshot of your notes) and add the lines; a date line like 21/10 starts a new day (pictures are not saved)';
+  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read one or more pictures (e.g. a screenshot of your notes) and add the lines; dates in the picture are ignored: everything goes to this day (pictures are not saved)';
   const picIn = el('input'); picIn.type = 'file'; picIn.accept = 'image/*'; picIn.multiple = true; picIn.hidden = true;
   const picStatus = el('span', 'tx-ocr-status');
   pic.onclick = () => picIn.click();
@@ -5608,7 +5612,7 @@ function renderTaxiPanel(cur){
         picStatus.textContent = tag + 'Reading the picture…';
         text += (await ocrReadPicture(files[i], (pr, st) => { picStatus.textContent = tag + (pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (st || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'); })) + '\n';
       }
-      const res = taxiParseNotes(text, key);
+      const res = taxiParseNotes(text, key, true);   // everything goes to the open day, whatever dates the picture shows
       if(!res.count){ alert('No lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
       const nice = (k) => new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
       const lines = []; let shown = 0;

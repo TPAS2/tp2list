@@ -4871,13 +4871,61 @@ function sheetFormatNumber(text, nf){
   return (n < 0 ? '-' : '') + fmt(n, 2);
 }
 
+// formulas in the Business sections that point at another section by name ('Section 2'!B3, Sheet2!A1:B4) have to follow it when that
+// section gets rows / columns inserted or deleted, or is renamed (the section's own formulas are fixed by sheetInsertLines / sheetDeleteLines)
+function sheetNameRe(name){
+  const esc = String(name).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return '(?<![A-Za-z0-9_.\'])(?:\'' + esc.replace(/'/g, "''") + '\'|' + esc + ')!';
+}
+function sheetFormulaEach(f, fn){ return f.split('"').map((seg, i) => i % 2 ? seg : fn(seg)).join('"'); }   // skips text inside "quotes"
+function sheetFixOtherRefs(sh, axis, pt, edge){   // pt(i): new index of a single cell (null = deleted); edge(i, isEnd): new index of a range edge
+  const tabs = (typeof data !== 'undefined' && data.businessTabs || []).filter(t => t.sheet);
+  const owner = tabs.find(t => t.sheet === sh);
+  if(!owner || !String(owner.name || '').trim()) return;
+  const re = new RegExp('(' + sheetNameRe(owner.name) + ')(\\$?)([A-Za-z]{1,3})(\\$?)(\\d+)(?::(\\$?)([A-Za-z]{1,3})(\\$?)(\\d+))?(?![A-Za-z0-9_(])', 'gi');
+  const idx = (c, r) => axis === 'r' ? +r : colFromLetters(c.toUpperCase());
+  const put = (v, c, r) => axis === 'r' ? [c, v] : [colName(v), r];
+  for(const t of tabs){
+    const cells = t.sheet.cells;
+    for(const k in cells){
+      const raw = cells[k];
+      if(typeof raw !== 'string' || raw[0] !== '=' || raw.indexOf('!') < 0) continue;
+      cells[k] = sheetFormulaEach(raw, (seg) => seg.replace(re, (m, pre, d1, c1, d2, r1, d3, c2, d4, r2) => {
+        if(c2 === undefined){
+          const v = pt(idx(c1, r1));
+          if(v === null) return '#REF!';
+          const [c, r] = put(v, c1, r1);
+          return pre + d1 + c + d2 + r;
+        }
+        const a = edge(idx(c1, r1), false), b = edge(idx(c2, r2), true);
+        if(b < a || b < (axis === 'r' ? 1 : 0)) return '#REF!';
+        const [ca, ra] = put(a, c1, r1), [cb, rb] = put(b, c2, r2);
+        return pre + d1 + ca + d2 + ra + ':' + d3 + cb + d4 + rb;
+      }));
+    }
+  }
+}
+function sheetRenameRefs(oldName, newName){   // after a section is renamed: other sections' formulas use the new name
+  const o = String(oldName || '').trim(), n = String(newName || '').trim();
+  if(!o || !n || o === n) return;
+  const re = new RegExp(sheetNameRe(o), 'gi');
+  const to = "'" + n.replace(/'/g, "''") + "'!";
+  for(const t of (typeof data !== 'undefined' && data.businessTabs || [])){
+    if(!t.sheet) continue;
+    for(const k in t.sheet.cells){
+      const raw = t.sheet.cells[k];
+      if(typeof raw === 'string' && raw[0] === '=' && raw.indexOf('!') >= 0) t.sheet.cells[k] = sheetFormulaEach(raw, (seg) => seg.replace(re, () => to));
+    }
+  }
+}
+
 // insert n blank rows (axis 'r', 1-based) or columns (axis 'c', 0-based) before index `at`; everything from there on shifts down / right
 function sheetInsertLines(sh, axis, at, n, src){   // src (optional): the row / column the new lines should copy their formatting and size from
   const map = (i) => i >= at ? i + n : i;
   const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
   const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o) out[key(k)] = o[k]; return out; };
   const num = (o) => { if(!o) return o; const out = {}; for(const k in o) out[map(+k)] = o[k]; return out; };
-  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
+  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(?<!!\$?[A-Z]{1,3}\$?\d+:)(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
     const one = (c, r) => axis === 'r' ? [c, map(+r)] : [colName(map(colFromLetters(c))), r];
     const [ca, ra] = one(c1, r1);
     if(c2 === undefined) return d1 + ca + d2 + ra;
@@ -4905,6 +4953,7 @@ function sheetInsertLines(sh, axis, at, n, src){   // src (optional): the row / 
       }
     }
   }
+  sheetFixOtherRefs(sh, axis, map, map);   // other sections that point at this one
 }
 
 // delete rows (axis 'r', 1-based) or columns (axis 'c', 0-based) from..to inclusive; everything after shifts up/left, like Google Sheets
@@ -4915,7 +4964,7 @@ function sheetDeleteLines(sh, axis, from, to){
   const key = (ref) => { const p = refParts(ref); return p ? (axis === 'r' ? map(p.r) : map(p.c)) === null ? null : (axis === 'r' ? colName(p.c) + map(p.r) : colName(map(p.c)) + p.r) : ref; };
   const remapObj = (o) => { if(!o) return o; const out = {}; for(const k in o){ const nk = key(k); if(nk !== null) out[nk] = o[k]; } return out; };
   const num = (o) => { if(!o) return o; const out = {}; for(const k in o){ const nk = map(+k); if(nk !== null) out[nk] = o[k]; } return out; };
-  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
+  const fix = (f) => f.split('"').map((seg, i) => i % 2 ? seg : seg.replace(/(?<![A-Za-z0-9_!.'])(?<!!\$?[A-Z]{1,3}\$?\d+:)(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?(?![A-Za-z0-9_(])/g, (m, d1, c1, d2, r1, d3, c2, d4, r2) => {
     const one = (c, r, isEnd) => { const ci = colFromLetters(c), ri = +r; const v = axis === 'r' ? mapEdge(ri, isEnd) : mapEdge(ci, isEnd); return v; };
     if(c2 === undefined){
       const v = axis === 'r' ? map(+r1) : map(colFromLetters(c1));
@@ -4939,6 +4988,7 @@ function sheetDeleteLines(sh, axis, from, to){
       .filter(m => m.r2 >= m.r1 && m.c2 >= m.c1 && (m.r2 > m.r1 || m.c2 > m.c1));
     if(!sh.merges.length) delete sh.merges;
   }
+  sheetFixOtherRefs(sh, axis, map, mapEdge);   // other sections that point at this one
 }
 
 function sheetToXlsxBlob(name, sheet){
@@ -6671,7 +6721,7 @@ function renderBusiness(){
       const item = (text, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text; if(cls) b.className = cls; b.onclick = () => { closeSheetMenu(); fn(); }; menu.appendChild(b); };
       item('Rename', () => {
         const name = (prompt('Rename section:', t.name) || '').trim();
-        if(name){ t.name = name; renderBusiness(); saveTasks(); }
+        if(name){ const was = t.name; t.name = name; sheetRenameRefs(was, name); renderBusiness(); saveTasks(); }
       });
       if(i > 0) item('Move left', () => { tabs.splice(i, 1); tabs.splice(i - 1, 0, t); renderBusiness(); saveTasks(); });
       if(i < tabs.length - 1) item('Move right', () => { tabs.splice(i, 1); tabs.splice(i + 1, 0, t); renderBusiness(); saveTasks(); });

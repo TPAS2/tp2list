@@ -1225,6 +1225,8 @@
   .car-sub{ color: var(--text-dim); font-size: 0.68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
   .car-exp{ display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
   .car-exp input:first-child{ flex: 1; }
+  .tx-drophead{ cursor: pointer; user-select: none; }
+  .tx-arrow{ display: inline-block; width: 1.2em; color: var(--text-dim); }
   .tx-share{ font-size: 12px; color: var(--text-dim); white-space: nowrap; min-width: 0; flex: none; }
   .car-body .car-exp .amt{ width: 110px; text-align: right; flex: none; }
   .car-add-exp{ align-self: flex-start; background: none; border: 0; border-radius: 8px; color: var(--accent2); font: inherit; font-size: 0.76rem; padding: 4px 2px; cursor: pointer; }
@@ -5643,6 +5645,14 @@ function renderTaxiPanel(cur){
   // dated blocks that aren't tied to one day: Other expenses (insurance, repairs…) and Shell payable; each counts in the month of its date
   const monthName = new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long' });
   const rest = el('div');   // everything below the day: only shown with the calendar
+  // drop-down blocks: tap the heading to open / close; open state is remembered per device
+  const dropKey = (k) => 'tpas2:tx:drop:' + cur.id + ':' + k;
+  const drop = (head, body, k) => {
+    let open = false; try{ open = localStorage.getItem(dropKey(k)) === '1'; }catch(e){}
+    const arrow = el('span', 'tx-arrow', open ? '▾' : '▸'); head.insertBefore(arrow, head.firstChild); head.classList.add('tx-drophead');
+    body.style.display = open ? '' : 'none';
+    head.onclick = () => { open = !open; body.style.display = open ? '' : 'none'; arrow.textContent = open ? '▾' : '▸'; try{ localStorage.setItem(dropKey(k), open ? '1' : '0'); }catch(e){} };
+  };
   const dated = (listKey, heading, addDefaultDesc) => {
     const gh = el('div', 'car-group'); const info = el('span', 'car-group-info'); infos[listKey] = info;
     gh.append(el('span', 'car-group-title', heading + ' · all time'), info);
@@ -5686,6 +5696,7 @@ function renderTaxiPanel(cur){
       bb.append(imp, inF, st);
     }
     bc.appendChild(bb); rest.appendChild(bc);
+    drop(gh, bc, listKey);
   };
   dated('otherExpenses', 'Other expenses', '');
   dated('shell', 'Shell payable', '');
@@ -5710,6 +5721,7 @@ function renderTaxiPanel(cur){
   const cadd = el('button', 'car-add-exp', '+ Add credit note'); cadd.type = 'button';
   cadd.onclick = () => { tx.credit.push({ id: carUid(), date: todayKey, desc: '', amount: '' }); saveTasks(); redraw(); };
   cb.appendChild(cadd); cb.style.borderTop = '0'; cc.appendChild(cb); rest.appendChild(cc);
+  drop(ch, cc, 'credit');
 
   // notes (imported ledgers and anything else)
   rest.appendChild(el('div', 'car-sub notes-head', 'Notes'));

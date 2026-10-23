@@ -5484,7 +5484,7 @@ function taxiParsePictureText(text, cutPct){
   const entries = []; let skipped = 0;
   String(text).split(/\r?\n/).map(l => l.replace(/^[\-•*·|~_\s]+/, '').replace(/[|~_\s]+$/, '').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
     line = line.replace(/^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\s*/, '').replace(/^[\-•*·|~_\s]+/, '').replace(/\s*\|\s*/g, ' ').trim();   // a leading date is not used (everything goes to the open day)
-    const m = /(\d+(?:[.,]\d{1,2})?)\s*(?:€|eur(?:os?)?)?\s*$/i.exec(line);
+    const m = /(\d+(?:[.,]\d{1,2})?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s*$/i.exec(line);
     if(!m || !/[A-Za-z]{2}/.test(line)){ skipped++; return; }
     const n = parseFloat(m[1].replace(',', '.'));
     if(EXP.test(line)) entries.push({ id: carUid(), kind: 'expense', desc: txTitle(line), amount: String(n) });
@@ -5514,8 +5514,8 @@ function taxiParseNotes(text, defaultKey, ignoreDates){
       line = lm[4];
     }
     let amt = null, desc = '', neg = false, m, zero = false;
-    if((m = /^(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s+(.*[A-Za-z].*)$/.exec(line))){ neg = !!m[1]; amt = m[2]; desc = m[3]; }
-    else if((m = /^(.*[A-Za-z].*?)\s+(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s*€?$/.exec(line))){ desc = m[1]; neg = !!m[2]; amt = m[3]; }
+    if((m = /^(-?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s+(.*[A-Za-z].*)$/i.exec(line))){ neg = !!m[1]; amt = m[2]; desc = m[3].replace(/^(?:eur(?:os?)?|usd|gbp)\s+/i, ''); }
+    else if((m = /^(.*[A-Za-z].*?)\s+(-?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?$/i.exec(line))){ desc = m[1]; neg = !!m[2]; amt = m[3]; }
     else {   // a line with no amount is kept, in order, at 0, but only if it reads like a real note (no symbols, mostly proper words): screenshot status bars and keyboards are junk
       const plain = line.replace(/^-\s*/, ''), words = plain.split(/\s+/);
       if(/^[A-Za-z .'()&\/-]+$/.test(plain) && words.filter(w => w.replace(/[^A-Za-z]/g, '').length >= 3).length * 2 >= words.length && !/qwerty|asdf|zxcv|english|\bgif\b/i.test(plain)){ desc = plain; amt = '0'; neg = EXP.test(plain); zero = true; }
@@ -5537,17 +5537,17 @@ function taxiParseNotes(text, defaultKey, ignoreDates){
 function taxiParseTable(lines, width, cutPct){
   const EXP = TX_EXP;
   const DATE = /^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}$/;
-  const AMT = /^([€£]?)(\d[\d,]*(?:[.,]\d{1,2})?)([€£]?)$/;
+  const AMT = /^([€£$]?)(\d[\d,]*(?:[.,]\d{1,2})?)([€£$]?)$/;
   const rows = [];
   (lines || []).forEach((ln, idx) => {
     let ws = (ln.words || []).map(w => ({ t: String(w.t || '').replace(/[|~_]+/g, ''), x0: w.x0, x1: w.x1 })).filter(w => w.t);
-    ws = ws.reduce((out, w) => { const prev = out[out.length - 1]; if(prev && /^[€£]$/.test(prev.t) && /^\d/.test(w.t)){ prev.t += w.t; prev.x1 = w.x1; } else out.push(w); return out; }, []);   // "€ 20.00" → "€20.00"
+    ws = ws.reduce((out, w) => { const prev = out[out.length - 1]; if(prev && /^[€£$]$/.test(prev.t) && /^\d/.test(w.t)){ prev.t += w.t; prev.x1 = w.x1; } else out.push(w); return out; }, []);   // "€ 20.00" → "€20.00"
     const dated = ws.length > 0 && DATE.test(ws[0].t), body = dated ? ws.slice(1) : ws;
     const amts = [], descWords = [];
     body.forEach(w => { const m = AMT.exec(w.t); if(m && (m[1] || m[3] || /[.,]\d{1,2}$/.test(m[2]))) amts.push({ v: m[2], cx: (w.x0 + w.x1) / 2 / Math.max(1, width) }); else descWords.push(w.t); });
     const desc = descWords.join(' ').replace(/\s+/g, ' ').trim();
     if(!amts.length || !/[A-Za-z]{2}/.test(desc) || /^total$/i.test(desc)) return;
-    if(!dated && !body.some(w => /[€£]/.test(w.t))) return;   // no date: only if the amount carries a currency sign
+    if(!dated) return;   // only rows that start with a date are sheet rows; other lines (typed notes, even with a currency sign) go to the notes reader
     rows.push({ idx, desc, amts });
   });
   const xs = rows.flatMap(r => r.amts.map(a => a.cx)).sort((a, b) => a - b), centres = [];
@@ -5601,16 +5601,16 @@ function taxiParseBulk(text, defaultKey, keepZeros){
   const year = +defaultKey.slice(0, 4);
   const byDay = {}, order = [], notUnderstood = [], noAmount = []; let tabRows = 0, cur = defaultKey;
   const add = (k, e) => { if(!byDay[k]){ byDay[k] = []; order.push(k); } byDay[k].push(e); };
-  const AMT = /^\(?-?\s*[€£]?\s*-?\d[\d,]*(?:[.,]\d{1,2})?\s*[€£]?\)?$/;
-  const num = (v) => { const t = String(v).replace(/[€£\s()-]/g, ''); const n = parseFloat(/^\d+,\d{2}$/.test(t) ? t.replace(',', '.') : t.replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+  const AMT = /^\(?-?\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s*-?\d[\d,]*(?:[.,]\d{1,2})?\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\)?$/i;   // 20, €20, € 20, 20€, $20, £20, EUR 20, 20 EUR, (€20), -€20
+  const num = (v) => { const t = String(v).replace(/[€£$\s()-]|eur(?:os?)?|usd|gbp/gi, ''); const n = parseFloat(/^\d+,\d{2}$/.test(t) ? t.replace(',', '.') : t.replace(/,/g, '')); return isNaN(n) ? 0 : n; };
   const lines = String(text).split(/\r?\n/).map(l => l.replace(/\u00a0/g, ' '));
   const rowInfo = (cols) => { const cells = cols.map(c => c.trim().replace(/^"([\s\S]*)"$/, '$1').trim()); let dk = null, di = -1; cells.forEach((c, i) => { if(dk === null){ const k = txDateLine(c, year); if(k){ dk = k; di = i; } } });
     const descIdx = cells.findIndex((c, i) => i !== di && /[A-Za-z]{2}/.test(c) && !AMT.test(c)); return { cells, dk, descIdx }; };
   const row3 = (desc, expCell) => {
     const expAmt = expCell ? num(expCell) : null;
     let fare = null, neg = false, m;
-    if((m = /^(.*[A-Za-z].*?)\s*(-?)\s*[€£]?\s*(\d+(?:[.,]\d{1,2})?)\s*[€£]?$/.exec(desc))){ neg = !!m[2]; fare = num(m[3]); }
-    else if((m = /^(-?)\s*[€£]?\s*(\d+(?:[.,]\d{1,2})?)\s+(.*[A-Za-z].*)$/.exec(desc))){ neg = !!m[1]; fare = num(m[2]); }
+    if((m = /^(.*[A-Za-z].*?)\s*(-?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?$/i.exec(desc))){ neg = !!m[2]; fare = num(m[3]); }
+    else if((m = /^(-?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s*(\d+(?:[.,]\d{1,2})?)\s*(?:[€£$]|eur(?:os?)?|usd|gbp)?\s+(.*[A-Za-z].*)$/i.exec(desc))){ neg = !!m[1]; fare = num(m[2]); }
     const wordIsExpense = neg || TX_EXP.test(desc);
     let any = false;
     if(fare !== null && !(wordIsExpense && expAmt !== null)){   // "Diesel 40" with a number in the expense column too: the expense column wins
@@ -5664,13 +5664,13 @@ function taxiPlanBulk(res, days){
 function taxiParseDatedText(text){
   const out = []; let skipped = 0;
   String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
-    let m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*?)\s*[€£]?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*$/.exec(line);
+    let m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*?)\s*[€£$]?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*$/.exec(line);
     if(!m){ const d0 = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(.*[A-Za-z]{2}.*)$/.exec(line); if(d0) m = [d0[0], d0[1], d0[2], d0[3], d0[4], '0']; }   // a dated line with no amount is kept at 0
     if(!m || !/[A-Za-z]{2}/.test(m[4]) || /^total$/i.test(m[4].trim())){ skipped++; return; }
     let amt = m[5]; amt = /^\d+,\d{2}$/.test(amt) ? amt.replace(',', '.') : amt.replace(/,/g, '');
     const y = m[3].length === 2 ? '20' + m[3] : m[3], mo = +m[2], da = +m[1];
     if(mo < 1 || mo > 12 || da < 1 || da > 31){ skipped++; return; }
-    out.push({ id: carUid(), date: y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'), desc: txTitle(m[4].replace(/[€£]\s*$/, '').trim()), amount: amt });
+    out.push({ id: carUid(), date: y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'), desc: txTitle(m[4].replace(/[€£$]\s*$/, '').trim()), amount: amt });
   });
   return { entries: out, skipped };
 }

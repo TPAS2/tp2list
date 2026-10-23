@@ -5406,7 +5406,7 @@ async function ocrPrepare(file){   // shrink big photos and use greyscale with s
   g.putImageData(im, 0, 0);
   return new Promise(ok => c.toBlob(ok, 'image/png'));
 }
-async function ocrReadPicture(file, onProgress){
+async function ocrReadPicture(file, onProgress, wantBoxes){   // wantBoxes: return { text, width, lines: [{ text, words: [{ t, x0, x1 }] }] } so columns can be told apart
   await ocrLoadScript();
   const blob = await ocrPrepare(file), abs = (path) => new URL(path, location.href).href;
   const stage = { s: 'starting' };
@@ -5414,7 +5414,19 @@ async function ocrReadPicture(file, onProgress){
     errorHandler: () => {},
     logger: (m) => { stage.s = m.status; if(m.status === 'recognizing text' && onProgress) onProgress(m.progress); else if(onProgress && /loading|initializ/.test(m.status)) onProgress(-1, m.status); } });
   const worker = await Promise.race([make, new Promise((_, no) => setTimeout(() => no(new Error('the reader did not start (stuck at "' + stage.s + '"). Check your connection and try again; the first use downloads about 7 MB.')), 90000))]);
-  try{ const { data } = await worker.recognize(blob); return data.text || ''; }
+  try{
+    const { data } = await worker.recognize(blob);
+    if(!wantBoxes) return data.text || '';
+    const bm = await createImageBitmap(blob), width = bm.width; if(bm.close) bm.close();
+    const word = (w) => ({ t: String(w.text || ''), x0: w.bbox.x0, x1: w.bbox.x1 });
+    let lines = (data.lines || []).map(l => ({ text: String(l.text || '').trim(), words: (l.words || []).map(word) }));
+    if(!lines.length && data.words){   // no line list from the reader: group the words by height
+      const ws = data.words.slice().sort((a, b) => a.bbox.y0 - b.bbox.y0 || a.bbox.x0 - b.bbox.x0), rows = [];
+      for(const w of ws){ const mid = (w.bbox.y0 + w.bbox.y1) / 2, r = rows.find(r => Math.abs(r.mid - mid) < (w.bbox.y1 - w.bbox.y0) * 0.6); if(r){ r.w.push(w); r.mid = (r.mid + mid) / 2; } else rows.push({ mid, w: [w] }); }
+      lines = rows.map(r => { const sorted = r.w.sort((a, b) => a.bbox.x0 - b.bbox.x0); return { text: sorted.map(w => w.text).join(' '), words: sorted.map(word) }; });
+    }
+    return { text: data.text || '', width, lines };
+  }
   finally{ await worker.terminate(); }   // frees the memory the engine used
 }
 // lines like "Germasogia 75" become trips (your share = cut % of the number), lines about diesel / car wash / tolls… become expenses (the full number)
@@ -5463,6 +5475,45 @@ function taxiParseNotes(text, defaultKey, ignoreDates){
     byDay[cur].push(e);
   });
   return { byDay, order, count: order.reduce((s, k) => s + byDay[k].length, 0), skipped, zeros };
+}
+// rows of a spreadsheet screenshot such as "03/03/2026  Diesel  €20.00" or "03/03/2026  Germasogia 75  €45.00": a date, a description and an amount in a column.
+// The columns are told apart by position (left = EXPENSE, next = REVENUE, like the sheet; a third column, money paid, is ignored). An expense stays as it is; revenue is your cut %,
+// so the trip is saved as the full fare (revenue ÷ cut %). With only one column in the picture, expense words (diesel, fuel…) mean expense and anything else is revenue.
+// Returns the entries plus the numbers of the lines that were used, so the remaining lines can go to the notes reader.
+function taxiParseTable(lines, width, cutPct){
+  const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
+  const DATE = /^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}$/;
+  const AMT = /^([€£]?)(\d[\d,]*(?:[.,]\d{1,2})?)([€£]?)$/;
+  const rows = [];
+  (lines || []).forEach((ln, idx) => {
+    let ws = (ln.words || []).map(w => ({ t: String(w.t || '').replace(/[|~_]+/g, ''), x0: w.x0, x1: w.x1 })).filter(w => w.t);
+    ws = ws.reduce((out, w) => { const prev = out[out.length - 1]; if(prev && /^[€£]$/.test(prev.t) && /^\d/.test(w.t)){ prev.t += w.t; prev.x1 = w.x1; } else out.push(w); return out; }, []);   // "€ 20.00" → "€20.00"
+    const dated = ws.length > 0 && DATE.test(ws[0].t), body = dated ? ws.slice(1) : ws;
+    const amts = [], descWords = [];
+    body.forEach(w => { const m = AMT.exec(w.t); if(m && (m[1] || m[3] || /[.,]\d{1,2}$/.test(m[2]))) amts.push({ v: m[2], cx: (w.x0 + w.x1) / 2 / Math.max(1, width) }); else descWords.push(w.t); });
+    const desc = descWords.join(' ').replace(/\s+/g, ' ').trim();
+    if(!amts.length || !/[A-Za-z]{2}/.test(desc) || /^total$/i.test(desc)) return;
+    if(!dated && !body.some(w => /[€£]/.test(w.t))) return;   // no date: only if the amount carries a currency sign
+    rows.push({ idx, desc, amts });
+  });
+  const xs = rows.flatMap(r => r.amts.map(a => a.cx)).sort((a, b) => a - b), centres = [];
+  xs.forEach(x => { const c = centres[centres.length - 1]; if(c && x - c.hi <= 0.07) { c.hi = x; c.n++; c.sum += x; } else centres.push({ lo: x, hi: x, n: 1, sum: x }); });
+  const colOf = (cx) => { let best = 0; centres.forEach((c, i) => { if(Math.abs(cx - c.sum / c.n) < Math.abs(cx - centres[best].sum / centres[best].n)) best = i; }); return best; };
+  const num = (v) => { const n = parseFloat(/^\d+,\d{2}$/.test(v) ? v.replace(',', '.') : v.replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+  const cut = Math.max(0, Math.min(100, +cutPct || 60)) / 100;
+  const entries = [], used = new Set(), notes = {};
+  rows.forEach(r => {
+    r.amts.forEach(a => {
+      let kind;
+      if(centres.length >= 2){ const c = colOf(a.cx); if(c > 1) return; kind = c === 0 ? 'expense' : 'trip'; }
+      else kind = EXP.test(r.desc) ? 'expense' : 'trip';
+      const v = num(a.v), id = carUid();
+      if(kind === 'expense') entries.push({ id, kind, desc: txTitle(r.desc), amount: String(v) });
+      else { const fare = cut > 0 ? Math.round(v / cut * 100) / 100 : v; entries.push({ id, kind, card: /\bcard\b/i.test(r.desc), desc: txTitle(r.desc), amount: String(fare) }); if(cut > 0) notes[id] = '(revenue €' + v + ' ÷ ' + Math.round(cut * 100) + '%)'; }
+    });
+    used.add(r.idx);
+  });
+  return { entries, used, notes, columns: centres.length };
 }
 function taxiParseDatedText(text){
   const out = []; let skipped = 0;
@@ -5672,7 +5723,7 @@ function renderTaxiPanel(cur){
       const rows = bizPanelEl.querySelectorAll('.tx-daycard .tx-entry'); const last = rows[rows.length - 1]; if(last) last.querySelector('input').focus(); };
     adds.appendChild(add);
   });
-  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read one or more pictures (e.g. a screenshot of your notes) and add the lines; dates in the picture are ignored: everything goes to this day (pictures are not saved)';
+  const pic = el('button', 'car-add-exp', '📷 Import picture'); pic.type = 'button'; pic.title = 'Read one or more pictures (a screenshot of your notes, or rows of your sheet with expense / revenue columns) and add the lines; dates in the picture are ignored: everything goes to this day (pictures are not saved)';
   const picIn = el('input'); picIn.type = 'file'; picIn.accept = 'image/*'; picIn.multiple = true; picIn.hidden = true;
   const picStatus = el('span', 'tx-ocr-status');
   pic.onclick = () => picIn.click();
@@ -5680,17 +5731,21 @@ function renderTaxiPanel(cur){
     const files = [...picIn.files]; picIn.value = ''; if(!files.length) return;
     pic.disabled = true;
     try{
-      let text = '';
+      let text = ''; const tableEntries = [], tableNotes = {};
       for(let i = 0; i < files.length; i++){   // several pictures in a row: their text is joined, so a day carries on into the next picture
         const tag = files.length > 1 ? `Picture ${i + 1} of ${files.length}: ` : '';
         picStatus.textContent = tag + 'Reading the picture…';
-        text += (await ocrReadPicture(files[i], (pr, st) => { picStatus.textContent = tag + (pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (st || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'); })) + '\n';
+        const r = await ocrReadPicture(files[i], (pr, st) => { picStatus.textContent = tag + (pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (st || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'); }, true);
+        const tbl = taxiParseTable(r.lines, r.width, txPct);   // spreadsheet rows (date, description, expense / revenue columns) are read by column
+        tableEntries.push(...tbl.entries); Object.assign(tableNotes, tbl.notes);
+        text += (tbl.used.size ? r.lines.filter((l, n) => !tbl.used.has(n)).map(l => l.text).join('\n') : r.text) + '\n';
       }
       const res = taxiParseNotes(text, key, true);   // everything goes to the open day, whatever dates the picture shows
+      if(tableEntries.length){ res.byDay[key] = tableEntries.concat(res.byDay[key] || []); if(!res.order.includes(key)) res.order.push(key); res.count += tableEntries.length; }
       if(!res.count){ alert('No lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
       const nice = (k) => new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
       const lines = []; let shown = 0;
-      for(const k of res.order){ lines.push(nice(k) + ':'); for(const e of res.byDay[k]){ if(shown++ < 25) lines.push(`  ${e.kind === 'expense' ? 'Expense' : e.card ? 'Card trip' : 'Trip'}: ${e.desc}  →  €${e.amount}`); } }
+      for(const k of res.order){ lines.push(nice(k) + ':'); for(const e of res.byDay[k]){ if(shown++ < 25) lines.push(`  ${e.kind === 'expense' ? 'Expense' : e.card ? 'Card trip' : 'Trip'}: ${e.desc}  →  €${e.amount}${tableNotes[e.id] ? ' ' + tableNotes[e.id] : ''}`); } }
       if(shown > 25) lines.push(`  … and ${shown - 25} more`);
       if(confirm(`Add these ${res.count} lines${res.order.length > 1 ? ' to ' + res.order.length + ' days' : ' to ' + nice(res.order[0])}?\n\n${lines.join('\n')}${res.zeros ? `\n\n(${res.zeros} lines had no amount and were added as €0)` : ''}${res.skipped ? `\n(${res.skipped} symbol-only lines were skipped)` : ''}\n\nThe pictures themselves are not saved. You can edit or delete any line afterwards.`)){
         for(const k of res.order){ dayOf(k, true).entries.push(...res.byDay[k]); }

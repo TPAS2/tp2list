@@ -5324,7 +5324,25 @@ function renderCarsPanel(cur){
 
 /* --- taxi management sections: tab.taxi = { days: { 'YYYY-MM-DD': { trips: [{ id, desc, amount }], expenses: [{ id, desc, amount }], settled } }, otherExpenses: [{ id, date, desc, amount }] } --- */
 // imported descriptions get a capital first letter on every word ("ermou card" → "Ermou Card"); the rest of each word is left as typed (LCE stays LCE)
-const TX_EXP = /\b(diesel|petrol|fuel|gas|wash|car ?wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?|r[ae]mba|airport ?entrance|entrance fee)\b/i;   // words that make a picture line an expense (not a trip)
+// words that make a picture / pasted line an expense (not a trip). Spelling mistakes still match: the number is how many letters a word may be out
+// (longer words are allowed more), and words typed together or apart ("car wash" / "carwash") are both seen
+const TX_EXP_WORDS = { diesel: 1, petrol: 1, fuel: 0, feul: 0, gas: 0, wash: 0, carwash: 1, toll: 0, tolls: 0, parking: 1, fine: 0, fines: 0, repair: 1, repairs: 1, service: 1, oil: 0, tyre: 0, tyres: 0, tire: 0, tires: 0, ramba: 1, remba: 1, airportentrance: 3, airportentrancefee: 3, entrancefee: 2 };
+function txEditDistance(a, b){   // letters added, dropped, changed or swapped
+  const d = []; for(let i = 0; i <= a.length; i++){ d[i] = [i]; } for(let j = 1; j <= b.length; j++) d[0][j] = j;
+  for(let i = 1; i <= a.length; i++) for(let j = 1; j <= b.length; j++){
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    if(i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+  }
+  return d[a.length][b.length];
+}
+function txHasWord(text, keys){
+  const w = String(text).toLowerCase().match(/[a-z]+/g) || [], cand = [];
+  for(let i = 0; i < w.length; i++){ cand.push(w[i]); if(i + 1 < w.length) cand.push(w[i] + w[i + 1]); if(i + 2 < w.length) cand.push(w[i] + w[i + 1] + w[i + 2]); }
+  return cand.some(c => c.length >= 3 && keys.some(k => { const t = TX_EXP_WORDS[k]; return c === k || (t > 0 && Math.abs(c.length - k.length) <= t && c.length >= k.length - (k.length <= 5 ? 0 : t) && txEditDistance(c, k) <= t); }));
+}
+const txIsExpense = (text) => txHasWord(text, Object.keys(TX_EXP_WORDS));
+const txIsDiesel = (text) => txHasWord(text, ['diesel']);
+const TX_EXP = { test: txIsExpense };   // used like the old pattern: TX_EXP.test(text)
 const txTitle = (s) => String(s || '').replace(/(^|[\s(\/\-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 let taxiScrollKeep = 0;
 const taxiDayView = {};   // section id -> true while a single day is open (not saved; the calendar is the starting view)
@@ -5333,7 +5351,7 @@ const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 
 // a day is one ordered list of entries, each a trip (income) or an expense, so an expense can sit between the trips it happened between
 let txPct = 60;   // share of each fare kept (tab.taxi.cutPct); trips without `cut` store the full fare and count at this share
 const txShare = (e) => carNum(e.amount) * txPct / 100;   // a trip's amount is always the full fare; profit is the cut of it
-const txDieselLine = (e) => !!e && /diesel/i.test(e.desc || '') && !carNum(e.amount);   // a diesel line with no number (empty, 0 or not a number)
+const txDieselLine = (e) => !!e && txIsDiesel(e.desc || '') && !carNum(e.amount);   // a diesel line with no number (empty, 0 or not a number)
 const txDieselNoAmount = (d) => !!d && (d.entries || []).some(txDieselLine);   // a diesel line with no number (empty or 0): flagged with a red stripe on the calendar
 const txInc = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txShare(e), 0) : 0;
 // card trips: the customer paid you by card, so you hold the whole fare and owe him the other (100 − cut)% until the day is settled
@@ -5569,26 +5587,40 @@ function txDateLine(line, year){   // a line that is only a date -> 'YYYY-MM-DD'
   if(!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31)) return null;
   return y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
 }
-function taxiParseBulk(text, defaultKey, cutPct, keepZeros){
+function txSplitColumns(raw){   // a pasted row as columns: tab separated (copied from a sheet), or split by |, ; or runs of spaces; null for a plain line
+  if(raw.indexOf('\t') >= 0) return raw.split('\t');
+  const t = raw.trim();
+  if((t.match(/\|/g) || []).length >= 2){ const c = t.split('|'); if(!c[0].trim()) c.shift(); if(c.length && !c[c.length - 1].trim()) c.pop(); return c; }
+  if((t.match(/;/g) || []).length >= 2) return t.split(';');
+  if((t.match(/\S {2,}\S/g) || []).length >= 2) return t.split(/ {2,}/);
+  return null;
+}
+// opts.fixed4: the text has 4 columns, date | description | expense | income (an amount in the 3rd column is an expense, in the 4th a trip, also when a trailing empty cell is missing);
+// opts.incomeIsFare: the income column is already the full fare (otherwise it is your cut %, so the trip is income ÷ cut %)
+function taxiParseBulk(text, defaultKey, cutPct, keepZeros, opts){
+  opts = opts || {};
   const year = +defaultKey.slice(0, 4), cut = Math.max(0, Math.min(100, +cutPct || 60)) / 100;
   const byDay = {}, order = [], notUnderstood = [], noAmount = []; let tabRows = 0, cur = defaultKey;
   const add = (k, e) => { if(!byDay[k]){ byDay[k] = []; order.push(k); } byDay[k].push(e); };
-  const AMT = /^-?\s*[€£]?\s*-?\d[\d,]*(?:[.,]\d{1,2})?\s*[€£]?$/;
-  const num = (v) => { const t = String(v).replace(/[€£\s-]/g, ''); const n = parseFloat(/^\d+,\d{2}$/.test(t) ? t.replace(',', '.') : t.replace(/,/g, '')); return isNaN(n) ? 0 : n; };
+  const AMT = /^\(?-?\s*[€£]?\s*-?\d[\d,]*(?:[.,]\d{1,2})?\s*[€£]?\)?$/;
+  const num = (v) => { const t = String(v).replace(/[€£\s()-]/g, ''); const n = parseFloat(/^\d+,\d{2}$/.test(t) ? t.replace(',', '.') : t.replace(/,/g, '')); return isNaN(n) ? 0 : n; };
   const lines = String(text).split(/\r?\n/).map(l => l.replace(/ /g, ' '));
-  const rowInfo = (raw) => { const cells = raw.split('\t').map(c => c.trim()); let dk = null, di = -1; cells.forEach((c, i) => { if(dk === null){ const k = txDateLine(c, year); if(k){ dk = k; di = i; } } });
+  const rowInfo = (cols) => { const cells = cols.map(c => c.trim().replace(/^"([\s\S]*)"$/, '$1').trim()); let dk = null, di = -1; cells.forEach((c, i) => { if(dk === null){ const k = txDateLine(c, year); if(k){ dk = k; di = i; } } });
     const descIdx = cells.findIndex((c, i) => i !== di && /[A-Za-z]{2}/.test(c) && !AMT.test(c)); return { cells, dk, descIdx }; };
   let maxCols = 0;   // most amount columns after the description in the tab rows: 2+ = expense / revenue columns
-  lines.forEach(raw => { if(raw.indexOf('\t') < 0) return; const r = rowInfo(raw); if(r.descIdx >= 0 && r.cells.slice(r.descIdx + 1).some(c => c && AMT.test(c))) maxCols = Math.max(maxCols, r.cells.length - r.descIdx - 1); });
+  lines.forEach(raw => { const cols = txSplitColumns(raw); if(!cols) return; const r = rowInfo(cols); if(r.descIdx >= 0 && r.cells.slice(r.descIdx + 1).some(c => c && AMT.test(c))) maxCols = Math.max(maxCols, r.cells.length - r.descIdx - 1); });
+  if(opts.fixed4) maxCols = Math.max(maxCols, 2);
   lines.forEach(raw => {
     let line = raw.trim(); if(!line) return;
-    if(raw.indexOf('\t') >= 0){
-      const r = rowInfo(raw), cells = r.cells;
+    const cols = txSplitColumns(raw);
+    if(cols){
+      const r = rowInfo(cols), cells = r.cells;
+      if(!cells.some(c => c && AMT.test(c)) && (/^date$/i.test(cells[0]) || cells.some(c => /^(expenses?|income|revenue|trips?)$/i.test(c)))) return;   // the header row
       if(r.descIdx >= 0){
         if(r.dk) cur = r.dk;
         const desc = cells[r.descIdx].replace(/\s+/g, ' '), amts = [];
         if(/^(sub ?)?totals?\b|^grand total|^net p\/?l/i.test(desc)) return;   // a Total row of the sheet
-        cells.forEach((c, i) => { if(i > r.descIdx && c && AMT.test(c)) amts.push({ col: i - r.descIdx - 1, v: num(c), neg: /-/.test(c) }); });
+        cells.forEach((c, i) => { if(i > r.descIdx && c && AMT.test(c)) amts.push({ col: i - r.descIdx - 1, v: num(c), neg: /-|\(/.test(c) }); });
         if(amts.length){
           tabRows++;
           amts.forEach(a => {
@@ -5596,7 +5628,7 @@ function taxiParseBulk(text, defaultKey, cutPct, keepZeros){
             if(maxCols >= 2){ if(a.col > 1) return; kind = (a.col === 0 || a.neg) ? 'expense' : 'trip'; }
             else kind = (a.neg || TX_EXP.test(desc)) ? 'expense' : 'trip';
             if(kind === 'expense') add(cur, { id: carUid(), kind, desc: txTitle(desc), amount: String(a.v) });
-            else add(cur, { id: carUid(), kind, card: /\bcard\b/i.test(desc), desc: txTitle(desc), amount: String(maxCols >= 2 && cut > 0 ? Math.round(a.v / cut * 100) / 100 : a.v) });
+            else add(cur, { id: carUid(), kind, card: /\bcard\b/i.test(desc), desc: txTitle(desc), amount: String(maxCols >= 2 && cut > 0 && !opts.incomeIsFare ? Math.round(a.v / cut * 100) / 100 : a.v) });
           });
           return;
         }
@@ -5990,21 +6022,23 @@ function renderTaxiPanel(cur){
   // TEMPORARY: paste lots of text and add it to the calendar (remove this block when it is no longer needed)
   const xh = el('div', 'car-group'); xh.append(el('span', 'car-group-title', '📥 Paste text import (temporary)'), el('span', 'car-group-info')); rest.appendChild(xh);
   const xc = el('div', 'car-card car-other'), xb = el('div', 'car-body');
-  xb.appendChild(el('div', 'tx-help', 'Paste lots of text, press Read text, check the preview, then Add. Put each date on its own line (5/3, 05/03/2026, Thu 5 March) with lines like "20 san remo", "-80 diesel", "Makenzie 20" under it, or paste rows copied from your sheet (date, description, expense, revenue). Lines already in the calendar are skipped.'));
+  xb.appendChild(el('div', 'tx-help', 'Paste lots of text, press Read text, check the preview, then Add. Put each date on its own line (5/3, 05/03/2026, Thu 5 March) with lines like "20 san remo", "-80 diesel", "Makenzie 20" under it, or paste rows with 4 columns (date, description, expense, income) copied from your sheet, or separated by | or ;. Lines already in the calendar are skipped.'));
   const xta = el('textarea', 'car-notes tx-bulk'); xta.placeholder = 'Paste text here…'; xta.spellcheck = false; xta.value = taxiBulkText[cur.id] || '';
   xta.addEventListener('input', () => { taxiBulkText[cur.id] = xta.value; });
   xb.appendChild(xta);
   const xz = el('label', 'tx-help'); const xzc = el('input'); xzc.type = 'checkbox'; xz.append(xzc, document.createTextNode(' Keep lines with no amount (added at €0)')); xb.appendChild(xz);
+  const x4 = el('label', 'tx-help'); const x4c = el('input'); x4c.type = 'checkbox'; x4c.checked = true; x4.append(x4c, document.createTextNode(' My text has 4 columns: date, description, expense, income')); xb.appendChild(x4);
+  const xf = el('label', 'tx-help'); const xfc = el('input'); xfc.type = 'checkbox'; xf.append(xfc, document.createTextNode(' The income column is already the full fare (otherwise it is my ' + txPct + '% share and the trip is saved as income ÷ ' + txPct + '%)')); xb.appendChild(xf);
   const xread = el('button', 'car-add-exp', 'Read text'); xread.type = 'button'; xb.appendChild(xread);
   const xprev = el('div', 'tx-oday'); xb.appendChild(xprev);
   xread.onclick = () => {
     xprev.textContent = '';
     if(!xta.value.trim()){ xprev.appendChild(el('div', 'tx-help', 'Paste some text first.')); return; }
-    const res = taxiParseBulk(xta.value, cur.taxiSel, txPct, xzc.checked);
+    const res = taxiParseBulk(xta.value, cur.taxiSel, txPct, xzc.checked, { fixed4: x4c.checked, incomeIsFare: xfc.checked });
     const sample = (arr, what, one) => { if(!arr.length) return; const d = el('details'); d.appendChild(el('summary', 'tx-help', `${arr.length} line${arr.length === 1 ? '' : 's'} ${arr.length === 1 && one ? one : what}`)); d.appendChild(el('div', 'tx-help', arr.slice(0, 12).map(l => '“' + l.slice(0, 60) + '”').join('\n') + (arr.length > 12 ? `\n… and ${arr.length - 12} more` : ''))); xprev.appendChild(d); };
     if(!res.count){ xprev.appendChild(el('div', 'tx-help', 'No lines with an amount were found.')); sample(res.notUnderstood, 'were not understood', 'was not understood'); sample(res.noAmount, 'had no amount (tick "Keep lines with no amount" to add them at €0)'); return; }
     const plan = taxiPlanBulk(res, tx.days), nice = (k) => new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-    xprev.appendChild(el('div', 'car-sub', `Found ${res.count} line${res.count === 1 ? '' : 's'} on ${res.order.length} day${res.order.length === 1 ? '' : 's'}` + (res.twoColumns ? ' (sheet rows read by column)' : '')));
+    xprev.appendChild(el('div', 'car-sub', `Found ${res.count} line${res.count === 1 ? '' : 's'} on ${res.order.length} day${res.order.length === 1 ? '' : 's'}` + (res.twoColumns ? ' (columns: date, description, expense, income)' : '')));
     plan.days.forEach(p => {
       const trips = p.add.filter(e => e.kind !== 'expense'), exps = p.add.filter(e => e.kind === 'expense');
       const fares = trips.reduce((n, e) => n + carNum(e.amount), 0), share = trips.reduce((n, e) => n + txShare(e), 0), spent = exps.reduce((n, e) => n + carNum(e.amount), 0);

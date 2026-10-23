@@ -1268,9 +1268,12 @@
   .tx-day small{ font-size: 0.64rem; color: var(--text-dim); min-height: 0.8em; }
   .tx-day{ position: relative; }
   /* a diesel line with no amount: a pair of red racing stripes down the left side of the box (clear of the numbers), so it shows on green, amber and plain days */
-  .tx-day.nodiesel, .tx-flag{ overflow: hidden; }
+  .tx-day.nodiesel, .tx-day.shellpay, .tx-flag{ overflow: hidden; }
   .tx-flag{ position: relative; }
   .tx-day.nodiesel::before, .tx-flag::before{ content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 9px; pointer-events: none; background: linear-gradient(90deg, #ff3b3b 0 3px, transparent 3px 6px, #ff3b3b 6px 9px); }
+  /* an entry of the day was sent to Shell payable: Shell's yellow and red stripes down the right edge */
+  .tx-day.shellpay::after{ content: ''; position: absolute; top: 0; bottom: 0; right: 3px; width: 9px; pointer-events: none; background: linear-gradient(90deg, #FBCE07 0 3px, transparent 3px 6px, #DD1D21 6px 9px); }
+  @media (max-width: 360px){ .tx-day.shellpay::after{ right: 2px; width: 6px; background: linear-gradient(90deg, #FBCE07 0 2px, transparent 2px 4px, #DD1D21 4px 6px); } }
   .cars-stat.tx-flag::before, .car-group.tx-flag::before{ left: 7px; }   /* the Shell payable box and heading have a red edge of their own */
   .cars-stat.tx-flag, .car-group.tx-flag{ padding-left: 22px; }
   .tx-oexp.tx-flag{ overflow: visible; }
@@ -5634,7 +5637,7 @@ function renderTaxiPanel(cur){
     const b = cells[key]; if(!b) return;
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
-    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.classList.toggle('nodiesel', txDieselNoAmount(d));
+    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
     b.querySelector('small').textContent = (d && String(d.notes || '').trim() ? '📝 ' : '') + (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){

@@ -1289,6 +1289,14 @@
   .tx-settle{ background: var(--panel-solid); color: var(--text-dim); border: 0; border-radius: 999px; font: inherit; font-size: 0.74rem; padding: 4px 11px; cursor: pointer; white-space: nowrap; }
   .tx-settle.on{ background: rgba(40,200,120,.25); color: var(--text); font-weight: 700; }
   .tx-daycard .car-head{ cursor: default; }
+  .car-notes.tx-daynote{ min-height: 52px; margin-top: 8px; }
+  /* Shell payable: the petrol company's yellow and red */
+  .cars-stat.tx-shell{ background: #FBCE07; box-shadow: inset 0 0 0 2px #DD1D21; }
+  .cars-stat.tx-shell small{ color: #8F0F14; }
+  .cars-stat.tx-shell b{ color: #AE1319; }
+  .car-group.tx-shell-head{ background: #FBCE07; box-shadow: inset 0 0 0 2px #DD1D21; border-radius: 10px; padding: 7px 10px; align-items: center; }
+  .car-group.tx-shell-head .car-group-title, .car-group.tx-shell-head .tx-arrow{ color: #8F0F14; }
+  .car-group.tx-shell-head .car-group-info{ color: #AE1319; font-weight: 700; }
   @media (max-width: 480px){ .tx-daycard .car-head{ flex-wrap: wrap; } .tx-daycard .car-name{ flex-basis: 100%; } }   /* phones: the date gets its own line so it isn't cut off */
   .car-body .car-exp input.tx-date{ width: 128px; flex: none; }
   @media (max-width: 520px){ .tx-day{ min-height: 40px; } .car-body .car-exp input.tx-date{ width: 112px; } .tx-oexp{ flex-wrap: wrap; } }
@@ -5560,6 +5568,7 @@ function renderTaxiPanel(cur){
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
   const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe him'), tRecv = stat('Cash received · all time'), tRecvCard = stat('Card received · all time');
+  tShell.parentElement.classList.add('tx-shell');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import
@@ -5610,7 +5619,7 @@ function renderTaxiPanel(cur){
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
     b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.classList.toggle('nodiesel', txDieselNoAmount(d));
-    b.querySelector('small').textContent = (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
+    b.querySelector('small').textContent = (d && String(d.notes || '').trim() ? '📝 ' : '') + (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){
     const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
@@ -5766,8 +5775,13 @@ function renderTaxiPanel(cur){
   cardIn.value = (tx.days[key] && tx.days[key].cardIn) || '';
   cardIn.addEventListener('input', () => { dayOf(key, true).cardIn = cardIn.value; paintDay(key); updateAll(); save(); });
   cardRow.append(el('span', null, '💳 Card received on this day'), cardIn); body.appendChild(cardRow);
+  const dayNote = el('textarea', 'car-notes tx-daynote'); dayNote.placeholder = 'Notes for this day…'; dayNote.spellcheck = false; dayNote.value = (tx.days[key] && tx.days[key].notes) || '';   // day.notes; the calendar shows 📝 on days that have one
+  let dnt = null;
+  dayNote.addEventListener('input', () => { const dd = dayOf(key, true); dd.notes = dayNote.value; paintDay(key); clearTimeout(dnt); dnt = setTimeout(saveTasks, 400); });
+  dayNote.addEventListener('blur', () => { clearTimeout(dnt); saveTasks(); });
+  body.appendChild(dayNote);
   card.appendChild(body);
-  scroll.appendChild(card);
+  scroll.appendChild(card); autoGrow(dayNote);
 
   // dated blocks that aren't tied to one day: Other expenses (insurance, repairs…) and Shell payable; each counts in the month of its date
   const monthName = new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long' });
@@ -5781,7 +5795,7 @@ function renderTaxiPanel(cur){
     head.onclick = () => { open = !open; body.style.display = open ? '' : 'none'; arrow.textContent = open ? '▾' : '▸'; try{ localStorage.setItem(dropKey(k), open ? '1' : '0'); }catch(e){} };
   };
   const dated = (listKey, heading, addDefaultDesc) => {
-    const gh = el('div', 'car-group'); const info = el('span', 'car-group-info'); infos[listKey] = info;
+    const gh = el('div', 'car-group' + (listKey === 'shell' ? ' tx-shell-head' : '')); const info = el('span', 'car-group-info'); infos[listKey] = info;
     gh.append(el('span', 'car-group-title', heading + ' · all time'), info);
     rest.appendChild(gh);
     const bc = el('div', 'car-card car-other'), bb = el('div', 'car-body'), bl = el('div', 'car-exps');

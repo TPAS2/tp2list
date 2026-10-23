@@ -6077,18 +6077,20 @@ function renderTaxiPanel(cur){
     Object.keys(tx.days).filter(inMonth).forEach(k => { const d = dayOf(k, false); const i = txInc(d); inc += i; exp += txExpOf(d); });
     const other = txSum(tx.otherExpenses), shell = txSum(tx.shell);   // all time
     // Shell payable dated in the month on screen counts as an expense of the month; a copy made with "+ Shell payable" is the same expense that is already in its day, so it is not counted twice
-    const linkedShell = new Set(); Object.keys(tx.days).forEach(k => ((tx.days[k] && tx.days[k].entries) || []).forEach(e => { if(e.shellId) linkedShell.add(e.shellId); }));
+    const linkedShell = new Set(), linkedOther = new Set(); Object.keys(tx.days).forEach(k => ((tx.days[k] && tx.days[k].entries) || []).forEach(e => { if(e.shellId) linkedShell.add(e.shellId); if(e.otherId) linkedOther.add(e.otherId); }));
     const shellMonth = tx.shell.filter(o => String(o.date || '').slice(0, 7) === cur.taxiMonth && !linkedShell.has(o.id)).reduce((n, o) => n + carNum(o.amount), 0);
     exp += shellMonth;
     const profit = inc - exp;   // this month: income minus the day expenses and the month's Shell payable
-    let allInc = 0, allExp = 0;
-    Object.keys(tx.days).forEach(k => { const d = dayOf(k, false); allInc += txInc(d); allExp += txExpOf(d); });
-    const net = allInc - allExp - other - shell;   // like the sheet's NET P/L: everything, all time
+    let allExp = 0;
+    Object.keys(tx.days).forEach(k => { allExp += txExpOf(dayOf(k, false)); });   // every day's expenses, all time
+    let recv = 0, recvC = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); recvC += carNum(tx.days[k].cardIn); }); tRecv.textContent = carMoney(recv); tRecvCard.textContent = carMoney(recvC);
+    // copies made with + Other expenses / + Shell payable are the same expense that is already in its day, so they are taken off once only
+    const otherOnce = tx.otherExpenses.filter(o => !linkedOther.has(o.id)).reduce((n, o) => n + carNum(o.amount), 0), shellOnce = tx.shell.filter(o => !linkedShell.has(o.id)).reduce((n, o) => n + carNum(o.amount), 0);
+    const net = recv + recvC - allExp - otherOnce - shellOnce;   // Net P/L, all time: cash received + card received − all expenses − Other expenses − Shell payable
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tExp.parentElement.title = shellMonth ? 'Includes ' + carMoney(shellMonth) + ' of Shell payable dated this month' : ''; tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
-    tNet.textContent = carMoney(net); tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
+    tNet.textContent = carMoney(net); tNet.parentElement.title = 'Cash received + card received − all expenses − Other expenses − Shell payable (all time; an expense copied to Other expenses or Shell payable is taken off once)'; tNet.parentElement.classList.toggle('pos', net > 0); tNet.parentElement.classList.toggle('neg', net < 0);
     let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txCashNet(dd); });   // all time, days not settled yet: cash trips (your share) and card owed
-    let recv = 0, recvC = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); recvC += carNum(tx.days[k].cardIn); }); tRecv.textContent = carMoney(recv); tRecvCard.textContent = carMoney(recvC);
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell); paintOday();
     const shellFlag = tx.shell.some(txDieselLine);   // the Shell payable box and heading wear the stripes while a diesel entry has no amount

@@ -1301,6 +1301,12 @@
   .tx-settle.on{ background: rgba(40,200,120,.25); color: var(--text); font-weight: 700; }
   .tx-daycard .car-head{ cursor: default; }
   .car-notes.tx-daynote{ min-height: 52px; margin-top: 8px; }
+  .tx-oicon{ font-style: normal; font-size: .58rem; margin-left: 0; vertical-align: top; }
+  @media (max-width: 360px){ .tx-oicon{ font-size: .5rem; } }
+  .tx-oday{ margin-top: 8px; }
+  .tx-oday-row{ display: flex; justify-content: space-between; gap: 10px; font-size: .82rem; padding: 3px 0; }
+  .tx-oday-row b{ white-space: nowrap; }
+  .tx-oday-total{ border-top: 1px solid var(--line); margin-top: 3px; padding-top: 5px; }
   /* Shell payable: the petrol company's yellow and red */
   .cars-stat.tx-shell{ background: #FBCE07; box-shadow: inset 0 0 0 2px #DD1D21; }
   .cars-stat.tx-shell small{ color: #8F0F14; }
@@ -5637,12 +5643,13 @@ function renderTaxiPanel(cur){
     const b = cells[key]; if(!b) return;
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
-    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
+    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.querySelector('.tx-oicon').hidden = !tx.otherExpenses.some(o => o.date === key); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
     b.querySelector('small').textContent = (d && String(d.notes || '').trim() ? '📝 ' : '') + (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){
     const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
-    b.append(el('span', null, String(d)), el('small'));
+    const num = el('span', null, String(d)), oi = el('i', 'tx-oicon', '🧾'); oi.hidden = true; num.appendChild(oi);   // 🧾: some Other expenses are dated this day
+    b.append(num, el('small'));
     b.onclick = () => { cur.taxiSel = key; taxiScrollKeep = scroll.scrollTop; saveTasks(); redraw(); };   // show this day under the calendar
     cells[key] = b; cal.appendChild(b); paintDay(key);
   }
@@ -5796,6 +5803,16 @@ function renderTaxiPanel(cur){
   cardIn.value = (tx.days[key] && tx.days[key].cardIn) || '';
   cardIn.addEventListener('input', () => { dayOf(key, true).cardIn = cardIn.value; paintDay(key); updateAll(); save(); });
   cardRow.append(el('span', null, '💳 Card received on this day'), cardIn); body.appendChild(cardRow);
+  const odayBox = el('div', 'tx-oday');   // Other expenses dated this day (read only; edit them in the Other expenses list below)
+  const paintOday = () => {
+    const list = tx.otherExpenses.filter(o => o.date === key);
+    odayBox.textContent = ''; odayBox.style.display = list.length ? '' : 'none';
+    if(!list.length) return;
+    odayBox.appendChild(el('div', 'car-sub', '🧾 Other expenses on this day'));
+    list.forEach(o => { const r = el('div', 'tx-oday-row'); r.append(el('span', null, o.desc || '(no description)'), el('b', null, carNum(o.amount) ? carMoney(carNum(o.amount)) : '–')); odayBox.appendChild(r); });
+    if(list.length > 1){ const t = el('div', 'tx-oday-row tx-oday-total'); t.append(el('span', null, 'Total'), el('b', null, carMoney(txSum(list)))); odayBox.appendChild(t); }
+  };
+  paintOday(); body.appendChild(odayBox);
   const dayNote = el('textarea', 'car-notes tx-daynote'); dayNote.placeholder = 'Notes for this day…'; dayNote.spellcheck = false; dayNote.value = (tx.days[key] && tx.days[key].notes) || '';   // day.notes; the calendar shows 📝 on days that have one
   let dnt = null;
   dayNote.addEventListener('input', () => { const dd = dayOf(key, true); dd.notes = dayNote.value; paintDay(key); clearTimeout(dnt); dnt = setTimeout(saveTasks, 400); });
@@ -5911,7 +5928,7 @@ function renderTaxiPanel(cur){
     let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txCashNet(dd); });   // all time, days not settled yet: cash trips (your share) and card owed
     let recv = 0, recvC = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); recvC += carNum(tx.days[k].cardIn); }); tRecv.textContent = carMoney(recv); tRecvCard.textContent = carMoney(recvC);
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
-    infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
+    infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell); paintOday();
     const shellFlag = tx.shell.some(txDieselLine);   // the Shell payable box and heading wear the stripes while a diesel entry has no amount
     tShell.parentElement.classList.toggle('tx-flag', shellFlag); if(infos.shell.parentElement) infos.shell.parentElement.classList.toggle('tx-flag', shellFlag);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));

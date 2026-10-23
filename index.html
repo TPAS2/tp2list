@@ -5715,7 +5715,7 @@ function renderTaxiPanel(cur){
   const go = (delta) => { const d = new Date(Y, M - 1 + delta, 1); cur.taxiMonth = txKey(d.getFullYear(), d.getMonth(), 1).slice(0, 7); saveTasks(); redraw(); };
   const prev = el('button', 'sheet-mini', '‹'); prev.type = 'button'; prev.onclick = () => go(-1);
   const next = el('button', 'sheet-mini', '›'); next.type = 'button'; next.onclick = () => go(1);
-  const tdy = el('button', 'sheet-mini', 'Today'); tdy.type = 'button'; tdy.onclick = () => { cur.taxiMonth = todayKey.slice(0, 7); cur.taxiSel = todayKey; saveTasks(); redraw(); };
+  const tdy = el('button', 'sheet-mini', 'Today'); tdy.type = 'button'; tdy.onclick = () => { cur.taxiMonth = todayKey.slice(0, 7); cur.taxiSel = todayKey; cur.taxiOpen = true; saveTasks(); redraw(); };
   const imp = el('button', 'sheet-mini', '⤒ Import'); imp.type = 'button'; imp.title = 'Import a spreadsheet section into the taxi calendar';
   imp.onclick = () => {
     const sources = (data.businessTabs || []).filter(t => t.sheet && t.id !== cur.id);
@@ -5740,7 +5740,7 @@ function renderTaxiPanel(cur){
     }
     tx.shell.push(...res.shell); tx.credit.push(...res.credit);
     if(res.notes.length) tx.notes = (replace ? '' : (tx.notes ? tx.notes + '\n\n' : '')) + `— imported from "${src.name}" —\n` + res.notes.join('\n');
-    if(st.last){ cur.taxiMonth = st.last.slice(0, 7); cur.taxiSel = st.last; }
+    if(st.last){ cur.taxiMonth = st.last.slice(0, 7); cur.taxiSel = st.last; cur.taxiOpen = true; }
     saveTasks(); redraw();
   };
   const infos = { otherExpenses: el('span'), shell: el('span') }, creditInfo = el('span');
@@ -5757,14 +5757,17 @@ function renderTaxiPanel(cur){
     const b = cells[key]; if(!b) return;
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
-    b.classList.toggle('sel', key === cur.taxiSel); b.classList.toggle('today', key === todayKey); b.querySelector('.tx-oicon').hidden = !tx.otherExpenses.some(o => o.date === key); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
+    b.classList.toggle('sel', key === cur.taxiSel && cur.taxiOpen !== false); b.classList.toggle('today', key === todayKey); b.querySelector('.tx-oicon').hidden = !tx.otherExpenses.some(o => o.date === key); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
     b.querySelector('small').textContent = (d && String(d.notes || '').trim() ? '📝 ' : '') + (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){
     const key = txKey(Y, M - 1, d), b = el('button', 'tx-day'); b.type = 'button';
     const num = el('span', null, String(d)), oi = el('i', 'tx-oicon', '🧾'); oi.hidden = true; num.appendChild(oi);   // 🧾: some Other expenses are dated this day
     b.append(num, el('small'));
-    b.onclick = () => { cur.taxiSel = key; taxiScrollKeep = scroll.scrollTop; saveTasks(); redraw(); };   // show this day under the calendar
+    b.onclick = () => {   // first click shows this day under the calendar, a second click on the same day hides it again (cur.taxiOpen)
+      if(key === cur.taxiSel && cur.taxiOpen !== false) cur.taxiOpen = false; else { cur.taxiSel = key; cur.taxiOpen = true; }
+      taxiScrollKeep = scroll.scrollTop; saveTasks(); redraw();
+    };
     cells[key] = b; cal.appendChild(b); paintDay(key);
   }
   if(!dayView) scroll.appendChild(cal);
@@ -5933,7 +5936,7 @@ function renderTaxiPanel(cur){
   dayNote.addEventListener('blur', () => { clearTimeout(dnt); saveTasks(); });
   body.appendChild(dayNote);
   card.appendChild(body);
-  scroll.appendChild(card); autoGrow(dayNote);
+  if(cur.taxiOpen !== false){ scroll.appendChild(card); autoGrow(dayNote); }   // hidden after a second click on the selected day
 
   // dated blocks that aren't tied to one day: Other expenses (insurance, repairs…) and Shell payable; each counts in the month of its date
   const monthName = new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long' });

@@ -1309,6 +1309,8 @@
   .tx-oday-total{ border-top: 1px solid var(--line); margin-top: 3px; padding-top: 5px; }
   /* Shell payable: the petrol company's yellow and red */
   .cars-stat.tx-shell{ background: #FBCE07; box-shadow: inset 0 0 0 2px #DD1D21; }
+  .cars-stat.tx-blue b{ color: #4da3ff; }   /* the Not settled cash / card numbers are blue (also when the card box is red for "you owe him") */
+  html[data-theme="light"] .cars-stat.tx-blue b{ color: #1d4ed8; }
   .cars-stat.tx-shell small{ color: #8F0F14; }
   .cars-stat.tx-shell b{ color: #AE1319; }
   .car-group.tx-shell-head{ background: #FBCE07; box-shadow: inset 0 0 0 2px #DD1D21; border-radius: 10px; padding: 7px 10px; align-items: center; }
@@ -5597,7 +5599,7 @@ function renderTaxiPanel(cur){
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
   const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe him'), tRecv = stat('Cash received · all time'), tRecvCard = stat('Card received · all time');
-  tShell.parentElement.classList.add('tx-shell');
+  tShell.parentElement.classList.add('tx-shell'); tOpen.parentElement.classList.add('tx-blue'); tCard.parentElement.classList.add('tx-blue');
   if(!dayView) scroll.appendChild(totals);
 
   // month navigation + import

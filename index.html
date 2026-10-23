@@ -1268,8 +1268,13 @@
   .tx-day small{ font-size: 0.64rem; color: var(--text-dim); min-height: 0.8em; }
   .tx-day{ position: relative; }
   /* a diesel line with no amount: a pair of red racing stripes down the left side of the box (clear of the numbers), so it shows on green, amber and plain days */
-  .tx-day.nodiesel{ overflow: hidden; }
-  .tx-day.nodiesel::before{ content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 9px; pointer-events: none; background: linear-gradient(90deg, #ff3b3b 0 3px, transparent 3px 6px, #ff3b3b 6px 9px); }
+  .tx-day.nodiesel, .tx-flag{ overflow: hidden; }
+  .tx-flag{ position: relative; }
+  .tx-day.nodiesel::before, .tx-flag::before{ content: ''; position: absolute; top: 0; bottom: 0; left: 3px; width: 9px; pointer-events: none; background: linear-gradient(90deg, #ff3b3b 0 3px, transparent 3px 6px, #ff3b3b 6px 9px); }
+  .cars-stat.tx-flag::before, .car-group.tx-flag::before{ left: 7px; }   /* the Shell payable box and heading have a red edge of their own */
+  .cars-stat.tx-flag, .car-group.tx-flag{ padding-left: 22px; }
+  .tx-oexp.tx-flag{ overflow: visible; }
+  .tx-oexp.tx-flag::before{ left: -11px; }   /* in the gutter beside the entry, so the boxes keep their width */
   @media (max-width: 360px){ .tx-day.nodiesel::before{ left: 2px; width: 6px; background: linear-gradient(90deg, #ff3b3b 0 2px, transparent 2px 4px, #ff3b3b 4px 6px); } }
   .tx-day.open{ background: rgba(255,170,0,.22); }
   .tx-day.settled{ background: rgba(40,200,120,.22); }
@@ -5315,7 +5320,8 @@ const txSum = (list) => (list || []).reduce((sum, x) => sum + carNum(x.amount), 
 // a day is one ordered list of entries, each a trip (income) or an expense, so an expense can sit between the trips it happened between
 let txPct = 60;   // share of each fare kept (tab.taxi.cutPct); trips without `cut` store the full fare and count at this share
 const txShare = (e) => carNum(e.amount) * txPct / 100;   // a trip's amount is always the full fare; profit is the cut of it
-const txDieselNoAmount = (d) => !!d && (d.entries || []).some(e => /diesel/i.test(e.desc || '') && !carNum(e.amount));   // a diesel line with no number (empty or 0): flagged with a red stripe on the calendar
+const txDieselLine = (e) => !!e && /diesel/i.test(e.desc || '') && !carNum(e.amount);   // a diesel line with no number (empty, 0 or not a number)
+const txDieselNoAmount = (d) => !!d && (d.entries || []).some(txDieselLine);   // a diesel line with no number (empty or 0): flagged with a red stripe on the calendar
 const txInc = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txShare(e), 0) : 0;
 // card trips: the customer paid you by card, so you hold the whole fare and owe him the other (100 − cut)% until the day is settled
 const txIsCard = (e) => e.kind !== 'expense' && !!e.card;
@@ -5816,11 +5822,13 @@ function renderTaxiPanel(cur){
       const dt = el('input', 'tx-date'); dt.type = 'date'; dt.value = ex.date || '';
       dt.addEventListener('change', () => { ex.date = dt.value; saveTasks(); redraw(); });
       const d = el('input'); d.type = 'text'; d.placeholder = 'What for…'; d.value = ex.desc || ''; d.autocomplete = 'off';
-      d.addEventListener('input', () => { ex.desc = d.value; save(); });
+      const flag = () => { if(listKey === 'shell') row.classList.toggle('tx-flag', txDieselLine(ex)); };   // Shell payable: a diesel entry with no amount gets the stripes
+      d.addEventListener('input', () => { ex.desc = d.value; flag(); updateAll(); save(); });
       const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = ex.amount == null ? '' : ex.amount; a.autocomplete = 'off';
-      a.addEventListener('input', () => { ex.amount = a.value; updateAll(); save(); });
+      a.addEventListener('input', () => { ex.amount = a.value; flag(); updateAll(); save(); });
       const x = el('button', 'car-del', '✕'); x.type = 'button';
       x.onclick = () => { tx[listKey] = tx[listKey].filter(e => e.id !== ex.id); saveTasks(); redraw(); };
+      flag();
       row.append(dt, d, a, x); bl.appendChild(row);
     });
     bb.appendChild(bl);
@@ -5901,6 +5909,8 @@ function renderTaxiPanel(cur){
     let recv = 0, recvC = 0; Object.keys(tx.days).forEach(k => { recv += carNum(tx.days[k].cashIn); recvC += carNum(tx.days[k].cardIn); }); tRecv.textContent = carMoney(recv); tRecvCard.textContent = carMoney(recvC);
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell);
+    const shellFlag = tx.shell.some(txDieselLine);   // the Shell payable box and heading wear the stripes while a diesel entry has no amount
+    tShell.parentElement.classList.toggle('tx-flag', shellFlag); if(infos.shell.parentElement) infos.shell.parentElement.classList.toggle('tx-flag', shellFlag);
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
     sTrips.textContent = carMoney(d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txFare(e), 0) : 0); sShare.textContent = carMoney(di); sExp.textContent = carMoney(de);

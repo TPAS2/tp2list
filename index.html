@@ -5467,6 +5467,11 @@ function taxiParseNotes(text, defaultKey, ignoreDates){
       if(mo >= 1 && mo <= 12 && da >= 1 && da <= 31){ const y = dm[3] ? (dm[3].length === 2 ? 2000 + +dm[3] : +dm[3]) : year; cur = y + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'); }
       return;
     }
+    const lm = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2,4})\s+(\S.*)$/.exec(line);   // a date at the start of a line of a sheet screenshot ("05/03/2026 Makenzie 20"): the rest is read as the line
+    if(lm){
+      if(!ignoreDates){ const da = +lm[1], mo = +lm[2]; if(mo >= 1 && mo <= 12 && da >= 1 && da <= 31) cur = (lm[3].length === 2 ? 2000 + +lm[3] : +lm[3]) + '-' + String(mo).padStart(2, '0') + '-' + String(da).padStart(2, '0'); }
+      line = lm[4];
+    }
     let amt = null, desc = '', neg = false, m, zero = false;
     if((m = /^(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s+(.*[A-Za-z].*)$/.exec(line))){ neg = !!m[1]; amt = m[2]; desc = m[3]; }
     else if((m = /^(.*[A-Za-z].*?)\s+(-?)\s*€?\s*(\d+(?:[.,]\d{1,2})?)\s*€?$/.exec(line))){ desc = m[1]; neg = !!m[2]; amt = m[3]; }

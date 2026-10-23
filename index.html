@@ -5303,6 +5303,7 @@ function renderCarsPanel(cur){
 
 /* --- taxi management sections: tab.taxi = { days: { 'YYYY-MM-DD': { trips: [{ id, desc, amount }], expenses: [{ id, desc, amount }], settled } }, otherExpenses: [{ id, date, desc, amount }] } --- */
 // imported descriptions get a capital first letter on every word ("ermou card" → "Ermou Card"); the rest of each word is left as typed (LCE stays LCE)
+const TX_EXP = /\b(diesel|petrol|fuel|gas|wash|car ?wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?|r[ae]mba)\b/i;   // words that make a picture line an expense (not a trip)
 const txTitle = (s) => String(s || '').replace(/(^|[\s(\/\-])([a-z])/g, (m, a, b) => a + b.toUpperCase());
 let taxiScrollKeep = 0;
 const taxiDayView = {};   // section id -> true while a single day is open (not saved; the calendar is the starting view)
@@ -5439,7 +5440,7 @@ async function ocrReadPicture(file, onProgress, wantBoxes){   // wantBoxes: retu
 }
 // lines like "Germasogia 75" become trips (your share = cut % of the number), lines about diesel / car wash / tolls… become expenses (the full number)
 function taxiParsePictureText(text, cutPct){
-  const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
+  const EXP = TX_EXP;
   const entries = []; let skipped = 0;
   String(text).split(/\r?\n/).map(l => l.replace(/^[\-•*·|~_\s]+/, '').replace(/[|~_\s]+$/, '').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
     line = line.replace(/^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}\s*/, '').replace(/^[\-•*·|~_\s]+/, '').replace(/\s*\|\s*/g, ' ').trim();   // a leading date is not used (everything goes to the open day)
@@ -5456,7 +5457,7 @@ function taxiParsePictureText(text, cutPct){
 // a notes-app screenshot: a date line ("21/10") starts a day, then lines like "20 san remo" (amount first), "-80 diesel" (minus = expense) or "26 ermou card" (card trip); "Name 75" (amount last) works too.
 // An expense word with no number ("diesel") is still added, at 0. Lines before any date line go to defaultKey. Returns the entries grouped by day, in order.
 function taxiParseNotes(text, defaultKey, ignoreDates){
-  const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
+  const EXP = TX_EXP;
   const year = +defaultKey.slice(0, 4);
   const byDay = {}, order = []; let skipped = 0, zeros = 0, cur = defaultKey;
   String(text).split(/\r?\n/).map(l => l.replace(/[|~_]+/g, ' ').replace(/[–−—]/g, '-').replace(/\s+/g, ' ').trim()).filter(Boolean).forEach(line => {
@@ -5494,7 +5495,7 @@ function taxiParseNotes(text, defaultKey, ignoreDates){
 // so the trip is saved as the full fare (revenue ÷ cut %). With only one column in the picture, expense words (diesel, fuel…) mean expense and anything else is revenue.
 // Returns the entries plus the numbers of the lines that were used, so the remaining lines can go to the notes reader.
 function taxiParseTable(lines, width, cutPct){
-  const EXP = /\b(diesel|petrol|fuel|gas|wash|tolls?|parking|fines?|repairs?|service|oil|tyres?|tires?)\b/i;
+  const EXP = TX_EXP;
   const DATE = /^\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4}$/;
   const AMT = /^([€£]?)(\d[\d,]*(?:[.,]\d{1,2})?)([€£]?)$/;
   const rows = [];
@@ -5514,19 +5515,20 @@ function taxiParseTable(lines, width, cutPct){
   const colOf = (cx) => { let best = 0; centres.forEach((c, i) => { if(Math.abs(cx - c.sum / c.n) < Math.abs(cx - centres[best].sum / centres[best].n)) best = i; }); return best; };
   const num = (v) => { const n = parseFloat(/^\d+,\d{2}$/.test(v) ? v.replace(',', '.') : v.replace(/,/g, '')); return isNaN(n) ? 0 : n; };
   const cut = Math.max(0, Math.min(100, +cutPct || 60)) / 100;
-  const entries = [], used = new Set(), notes = {};
+  const entries = [], used = new Set(), notes = {}, byLine = {};
   rows.forEach(r => {
+    const mine = byLine[r.idx] = [];
     r.amts.forEach(a => {
       let kind;
       if(centres.length >= 2){ const c = colOf(a.cx); if(c > 1) return; kind = c === 0 ? 'expense' : 'trip'; }
       else kind = EXP.test(r.desc) ? 'expense' : 'trip';
       const v = num(a.v), id = carUid();
-      if(kind === 'expense') entries.push({ id, kind, desc: txTitle(r.desc), amount: String(v) });
-      else { const fare = cut > 0 ? Math.round(v / cut * 100) / 100 : v; entries.push({ id, kind, card: /\bcard\b/i.test(r.desc), desc: txTitle(r.desc), amount: String(fare) }); if(cut > 0) notes[id] = '(revenue €' + v + ' ÷ ' + Math.round(cut * 100) + '%)'; }
+      if(kind === 'expense'){ const e = { id, kind, desc: txTitle(r.desc), amount: String(v) }; entries.push(e); mine.push(e); }
+      else { const fare = cut > 0 ? Math.round(v / cut * 100) / 100 : v; const e = { id, kind, card: /\bcard\b/i.test(r.desc), desc: txTitle(r.desc), amount: String(fare) }; entries.push(e); mine.push(e); if(cut > 0) notes[id] = '(revenue €' + v + ' ÷ ' + Math.round(cut * 100) + '%)'; }
     });
     used.add(r.idx);
   });
-  return { entries, used, notes, columns: centres.length };
+  return { entries, used, notes, byLine, columns: centres.length };
 }
 function taxiParseDatedText(text){
   const out = []; let skipped = 0;
@@ -5745,17 +5747,19 @@ function renderTaxiPanel(cur){
     const files = [...picIn.files]; picIn.value = ''; if(!files.length) return;
     pic.disabled = true;
     try{
-      let text = ''; const tableEntries = [], tableNotes = {};
-      for(let i = 0; i < files.length; i++){   // several pictures in a row: their text is joined, so a day carries on into the next picture
+      const seq = [], tableNotes = {}; let text = '', skipped = 0, zeros = 0;   // seq: every entry in the order of the picture
+      const addNotes = (t) => { const one = taxiParseNotes(t, key, true); skipped += one.skipped; zeros += one.zeros; seq.push(...(one.byDay[key] || [])); };
+      for(let i = 0; i < files.length; i++){   // several pictures in a row, one after the other
         const tag = files.length > 1 ? `Picture ${i + 1} of ${files.length}: ` : '';
         picStatus.textContent = tag + 'Reading the picture…';
         const r = await ocrReadPicture(files[i], (pr, st) => { picStatus.textContent = tag + (pr < 0 ? 'Loading the reader (first time ~7 MB)… ' + (st || '') : 'Reading the picture… ' + Math.round(pr * 100) + '%'); }, true);
+        text += r.text + '\n';
         const tbl = taxiParseTable(r.lines, r.width, txPct);   // spreadsheet rows (date, description, expense / revenue columns) are read by column
-        tableEntries.push(...tbl.entries); Object.assign(tableNotes, tbl.notes);
-        text += (tbl.used.size ? r.lines.filter((l, n) => !tbl.used.has(n)).map(l => l.text).join('\n') : r.text) + '\n';
+        Object.assign(tableNotes, tbl.notes);
+        if(!r.lines.length){ addNotes(r.text); continue; }
+        r.lines.forEach((l, n) => { if(tbl.byLine[n]) seq.push(...tbl.byLine[n]); else addNotes(l.text); });   // line by line, so trips and expenses keep the picture's order
       }
-      const res = taxiParseNotes(text, key, true);   // everything goes to the open day, whatever dates the picture shows
-      if(tableEntries.length){ res.byDay[key] = tableEntries.concat(res.byDay[key] || []); if(!res.order.includes(key)) res.order.push(key); res.count += tableEntries.length; }
+      const res = { byDay: { [key]: seq }, order: seq.length ? [key] : [], count: seq.length, skipped, zeros };   // everything goes to the open day, whatever dates the picture shows
       if(!res.count){ alert('No lines with an amount were found.\n\nText that was read:\n' + (text.trim().slice(0, 300) || '(nothing)')); return; }
       const nice = (k) => new Date(k + 'T12:00:00').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
       const lines = []; let shown = 0;

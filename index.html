@@ -5638,6 +5638,7 @@ function renderTaxiPanel(cur){
     saveTasks(); redraw();
   };
   const infos = { otherExpenses: el('span'), shell: el('span') }, creditInfo = el('span');
+  const shellRows = {};   // Shell payable list rows by entry id ({ d, a, flag }), so a change made on the day card shows in the list straight away
   nav.append(prev, el('b', 'tx-month', new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long', year: 'numeric' })), next, tdy, imp);
   if(!dayView) scroll.appendChild(nav);
 
@@ -5708,11 +5709,17 @@ function renderTaxiPanel(cur){
     kind.value = item.kind === 'expense' ? 'expense' : 'trip';
     kind.addEventListener('change', () => { item.kind = kind.value; row.classList.toggle('is-exp', item.kind === 'expense'); paintDay(key); updateAll(); saveTasks(); });
     const d = el('input'); d.type = 'text'; d.placeholder = item.kind === 'expense' ? 'What for (fuel, tolls…)' : 'Trip (route, passenger…)'; d.value = item.desc || ''; d.autocomplete = 'off';
-    d.addEventListener('input', () => { item.desc = d.value; paintDok(); if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } paintDay(key); save(); });
+    d.addEventListener('input', () => { item.desc = d.value; paintDok(); syncShell(); if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } paintDay(key); save(); });
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
     const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe him his share';
     const bank = el('input', 'tx-bank'); bank.type = 'checkbox'; bank.checked = !!item.banked; bank.title = 'Tick when this card payment has reached your bank';
     bank.addEventListener('change', () => { item.banked = bank.checked; row.classList.toggle('is-banked', bank.checked); saveTasks(); });
+    const syncShell = () => {   // an expense sent to Shell payable (item.shellId): the list entry follows the day's amount and description
+      const o = item.shellId && tx.shell.find(x => x.id === item.shellId); if(!o) return;
+      o.amount = item.amount; o.desc = item.desc;
+      const r = shellRows[o.id]; if(r){ if(document.activeElement !== r.a) r.a.value = o.amount == null ? '' : o.amount; if(document.activeElement !== r.d) r.d.value = o.desc || ''; r.flag(); }
+      updateAll();
+    };
     const dok = el('input', 'tx-bank'); dok.type = 'checkbox'; dok.checked = !!item.dieselOk; dok.title = 'Tick when this diesel is checked';   // item.dieselOk: a record only, no totals change
     const paintDok = () => { const isD = item.kind === 'expense' && txIsDiesel(item.desc); dok.style.display = isD ? '' : 'none'; row.classList.toggle('is-dok', isD && !!item.dieselOk); };
     dok.addEventListener('change', () => { item.dieselOk = dok.checked; paintDok(); saveTasks(); });
@@ -5741,7 +5748,7 @@ function renderTaxiPanel(cur){
     const hint = el('span', 'tx-share');
     const paintHint = () => { hint.textContent = item.kind !== 'expense' && a.value.trim() ? '→ ' + carMoney(txShare(item)) : ''; };
     paintHint(); a.title = 'Trips: type the full fare, ' + txPct + '% counts as your profit';
-    a.addEventListener('input', () => { item.amount = a.value; paintHint(); paintDay(key); updateAll(); save(); });
+    a.addEventListener('input', () => { item.amount = a.value; paintHint(); syncShell(); paintDay(key); updateAll(); save(); });
     const x = el('button', 'car-del', '✕'); x.type = 'button';
     x.onclick = () => { const dd = dayOf(key, true); dd.entries = dd.entries.filter(e => e.id !== item.id); saveTasks(); redraw(); };
     const grip = el('span', 'tx-grip', '⠿'); grip.title = 'Drag to reorder';
@@ -5864,6 +5871,7 @@ function renderTaxiPanel(cur){
       const x = el('button', 'car-del', '✕'); x.type = 'button';
       x.onclick = () => { tx[listKey] = tx[listKey].filter(e => e.id !== ex.id); saveTasks(); redraw(); };
       flag();
+      if(listKey === 'shell') shellRows[ex.id] = { d, a, flag };
       row.append(dt, d, a, x); bl.appendChild(row);
     });
     bb.appendChild(bl);

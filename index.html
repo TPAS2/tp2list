@@ -1291,6 +1291,7 @@
   .tx-entry.is-card{ border-left: 3px solid #c026d3; padding-left: 5px; background: rgba(192, 38, 211, .12); border-radius: 8px; }
   .tx-entry.is-card.is-banked{ background: rgba(34, 197, 94, .14); border-left-color: var(--success); }
   .tx-bank{ flex: none; width: 18px; height: 18px; accent-color: var(--success); cursor: pointer; }
+  .tx-entry.is-exp.is-dok{ background: rgba(34, 197, 94, .14); border-left-color: var(--success); border-radius: 8px; }   /* a ticked diesel */
   .tx-card{ flex: none; background: var(--panel-solid); color: var(--text-dim); border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 0.7rem; padding: 3px 7px; cursor: pointer; }
   .tx-card.on{ background: #c026d3; color: #fff; border-color: #c026d3; }
   .tx-entry.dragging{ opacity: .6; background: var(--fill); }
@@ -5707,14 +5708,18 @@ function renderTaxiPanel(cur){
     kind.value = item.kind === 'expense' ? 'expense' : 'trip';
     kind.addEventListener('change', () => { item.kind = kind.value; row.classList.toggle('is-exp', item.kind === 'expense'); paintDay(key); updateAll(); saveTasks(); });
     const d = el('input'); d.type = 'text'; d.placeholder = item.kind === 'expense' ? 'What for (fuel, tolls…)' : 'Trip (route, passenger…)'; d.value = item.desc || ''; d.autocomplete = 'off';
-    d.addEventListener('input', () => { item.desc = d.value; if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } paintDay(key); save(); });
+    d.addEventListener('input', () => { item.desc = d.value; paintDok(); if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } paintDay(key); save(); });
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
     const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe him his share';
     const bank = el('input', 'tx-bank'); bank.type = 'checkbox'; bank.checked = !!item.banked; bank.title = 'Tick when this card payment has reached your bank';
     bank.addEventListener('change', () => { item.banked = bank.checked; row.classList.toggle('is-banked', bank.checked); saveTasks(); });
+    const dok = el('input', 'tx-bank'); dok.type = 'checkbox'; dok.checked = !!item.dieselOk; dok.title = 'Tick when this diesel is checked';   // item.dieselOk: a record only, no totals change
+    const paintDok = () => { const isD = item.kind === 'expense' && txIsDiesel(item.desc); dok.style.display = isD ? '' : 'none'; row.classList.toggle('is-dok', isD && !!item.dieselOk); };
+    dok.addEventListener('change', () => { item.dieselOk = dok.checked; paintDok(); saveTasks(); });
     const paintCard = () => { const isC = txIsCard(item); cardB.classList.toggle('on', !!item.card); cardB.style.display = item.kind === 'expense' ? 'none' : ''; row.classList.toggle('is-card', isC); row.classList.toggle('is-banked', isC && !!item.banked); bank.style.display = isC ? '' : 'none'; };
     cardB.onclick = () => { item.card = !item.card; paintCard(); paintDay(key); updateAll(); saveTasks(); };
     paintCard(); kind.addEventListener('change', paintCard);
+    paintDok(); kind.addEventListener('change', paintDok);
     const othB = el('button', 'tx-card tx-oth'); othB.type = 'button';
     const paintOth = () => { const inO = !!item.otherId && tx.otherExpenses.some(o => o.id === item.otherId); othB.textContent = inO ? '✓ In Other expenses' : '+ Other expenses'; othB.classList.toggle('on', inO); othB.style.display = item.kind === 'expense' ? '' : 'none'; othB.title = 'Also list this expense in the Other expenses table (all time), dated this day'; };
     othB.onclick = () => {
@@ -5758,7 +5763,7 @@ function renderTaxiPanel(cur){
       window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     });
     row.dataset.id = item.id;
-    row.append(grip, kind, d, a, cardB, bank, othB, shB, hint, x); list.appendChild(row);
+    row.append(grip, kind, d, a, cardB, bank, dok, othB, shB, hint, x); list.appendChild(row);
   });
   body.appendChild(list);
   const adds = el('div', 'tx-adds');

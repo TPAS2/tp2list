@@ -59,6 +59,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   - The **Not settled cash** and **Not settled card** numbers in the totals bar are blue (`.tx-blue`, a lighter blue in dark mode, a darker one in light mode), also when the card box would otherwise be red for "you owe him"; only the number text is coloured, not the box.
   - **Diesel tick** (`item.dieselOk`, a checkbox like the card bank tick): shown on expense rows whose description is diesel (spelling mistakes allowed, `txIsDiesel`); ticked rows turn green. It is a record only (no totals, stripes or Shell payable change) and keeps its value if the line is renamed and renamed back.
   - **Pages scroll only when needed** (script at the end of the page script): each swipe page keeps 90 px of bottom room (so the "Saved" pill doesn't cover the last item) only when the content really scrolls; otherwise just as much as fits.
+- **Monthly automations** (Business section type `'auto'`, chosen from the new-section chooser or the tab's ▾ menu; `renderAutoPanel`, styles `.auto-*` plus the car classes): a read-only dashboard of the monthly document runs (private repo TPAS2/Ai-Monthly). Those runs publish a summary to `FB_DB/lists/<code>.json` after every run/SEND check; the code is a long random name the user pastes once and is kept in `tab.autoCode` (their synced data), never in this public source. Shows totals (active, next run, waiting for SEND, sent this year), then per automation its schedule and every month newest first: status chip, steps with Cyprus times, emails, and file links (GitHub links into the private repo, so they only open for its owner). Fetched on open, cached 60s, ↻ Refresh; Disconnect clears the code.
 - **Birthdays** (opened from Other, stored as `data.birthdays` = `{id, name, date: 'MM-DD'}`, no year; old 'YYYY-MM-DD' entries still work): simple list sorted by next upcoming
   birthday, showing date and "Today / Tomorrow / N days". Add with name + day + month; Enter in any field adds. On the day, it also shows at the top of the List page's Today widget (🎂, tick box); ticking sets `doneYear` so it hides until next year. Not a calendar event. The Other card shows the next one.
 - **Stock / SL** (`stock/index.html`, opened from the SL card on the Other page; no longer in the main nav): separate home-stock + shopping list app.
@@ -101,7 +102,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - Any sync change must preserve every data field (`ledger`, `spanEvents`, etc.) and keep timestamps consistent.
 
 ## Open items
-- The Work section, automation status and `data.ledger` UI were removed. Old `ledger` data still syncs harmlessly as a section.
+- The Work section, automation status and `data.ledger` UI were removed (the automation status now lives in the Business section's Monthly automations dashboard). Old `ledger` data still syncs harmlessly as a section.
 - Firebase sync/sharing not yet verified against the real database (sandbox can't reach it; only tested with mocks).
   Check: `<FB_DB>/sync/ZZZZZZZZZZ/created.json` and `<FB_DB>/lists/ZZZZZZ/created.json` should return `null`, `<FB_DB>/.json` "Permission denied";
   in the app, Sync → Get a sync code should show "✓ Live". "Permission denied" on the first two = rules not published.

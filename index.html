@@ -1240,6 +1240,33 @@
   .notes-head{ margin: 18px 0 6px; padding-top: 0; border-top: 0; }
   .car-notes{ display: block; width: 100%; box-sizing: border-box; min-height: 90px; resize: vertical; flex: none; overflow-y: auto; line-height: 1.5; font-size: 0.8rem; }
   @media (max-width: 520px){ .cars-totals{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  /* Monthly automations dashboard (Business section type 'auto') */
+  .cars-totals.auto-totals{ grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  @media (max-width: 520px){ .cars-totals.auto-totals{ grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .cars-stat.auto-wait b{ color: var(--accent2); }
+  .auto-bar{ display: flex; align-items: center; gap: 10px; color: var(--text-dim); font-size: 0.72rem; margin: -4px 0 6px; }
+  .auto-bar span{ flex: 1; min-width: 0; }
+  .auto-link{ background: none; border: 0; padding: 2px 0; color: var(--accent2); font: inherit; cursor: pointer; }
+  .auto-link:hover{ text-decoration: underline; }
+  .auto-connect{ display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 12px; background: var(--fill); }
+  .auto-connect small, .auto-sub{ color: var(--text-dim); font-size: 0.74rem; overflow-wrap: anywhere; }
+  .auto-sub{ margin: -4px 0 8px; }
+  .car-body .auto-sub{ margin: 0; }
+  .auto-chip{ flex: none; font-size: 0.66rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: var(--text-dim); border: 1px solid currentColor; }
+  .auto-chip.pos{ color: var(--success); } .auto-chip.neg{ color: var(--danger); } .auto-chip.wait{ color: var(--accent2); }
+  .car-status.auto-num{ overflow: hidden; text-overflow: ellipsis; max-width: 40%; }
+  .auto-steps{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .auto-steps li{ display: flex; gap: 8px; align-items: baseline; font-size: 0.8rem; color: var(--text-dim); }
+  .auto-steps li.done{ color: var(--text); }
+  .auto-steps .mark{ width: 14px; flex: none; text-align: center; }
+  .auto-steps li.done .mark{ color: var(--success); } .auto-steps li.bad .mark{ color: var(--danger); }
+  .auto-steps .when{ margin-left: auto; font-variant-numeric: tabular-nums; font-size: 0.74rem; color: var(--text-dim); white-space: nowrap; }
+  .auto-label{ color: var(--text-dim); font-size: 0.62rem; letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
+  .auto-files{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .auto-file{ font-size: 0.74rem; padding: 5px 9px; border-radius: 8px; background: var(--panel-raised); color: var(--text); text-decoration: none; border: 1px solid transparent; overflow-wrap: anywhere; }
+  .auto-file::before{ content: '📄 '; }
+  .auto-file:hover{ border-color: var(--accent2); }
+  @media (max-width: 480px){ .car-status.auto-num{ display: none; } }
   .biz-head{ display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--divider); }
   .biz-head h3{ margin: 0; padding: 0; border: 0; flex: none; min-width: 0; }
   .biz-head{ flex-wrap: wrap; align-items: center; }
@@ -5971,6 +5998,160 @@ function renderTaxiPanel(cur){
   if(taxiScrollKeep){ scroll.scrollTop = taxiScrollKeep; taxiScrollKeep = 0; }
 }
 
+/* Monthly automations dashboard (type 'auto'): read-only view of the monthly document runs.
+   The runs publish a summary to FB_DB/lists/<code>.json; the code is a long random name the
+   user enters once (kept in tab.autoCode, i.e. in their own synced data, never in this source). */
+const autoDash = { code: '', doc: null, at: 0, loading: false, error: '' };
+const AUTO_STATUS = {
+  sent: ['pos', 'Emailed'], awaiting_approval: ['wait', 'Reply SEND'], not_emailed: ['wait', 'Not emailed'],
+  created: ['wait', 'In progress'], on_hold: ['wait', 'On hold'], cancelled: ['neg', 'Cancelled'],
+  failed: ['neg', 'Checks failed'], stopped: ['', 'Stopped'], before: ['', 'Before automation']
+};
+
+function autoFetch(code, force){
+  if(!code || autoDash.loading) return;
+  if(!force && autoDash.code === code && autoDash.doc && Date.now() - autoDash.at < 60000) return;
+  autoDash.loading = true; autoDash.error = '';
+  fetch(`${FB_DB}/lists/${encodeURIComponent(code)}.json`, { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)))
+    .then(doc => {
+      autoDash.code = code; autoDash.doc = doc; autoDash.at = Date.now();
+      autoDash.error = doc && doc.automations ? '' : 'Nothing published under this code yet.';
+    })
+    .catch(() => { autoDash.error = navigator.onLine === false ? 'Offline: showing the last copy.' : 'Could not load the dashboard.'; })
+    .finally(() => {
+      autoDash.loading = false;
+      const cur = (data.businessTabs || []).find(t => t.id === bizSel);
+      if(cur && cur.type === 'auto') renderBizPanel(cur);
+    });
+}
+
+function autoWhen(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  const tz = 'Asia/Nicosia';   // the runs are scheduled on Cyprus time
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: tz }) + ' ' +
+         d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: tz });
+}
+function autoMonth(ym){ const [y, m] = String(ym).split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }); }
+function autoDay(ymd){ const [y, m, d] = String(ymd).split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }); }
+
+function renderAutoPanel(cur){
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
+  const redraw = () => renderBizPanel(cur);
+  const scroll = el('div', 'cars-wrap');
+  bizPanelEl.appendChild(scroll);
+
+  // not connected yet: ask for the dashboard code once
+  if(!cur.autoCode){
+    const box = el('div', 'auto-connect');
+    box.append(el('b', null, 'Connect your monthly automations'),
+               el('small', null, 'Paste the dashboard code Claude gave you. It is kept in your own synced data only.'));
+    const form = el('form', 'add-row');
+    const inp = el('input'); inp.type = 'text'; inp.placeholder = 'Dashboard code'; inp.autocomplete = 'off'; inp.spellcheck = false;
+    const btn = el('button', 'add', 'Connect'); btn.type = 'submit';
+    form.append(inp, btn);
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = inp.value.trim();
+      if(!/^[A-Za-z0-9_-]{16,}$/.test(code)){ alert('That does not look like a dashboard code.'); return; }
+      cur.autoCode = code; saveTasks(); autoFetch(code, true); redraw();
+    });
+    box.appendChild(form);
+    scroll.appendChild(box);
+    return;
+  }
+
+  autoFetch(cur.autoCode);
+  const doc = autoDash.code === cur.autoCode ? autoDash.doc : null;
+  const autos = (doc && doc.automations) || [];
+
+  // totals
+  const totals = el('div', 'cars-totals auto-totals');
+  const stat = (label, value, cls) => { const b = el('div', 'cars-stat' + (cls ? ' ' + cls : '')); b.append(el('small', null, label), el('b', null, value)); totals.appendChild(b); };
+  const active = autos.filter(a => a.active);
+  const next = active.filter(a => a.next_run).sort((a, b) => a.next_run.localeCompare(b.next_run))[0];
+  const waiting = autos.filter(a => a.runs && a.runs[0] && a.runs[0].status === 'awaiting_approval');
+  const yr = String(new Date().getFullYear());
+  const emailed = autos.reduce((n, a) => n + (a.runs || []).filter(r => r.status === 'sent' && String(r.month).startsWith(yr)).length, 0);
+  stat('Active', doc ? `${active.length} of ${autos.length}` : '…');
+  stat('Next run', next ? `${autoDay(next.next_run)} · ${next.title}` : (doc ? 'None' : '…'));
+  stat('Waiting for SEND', doc ? String(waiting.length) : '…', waiting.length ? 'auto-wait' : '');
+  stat(`Sent in ${yr}`, doc ? String(emailed) : '…', emailed ? 'pos' : '');
+  scroll.appendChild(totals);
+
+  // status line + refresh
+  const bar = el('div', 'auto-bar');
+  bar.appendChild(el('span', null, autoDash.loading ? 'Updating…' : autoDash.error ||
+    (doc ? 'Updated ' + autoWhen(new Date(doc.updatedAt).toISOString()) + ' · times are Cyprus time' : '')));
+  const refresh = el('button', 'auto-link', '↻ Refresh'); refresh.type = 'button';
+  refresh.onclick = () => { autoFetch(cur.autoCode, true); redraw(); };
+  const disconnect = el('button', 'auto-link', 'Disconnect'); disconnect.type = 'button';
+  disconnect.onclick = () => { if(confirm('Disconnect this section from the monthly automations?')){ delete cur.autoCode; saveTasks(); redraw(); } };
+  bar.append(refresh, disconnect);
+  scroll.appendChild(bar);
+
+  const fileLink = (f) => {
+    const a = el('a', 'auto-file', f.name);
+    a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
+    a.title = 'Opens in GitHub (your private Ai-Monthly repository)';
+    return a;
+  };
+
+  autos.forEach(a => {
+    const gh = el('div', 'car-group');
+    gh.append(el('span', 'car-group-title', a.title),
+              el('span', 'car-group-info' + (a.active ? '' : ' neg'),
+                 a.active ? `${a.schedule}${a.next_run ? ' · next ' + autoDay(a.next_run) : ''}` : 'Stopped'));
+    scroll.appendChild(gh);
+    if(a.to) scroll.appendChild(el('div', 'auto-sub', `Emails from ${a.from} to ${a.to}`));
+
+    (a.runs || []).forEach((r, i) => {
+      const id = a.key + '|' + r.month;
+      const open = cur.openAuto === undefined ? (i === 0 && a.active) : cur.openAuto === id;
+      const card = el('div', 'car-card' + (open ? ' open' : ''));
+      const head = el('div', 'car-head');
+      const [cls, label] = AUTO_STATUS[r.status] || ['', r.status];
+      head.append(el('span', 'car-chev', open ? '▾' : '▸'), el('span', 'car-name', autoMonth(r.month)),
+                  el('span', 'car-status auto-num', (r.numbers || []).join(', ')), el('span', 'auto-chip ' + cls, label));
+      head.onclick = () => { cur.openAuto = open ? null : id; redraw(); };
+      card.appendChild(head);
+
+      if(open){
+        const body = el('div', 'car-body');
+        const s = r.steps || {};
+        const steps = [['created', 'Created & checked'], ['telegram', 'Sent to Telegram'], ['approved', 'You replied SEND'], ['emailed', 'Emailed']];
+        if(s.cancelled) steps.splice(2, 2, ['cancelled', 'Cancelled (STOP)']);
+        if(s.failed) steps.splice(0, 4, ['failed', 'Checks failed: nothing sent']);
+        if(r.status !== 'before'){
+          const ul = el('ul', 'auto-steps');
+          steps.forEach(([k, txt]) => {
+            const li = el('li', s[k] ? 'done' + (k === 'failed' || k === 'cancelled' ? ' bad' : '') : '');
+            li.append(el('span', 'mark', s[k] ? (k === 'failed' || k === 'cancelled' ? '✕' : '✓') : '○'), el('span', null, txt), el('span', 'when', autoWhen(s[k])));
+            ul.appendChild(li);
+          });
+          body.appendChild(ul);
+        }
+        (r.emails || []).forEach(m => body.appendChild(el('div', 'auto-sub',
+          `✉ ${autoWhen(m.at)} · ${m.subject} · from ${m.from} to ${m.to}`)));
+        if(r.note) body.appendChild(el('div', 'auto-sub', r.note));
+        if((r.files || []).length){
+          body.appendChild(el('small', 'auto-label', 'Files'));
+          const fl = el('div', 'auto-files'); r.files.forEach(f => fl.appendChild(fileLink(f))); body.appendChild(fl);
+        }
+        if((r.extra || []).length){
+          body.appendChild(el('small', 'auto-label', 'Other files'));
+          const fl = el('div', 'auto-files'); r.extra.forEach(f => fl.appendChild(fileLink(f))); body.appendChild(fl);
+        }
+        card.appendChild(body);
+      }
+      scroll.appendChild(card);
+    });
+  });
+  if(doc && !autos.length) scroll.appendChild(el('div', 'auto-sub', 'No automations yet.'));
+}
+
 function renderBizPanel(cur){
   bizSheetClip = null;   // set again below when this section is a spreadsheet
   document.querySelectorAll('#businessPage .other-bar .sheet-io, #businessPage .other-bar .fx-bar').forEach(x => x.remove());   // Import / Export live in the top bar, spreadsheet sections only
@@ -5991,13 +6172,14 @@ function renderBizPanel(cur){
       b.onclick = () => { cur.type = type; if(type === 'sheet' && !cur.sheet) cur.sheet = newSheet(); renderBusiness(); saveTasks(); };
       return b;
     };
-    ask.append(mk('▦', 'Spreadsheet', 'Grid of cells with formulas, like Google Sheets', 'sheet'), mk('📝', 'Notes', 'A plain text page', 'notes'), mk('🚗', 'Car reselling', 'Vehicles, expenses, sale price and profit', 'cars'), mk('🚕', 'Taxi management', 'Calendar of trips by day, expenses, profit and settled days', 'taxi'));
+    ask.append(mk('▦', 'Spreadsheet', 'Grid of cells with formulas, like Google Sheets', 'sheet'), mk('📝', 'Notes', 'A plain text page', 'notes'), mk('🚗', 'Car reselling', 'Vehicles, expenses, sale price and profit', 'cars'), mk('🚕', 'Taxi management', 'Calendar of trips by day, expenses, profit and settled days', 'taxi'), mk('🗓', 'Monthly automations', 'Dashboard of the monthly document runs, past months and their files', 'auto'));
     bizPanelEl.appendChild(ask);
     return;
   }
 
   if(cur.type === 'cars'){ h.classList.add('compact'); renderCarsPanel(cur); return; }
   if(cur.type === 'taxi'){ h.classList.add('compact'); renderTaxiPanel(cur); return; }
+  if(cur.type === 'auto'){ h.classList.add('compact'); renderAutoPanel(cur); return; }
 
   if(cur.type === 'notes'){
     const box = document.createElement('textarea');
@@ -6889,6 +7071,7 @@ function renderBusiness(){
       if(t.type !== 'sheet') item('Switch to spreadsheet', () => { t.type = 'sheet'; renderBusiness(); saveTasks(); });
       if(t.type !== 'cars') item('Switch to car reselling', () => { t.type = 'cars'; renderBusiness(); saveTasks(); });
       if(t.type !== 'taxi') item('Switch to taxi management', () => { t.type = 'taxi'; renderBusiness(); saveTasks(); });
+      if(t.type !== 'auto') item('Switch to monthly automations', () => { t.type = 'auto'; renderBusiness(); saveTasks(); });
       item('Delete', () => {
         if(!confirm(`Delete the section "${t.name}"?`)) return;
         data.businessTabs = tabs.filter(x => x.id !== t.id);

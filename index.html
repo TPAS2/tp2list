@@ -1281,6 +1281,8 @@
   @media (max-width: 360px){ .tx-day.nodiesel::before{ left: 2px; width: 6px; background: linear-gradient(90deg, #ff3b3b 0 2px, transparent 2px 4px, #ff3b3b 4px 6px); } }
   .tx-day.open{ background: rgba(255,170,0,.22); }
   .tx-day.settled{ background: rgba(40,200,120,.22); }
+  /* a card payment that has not been ticked (banked): a pair of pink stripes along the bottom edge */
+  .tx-day.cardopen{ background-image: linear-gradient(180deg, transparent calc(100% - 6px), #ff4db8 calc(100% - 6px) calc(100% - 4px), transparent calc(100% - 4px) calc(100% - 3px), #ff4db8 calc(100% - 3px) calc(100% - 1px), transparent calc(100% - 1px)); background-repeat: no-repeat; }
   .tx-day.today span{ font-weight: 800; text-decoration: underline; }
   .tx-day.sel{ box-shadow: 0 0 0 2px var(--accent2); }
   .car-body .car-exp select.tx-kind{ flex: none; width: 84px; background: var(--panel-solid); color: var(--text); border: 0; border-radius: 8px; font: inherit; font-size: 0.78rem; padding: 6px 4px; }
@@ -5652,7 +5654,7 @@ function renderTaxiPanel(cur){
     const b = cells[key]; if(!b) return;
     const d = dayOf(key, false), inc = txInc(d), has = !!(d && d.entries.length);
     b.classList.toggle('has', has); b.classList.toggle('settled', has && !!d.settled); b.classList.toggle('open', has && !d.settled);
-    b.classList.toggle('sel', key === cur.taxiSel && cur.taxiOpen !== false); b.classList.toggle('today', key === todayKey); b.querySelector('.tx-oicon').hidden = !tx.otherExpenses.some(o => o.date === key); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
+    b.classList.toggle('sel', key === cur.taxiSel && cur.taxiOpen !== false); b.classList.toggle('today', key === todayKey); b.querySelector('.tx-oicon').hidden = !tx.otherExpenses.some(o => o.date === key); b.classList.toggle('nodiesel', txDieselNoAmount(d)); b.classList.toggle('cardopen', !!d && d.entries.some(e => txIsCard(e) && !e.banked)); b.classList.toggle('shellpay', !!d && d.entries.some(e => e.shellId && tx.shell.some(o => o.id === e.shellId)));   // shellpay: an entry of this day is in Shell payable
     b.querySelector('small').textContent = (d && String(d.notes || '').trim() ? '📝 ' : '') + (carNum(d && d.cashIn) ? '💵 ' : '') + (carNum(d && d.cardIn) ? '💳 ' : '') + (inc ? Math.round(inc * 100) / 100 + '' : '');
   };
   for(let d = 1; d <= dim; d++){
@@ -5713,7 +5715,7 @@ function renderTaxiPanel(cur){
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
     const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe him his share';
     const bank = el('input', 'tx-bank'); bank.type = 'checkbox'; bank.checked = !!item.banked; bank.title = 'Tick when this card payment has reached your bank';
-    bank.addEventListener('change', () => { item.banked = bank.checked; row.classList.toggle('is-banked', bank.checked); saveTasks(); });
+    bank.addEventListener('change', () => { item.banked = bank.checked; row.classList.toggle('is-banked', bank.checked); paintDay(key); saveTasks(); });
     const syncShell = () => {   // an expense sent to Shell payable (item.shellId): the list entry follows the day's amount and description
       const o = item.shellId && tx.shell.find(x => x.id === item.shellId); if(!o) return;
       o.amount = item.amount; o.desc = item.desc;

@@ -911,6 +911,7 @@
     cursor: pointer;
   }
   .expense-timestamp:hover{ color: var(--accent2); }
+  .expense-timestamp.expense-elsewhere{ color: #f0a020; }   /* dated in another month than the one it counts in */
   .expense-timestamp-input{
     background: var(--panel-solid);
     border: 1px solid var(--accent2);
@@ -2465,7 +2466,7 @@ function startTimestampEdit(el, exp, onCommit){
     done = true;
     if(input.value){
       const ts = new Date(input.value).getTime();
-      if(!isNaN(ts)){ exp.createdAt = ts; saveTasks(); }
+      if(!isNaN(ts)){ exp.createdAt = ts; exp.month = expenseMonthKey(new Date(ts)); saveTasks(); }   // the money moves with the date
     }
     onCommit();
   }
@@ -2546,6 +2547,7 @@ function renderExpenses(){
   if(stats.carryIn > 0){
     carryRow.style.display = 'flex';
     sumCarry.textContent = '+' + formatCurrency(stats.carryIn);
+    carryRow.firstElementChild.textContent = 'Carried over from ' + MONTH_NAMES[(Number(monthKey.split('-')[1]) + 10) % 12];
   } else {
     carryRow.style.display = 'none';
   }
@@ -2576,8 +2578,9 @@ function renderExpenseItems(){
 
 function renderExpenseItemsCompact(){
   const todayKey = dateKey(new Date());
+  const viewKey = expenseMonthKey(expenseViewDate);
   const todayExpenses = data.expenses
-    .filter(e => dateKey(new Date(e.createdAt)) === todayKey)
+    .filter(e => e.month === viewKey && dateKey(new Date(e.createdAt)) === todayKey)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   expensesListEl.innerHTML = '';
@@ -2674,6 +2677,12 @@ function renderExpenseItemsDetailed(){
     const ts = document.createElement('div');
     ts.className = 'expense-timestamp';
     ts.textContent = formatExpenseTimestamp(exp.createdAt);
+    if(exp.createdAt && expenseMonthKey(new Date(exp.createdAt)) !== exp.month){
+      // counts in this month but is dated in another one (entries from before a date change moved the money)
+      ts.classList.add('expense-elsewhere');
+      ts.textContent += ' · counts in ' + MONTH_NAMES[Number(exp.month.split('-')[1]) - 1];
+      ts.title = 'Dated in another month, but its money counts in this month. Tap the date and set it again to move the money to that month.';
+    }
     ts.onclick = () => {
       startTimestampEdit(ts, exp, () => renderExpenses());
     };
@@ -2714,11 +2723,16 @@ function addExpense(){
   if(!desc || isNaN(amount)) return;
   const type = expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
   const monthKey = expenseMonthKey(expenseViewDate);
+  // dated now when this month is on screen, otherwise the 1st of the month on screen, so the
+  // entry is listed in the same month its money counts in
+  const now = new Date();
+  const createdAt = monthKey === expenseMonthKey(now) ? now.getTime()
+    : new Date(expenseViewDate.getFullYear(), expenseViewDate.getMonth(), 1, 12, 0).getTime();
 
   data.expenses.push({
     id: Date.now() + Math.random().toString(36).slice(2),
     desc, amount: Math.abs(amount), type,
-    month: monthKey, createdAt: Date.now()
+    month: monthKey, createdAt
   });
   expenseDescInput.value = '';
   expenseAmountInput.value = '';

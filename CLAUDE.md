@@ -25,6 +25,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
 - **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
+  Each entry has `month` (where its money counts) and `createdAt` (its date). They are kept in step: editing the date also moves `month` (`startTimestampEdit`), and an entry added while another month is on screen is dated the 1st of that month (`addExpense`), not today. The today view only lists today's entries of the month on screen; ALL DETAILS marks an entry still dated in another month (orange "· counts in <Month>", `.expense-elsewhere`; from before this fix) — setting its date again moves the money. The carried-over row names the month it came from.
 - **Other** (Notes-style): one slim bar at the top-left with ← Back, the title and the SL / 🎂 Birthdays shortcut buttons on the right (bright gradient pills with a glowing outline; always visible, takes almost no space; wraps to a second row on very narrow screens).
   Below, a two-pane view: left = names of your lists (new-list box on top; ⠿ handle drags to reorder; each row shows the first line as a preview), right = the selected list as a big title (tap to rename, ✕ deletes, confirms if it has content)
   and one text box, one item per line, blank lines kept (lines are parsed back into `items` on input; unchanged lines keep id/done). The selected list is remembered per device (`tpas2:other:sel`).
@@ -84,6 +85,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
 - Known limit: sync merges per top-level section with newest edit wins, so editing the same section (e.g. Business, which is one section) on two devices at once can drop one device's changes. The safety copy is the net for that.
 
 ## Past bugs (fixed — check here first if something looks off)
+- ETracker "added money by itself": editing an entry's date did not move its `month`, and entries added while viewing another month were dated today, so totals counted money that the month's list did not show.
 - Sheets with more than 80 rows stopped at row 80: the row-height fitting loop touched rows that the chunked build hadn't created yet and threw, aborting the render. Any code that loops over `sh.rows` while the grid is built in chunks must stay within `FIRST_ROWS` or guard `rowTh[r]` / `inputs[ref]`.
 - A single-quoted JS string containing `'Section 2'` (in the spreadsheet ⓘ tooltip) broke the whole page script for one merge. Always run a syntax check on the page script (extract `<script>` and `node --check`) before merging.
 - Sync pull rebuilt data without `ledger`/`spanEvents`, wiping them on every pull.

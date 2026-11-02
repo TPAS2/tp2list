@@ -6005,7 +6005,7 @@ function renderTaxiPanel(cur){
    user enters once (kept in tab.autoCode, i.e. in their own synced data, never in this source). */
 const autoDash = { code: '', doc: null, at: 0, loading: false, error: '' };
 const AUTO_STATUS = {
-  sent: ['pos', 'Emailed'], awaiting_approval: ['wait', 'Reply SEND'], not_emailed: ['wait', 'Not emailed'],
+  sent: ['pos', 'Emailed'], awaiting_approval: ['wait', 'Reply SEND'], awaiting_number: ['wait', 'Reply START'], not_emailed: ['wait', 'Not emailed'],
   created: ['wait', 'In progress'], on_hold: ['wait', 'On hold'], cancelled: ['neg', 'Cancelled'],
   failed: ['neg', 'Checks failed'], stopped: ['', 'Stopped'], before: ['', 'Before automation']
 };
@@ -6074,12 +6074,12 @@ function renderAutoPanel(cur){
   const stat = (label, value, cls) => { const b = el('div', 'cars-stat' + (cls ? ' ' + cls : '')); b.append(el('small', null, label), el('b', null, value)); totals.appendChild(b); };
   const active = autos.filter(a => a.active);
   const next = active.filter(a => a.next_run).sort((a, b) => a.next_run.localeCompare(b.next_run))[0];
-  const waiting = autos.filter(a => a.runs && a.runs[0] && a.runs[0].status === 'awaiting_approval');
+  const waiting = autos.filter(a => a.runs && a.runs[0] && /^awaiting_/.test(a.runs[0].status));
   const yr = String(new Date().getFullYear());
   const emailed = autos.reduce((n, a) => n + (a.runs || []).filter(r => r.status === 'sent' && String(r.month).startsWith(yr)).length, 0);
   stat('Active', doc ? `${active.length} of ${autos.length}` : '…');
   stat('Next run', next ? `${autoDay(next.next_run)} · ${next.title}` : (doc ? 'None' : '…'));
-  stat('Waiting for SEND', doc ? String(waiting.length) : '…', waiting.length ? 'auto-wait' : '');
+  stat('Waiting for you', doc ? String(waiting.length) : '…', waiting.length ? 'auto-wait' : '');
   stat(`Sent in ${yr}`, doc ? String(emailed) : '…', emailed ? 'pos' : '');
   scroll.appendChild(totals);
 
@@ -6123,7 +6123,7 @@ function renderAutoPanel(cur){
       if(open){
         const body = el('div', 'car-body');
         const s = r.steps || {};
-        const steps = [['created', 'Created & checked'], ['telegram', 'Sent to Telegram'], ['approved', 'You replied SEND'], ['emailed', 'Emailed']];
+        const steps = [...(s.asked ? [['asked', 'Asked you for the first number']] : []), ['created', 'Created & checked'], ['telegram', 'Sent to Telegram'], ['approved', 'You replied SEND'], ['emailed', 'Emailed']];
         if(s.cancelled) steps.splice(2, 2, ['cancelled', 'Cancelled (STOP)']);
         if(s.failed) steps.splice(0, 4, ['failed', 'Checks failed: nothing sent']);
         if(r.status !== 'before'){

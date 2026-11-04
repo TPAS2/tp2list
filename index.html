@@ -803,6 +803,9 @@
   .expense-row input#wishDesc{ flex: 1 1 auto; min-width: 0; }
   .expense-row input#wishAmount{ flex: 0 0 90px; min-width: 0; text-align: right; }
   #wishlistList .expense-amount{ color: var(--text); }
+  #wishlistList .expense-item{ align-items: center; }
+  #wishlistList .expense-item.dragging-row{ opacity: .6; outline: 1px dashed var(--accent); }
+  #wishlistList .other-grip{ margin-right: 8px; }
   .expense-summary.wish-summary{ border-top: none; margin-top: 10px; padding-top: 0; }
   .expense-row input#expenseAmount{
     flex: 0 0 90px;
@@ -2820,6 +2823,13 @@ function renderWishlist(){
   items.forEach(w => {
     const li = document.createElement('li');
     li.className = 'expense-item compact';
+    li.dataset.id = w.id;
+    const grip = document.createElement('span');
+    grip.className = 'other-grip';
+    grip.textContent = '⠿';
+    grip.title = 'Drag to reorder';
+    grip.addEventListener('pointerdown', (e) => startWishDrag(e, li));
+    li.appendChild(grip);
     const text = document.createElement('div');
     text.className = 'text';
     text.textContent = w.desc;
@@ -2842,6 +2852,39 @@ function renderWishlist(){
   });
   const total = items.reduce((s, w) => s + (Number(w.amount) || 0), 0);
   document.getElementById('wishTotal').textContent = formatCurrency(total);
+}
+/* drag an item by its ⠿ handle to change the order; saved on release */
+function startWishDrag(e, row){
+  e.preventDefault();
+  e.stopPropagation();
+  const ul = document.getElementById('wishlistList');
+  row.classList.add('dragging-row');
+  document.body.style.touchAction = 'none';
+  const move = (ev) => {
+    ev.preventDefault();
+    const over = document.elementFromPoint(ev.clientX, ev.clientY);
+    const target = over && over.closest('#wishlistList .expense-item');
+    if(!target || target === row) return;
+    const rows = [...ul.querySelectorAll('.expense-item')];
+    const after = rows.indexOf(target) > rows.indexOf(row);
+    ul.insertBefore(row, after ? target.nextSibling : target);
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    document.body.style.touchAction = '';
+    row.classList.remove('dragging-row');
+    const order = [...ul.querySelectorAll('.expense-item')].map(r => r.dataset.id);
+    if(order.join() !== data.wishlist.map(w => w.id).join()){
+      data.wishlist.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+      saveTasks();
+    }
+    renderWishlist();
+  };
+  window.addEventListener('pointermove', move, { passive: false });
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
 }
 function addWish(){
   const desc = wishDescInput.value.trim();

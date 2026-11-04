@@ -2532,7 +2532,7 @@ function startInlineEdit(textEl, currentValue, onCommit){
 
   textEl.contentEditable = 'true';
   textEl.classList.add('editing');
-  textEl.focus();
+  textEl.focus({ preventScroll: true });
 
   // select all existing text so typing replaces it, same as before
   const range = document.createRange();
@@ -3531,7 +3531,7 @@ function renderCalDetail(){
       noteEl.classList.add('editing');
       noteEl.classList.remove('empty');
       noteEl.textContent = currentNote;
-      noteEl.focus();
+      noteEl.focus({ preventScroll: true });
       const range = document.createRange();
       range.selectNodeContents(noteEl);
       const sel = window.getSelection();
@@ -8054,10 +8054,12 @@ document.addEventListener('touchend', (e) => {
   const fit = (p) => {
     if(!p.clientHeight) return;   // hidden / not laid out
     const room = p.clientHeight;
+    const top = p.scrollTop;   // measuring below briefly makes the page unscrollable, which resets its scroll: put it back
     p.style.paddingBottom = '0px'; p.style.height = 'max-content';   // natural height of the content (scrollHeight can't be smaller than the page)
     const need = p.offsetHeight;
     p.style.height = '';
     p.style.paddingBottom = need + 90 <= room ? '' : need <= room ? (room - need) + 'px' : '';
+    if(p.scrollTop !== top) p.scrollTop = top;
   };
   const pageEls = () => document.querySelectorAll('.page-columns .page');
   let queued = false;

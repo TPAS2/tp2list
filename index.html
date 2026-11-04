@@ -181,6 +181,7 @@
     scroll-behavior: smooth;
   }
   .left-stack{ display: contents; }
+  .kb-room::after{ content: ""; display: block; height: 55vh; }   /* room to scroll an edited item above the keyboard (keepInView) */
   .page{
     flex: 0 0 100%;
     width: 100%;
@@ -2527,12 +2528,40 @@ function onSubDragEnd(e){
   subDragState = null;
 }
 
+/* while something is being edited, keep it in sight above the phone keyboard: give the page some extra room at the
+   bottom and scroll the page so the element sits inside the visible area (visualViewport), also after the keyboard opens */
+function keepInView(el){
+  const page = el.closest('.page-columns .page');
+  if(!page) return;
+  page.classList.add('kb-room');
+  const check = () => {
+    if(!el.isConnected || document.activeElement !== el) return;
+    const vv = window.visualViewport;
+    const top = Math.max(vv ? vv.offsetTop : 0, page.getBoundingClientRect().top) + 8;
+    const bottom = (vv ? vv.offsetTop + vv.height : window.innerHeight) - 12;
+    const r = el.getBoundingClientRect();
+    if(r.bottom > bottom) page.scrollTop += Math.min(r.bottom - bottom, r.top - top);
+    else if(r.top < top) page.scrollTop -= top - r.top;
+  };
+  const timers = [60, 350, 700].map(ms => setTimeout(check, ms));
+  const vv = window.visualViewport;
+  if(vv) vv.addEventListener('resize', check);
+  window.addEventListener('resize', check);
+  el.addEventListener('blur', () => {
+    timers.forEach(clearTimeout);
+    if(vv) vv.removeEventListener('resize', check);
+    window.removeEventListener('resize', check);
+    page.classList.remove('kb-room');
+  }, { once: true });
+}
+
 function startInlineEdit(textEl, currentValue, onCommit){
   if(textEl.isContentEditable) return; // already editing — let normal cursor placement happen
 
   textEl.contentEditable = 'true';
   textEl.classList.add('editing');
   textEl.focus({ preventScroll: true });
+  keepInView(textEl);
 
   // select all existing text so typing replaces it, same as before
   const range = document.createRange();
@@ -3532,6 +3561,7 @@ function renderCalDetail(){
       noteEl.classList.remove('empty');
       noteEl.textContent = currentNote;
       noteEl.focus({ preventScroll: true });
+      keepInView(noteEl);
       const range = document.createRange();
       range.selectNodeContents(noteEl);
       const sel = window.getSelection();

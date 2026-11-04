@@ -799,6 +799,11 @@
     color: var(--text-faint);
     white-space: nowrap;
   }
+  #wishlistForm{ flex-wrap: nowrap; }
+  .expense-row input#wishDesc{ flex: 1 1 auto; min-width: 0; }
+  .expense-row input#wishAmount{ flex: 0 0 90px; min-width: 0; text-align: right; }
+  #wishlistList .expense-amount{ color: var(--text); }
+  .expense-summary.wish-summary{ border-top: none; margin-top: 10px; padding-top: 0; }
   .expense-row input#expenseAmount{
     flex: 0 0 90px;
     min-width: 0;
@@ -1924,9 +1929,25 @@
       <div class="section-head">
         <div class="section-title">ETracker</div>
         <div class="expense-head-actions">
+          <button type="button" class="expense-head-btn" id="wishlistToggle" title="Things you'd like to buy">WISHLIST</button>
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
         </div>
       </div>
+      <div id="wishlistView" style="display:none;">
+        <form class="add-row expense-row no-generic-add" id="wishlistForm">
+          <input type="text" id="wishDesc" placeholder="Item…" autocomplete="off">
+          <input type="number" id="wishAmount" placeholder="0.00" step="0.01" inputmode="decimal">
+          <button type="button" class="add">Add</button>
+        </form>
+        <ul class="list" id="wishlistList"></ul>
+        <div class="expense-summary wish-summary">
+          <div class="expense-summary-row total">
+            <span>Total</span>
+            <span id="wishTotal">€0.00</span>
+          </div>
+        </div>
+      </div>
+      <div id="expenseMainView">
       <div class="cal-nav expense-nav">
         <button type="button" id="expensePrevBtn" class="cal-nav-btn">‹</button>
         <div class="cal-month-label" id="expenseMonthLabel"></div>
@@ -1961,6 +1982,7 @@
         </div>
       </div>
       <ul class="list" id="list-expenses"></ul>
+      </div>
     </div>
   </div>
   </div>
@@ -2195,6 +2217,7 @@ async function loadTasks(){
   if(!data.spanEvents) data.spanEvents = [];
   if(!data.ledger) data.ledger = [];
   if(!Array.isArray(data.birthdays)) data.birthdays = [];
+  if(!Array.isArray(data.wishlist)) data.wishlist = [];
   if(!Array.isArray(data.businessTabs)){
     data.businessTabs = Array.from({ length: BIZ_DEFAULT_COUNT }, (_, i) => ({ id: 'biz' + (i + 1), name: 'Section ' + (i + 1) }));
   }
@@ -2277,7 +2300,8 @@ function renderAll(){
     () => renderOther(),
     () => { if(window.__bizReady) renderBusiness(); },   // keeps the Business tabs in step with synced changes
     () => renderBirthdays(),
-    () => renderExpenses()
+    () => renderExpenses(),
+    () => renderWishlist()
   ];
   steps.forEach(step => {
     try{ step(); }catch(e){ console.error('render step failed:', e); }
@@ -2769,6 +2793,69 @@ function renderExpenseItemsDetailed(){
     expensesListEl.appendChild(li);
   });
 }
+
+/* Wishlist: things you'd like to buy (data.wishlist = [{id, desc, amount}]); not part of any month's totals */
+let wishlistOpen = false;
+const wishlistToggle = document.getElementById('wishlistToggle');
+const wishDescInput = document.getElementById('wishDesc');
+const wishAmountInput = document.getElementById('wishAmount');
+wishlistToggle.addEventListener('click', () => {
+  wishlistOpen = !wishlistOpen;
+  wishlistToggle.classList.toggle('active', wishlistOpen);
+  document.getElementById('wishlistView').style.display = wishlistOpen ? '' : 'none';
+  document.getElementById('expenseMainView').style.display = wishlistOpen ? 'none' : '';
+  expenseDetailsToggle.style.display = wishlistOpen ? 'none' : '';
+  if(wishlistOpen) renderWishlist();
+});
+function renderWishlist(){
+  const ul = document.getElementById('wishlistList');
+  const items = Array.isArray(data.wishlist) ? data.wishlist : (data.wishlist = []);
+  ul.innerHTML = '';
+  if(!items.length){
+    const empty = document.createElement('div');
+    empty.className = 'empty-row';
+    empty.textContent = 'nothing on the wishlist yet';
+    ul.appendChild(empty);
+  }
+  items.forEach(w => {
+    const li = document.createElement('li');
+    li.className = 'expense-item compact';
+    const text = document.createElement('div');
+    text.className = 'text';
+    text.textContent = w.desc;
+    text.onclick = () => startInlineEdit(text, w.desc, (v) => { if(v !== null && v.trim()){ w.desc = v.trim(); saveTasks(); } renderWishlist(); });
+    li.appendChild(text);
+    const amount = document.createElement('div');
+    amount.className = 'expense-amount';
+    amount.textContent = formatCurrency(w.amount);
+    amount.onclick = () => startInlineEdit(amount, String(w.amount), (v) => {
+      if(v !== null){ const n = parseFloat(v.replace(/[^0-9.\-]/g, '')); if(!isNaN(n)){ w.amount = Math.abs(n); saveTasks(); } }
+      renderWishlist();
+    });
+    li.appendChild(amount);
+    const del = document.createElement('button');
+    del.className = 'del';
+    del.textContent = '✕';
+    del.onclick = () => { data.wishlist = data.wishlist.filter(x => x.id !== w.id); renderWishlist(); saveTasks(); showStatus('removed'); };
+    li.appendChild(del);
+    ul.appendChild(li);
+  });
+  const total = items.reduce((s, w) => s + (Number(w.amount) || 0), 0);
+  document.getElementById('wishTotal').textContent = formatCurrency(total);
+}
+function addWish(){
+  const desc = wishDescInput.value.trim();
+  const amount = parseFloat(wishAmountInput.value);
+  if(!desc) return;
+  if(!Array.isArray(data.wishlist)) data.wishlist = [];
+  data.wishlist.push({ id: Date.now() + Math.random().toString(36).slice(2), desc, amount: isNaN(amount) ? 0 : Math.abs(amount) });
+  wishDescInput.value = ''; wishAmountInput.value = '';
+  renderWishlist(); saveTasks();
+  wishDescInput.focus();
+}
+document.getElementById('wishlistForm').addEventListener('submit', (e) => e.preventDefault());
+document.querySelector('#wishlistForm button.add').addEventListener('click', addWish);
+[wishDescInput, wishAmountInput].forEach(el => el.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); addWish(); } }));
 
 function addExpense(){
   const desc = expenseDescInput.value.trim();
@@ -7328,7 +7415,7 @@ async function fbSync(){
         st.ts[k] = incoming[k].t;
       }
       // fill in anything older data may be missing, same defaults as loadTasks
-      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
       if(!Array.isArray(data.businessTabs)) data.businessTabs = [];
       if(!data.calendar || typeof data.calendar !== 'object') data.calendar = {};
       data.updatedAt = now;
@@ -7404,7 +7491,7 @@ function writeSafety(list){
   try{ localStorage.removeItem(SAFETY_KEY); }catch(e){}
 }
 function dataHasContent(d){
-  return !!(d && ((d.list || []).length || (d.expenses || []).length || (d.birthdays || []).length || (d.recurringEvents || []).length || (d.spanEvents || []).length ||
+  return !!(d && ((d.list || []).length || (d.expenses || []).length || (d.birthdays || []).length || (d.recurringEvents || []).length || (d.spanEvents || []).length || (d.wishlist || []).length ||
     (d.other || []).some(o => (o.items || []).length) || Object.keys(d.calendar || {}).length ||
     (d.businessTabs || []).some(t => t.type || t.sheet || t.cars || t.text)));
 }
@@ -7428,7 +7515,7 @@ function takeSafetyCopy(reason, minGapMs){
 }
 function restoreData(d){
   const fresh = JSON.parse(JSON.stringify(d));
-  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
+  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
   if(!fresh.calendar || typeof fresh.calendar !== 'object' || Array.isArray(fresh.calendar)) fresh.calendar = {};
   if(!Array.isArray(fresh.businessTabs)) fresh.businessTabs = Array.from({ length: BIZ_DEFAULT_COUNT }, (_, i) => ({ id: 'biz' + (i + 1), name: 'Section ' + (i + 1) }));
   data = fresh;

@@ -7808,8 +7808,26 @@ if(fbCode()) fbListen();
 
 /* offline support: cache the app so it opens without a connection */
 if('serviceWorker' in navigator){
+  // a new version: the new service worker takes over and the page reloads once to show it
+  // (never while you're typing: then it waits until nothing is focused)
+  const hadController = !!navigator.serviceWorker.controller;
+  let swReloaded = false;
+  const swReloadWhenIdle = () => {
+    if(swReloaded) return;
+    const a = document.activeElement;
+    if(a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a.isContentEditable)){
+      a.addEventListener('blur', () => setTimeout(swReloadWhenIdle, 300), { once: true });
+      return;
+    }
+    swReloaded = true;
+    window.location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if(hadController) swReloadWhenIdle(); });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').then(reg => {
+      // look for a new version whenever you come back to the app
+      document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') reg.update().catch(() => {}); });
+    }).catch(() => {});
   });
 }
 

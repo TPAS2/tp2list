@@ -12,7 +12,7 @@ JSONBin has been removed entirely. Firebase sync codes are the only sync; a devi
 Works offline: `sw.js` (service worker) caches the app. Edits save locally and sync when back online.
 Firebase rules (must include both):
 `{"rules":{"lists":{"$code":{".read":true,".write":true}},"sync":{"$code":{".read":"$code.length >= 10",".write":"$code.length >= 10"}}}}`
-Bump `CACHE` in `sw.js` if a cached version ever gets stuck.
+Bump `CACHE` in `sw.js` on every change: the new service worker fetches the files fresh (`cache: 'reload'`), takes over, and the page reloads itself once on `controllerchange` (waits while an input is focused); it also checks for a new version whenever the app comes back to the screen (`reg.update()`).
 
 ## Structure
 Swipeable pages, all sized the same: **List, Calendar, ETracker**, plus **Business** and **Other** as full-page views opened from the nav buttons.

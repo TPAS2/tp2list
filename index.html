@@ -1868,6 +1868,16 @@
     #page-list > #section-today-cal{ grid-row: 1; margin-bottom: 14px; align-self: start; }
     #page-list > #section-overdue-list{ grid-row: 2; align-self: start; }
     html[data-theme="light"] #page-list > #section-today-cal, html[data-theme="light"] #page-list > #section-overdue-list{ background: #f7f7fb; }
+    /* Calendar: month grid on the left, the selected day's items on the right */
+    #page-calendar{ padding-left: max(18px, calc(50% - 602px)); padding-right: max(18px, calc(50% - 602px)); }
+    #section-calendar{ display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); column-gap: 36px; align-items: start; }
+    #section-calendar > .section-head, #section-calendar > .cal-nav, #section-calendar > .cal-dow, #section-calendar > .cal-grid{ grid-column: 1; }
+    #section-calendar > #calDetail{ grid-column: 2; grid-row: 1 / span 4; align-self: start; border-top: none; padding: 18px;
+      background: rgba(22,22,26,.6); border: 1px solid var(--line); border-radius: 18px; }
+    html[data-theme="light"] #section-calendar > #calDetail{ background: #f7f7fb; }
+    #calAddForm{ flex-wrap: wrap; }
+    #calAddForm #calItemInput{ flex: 1 1 60%; min-width: 0; order: 5; }
+    #calAddForm .add{ order: 6; }
   }
 </style>
 </head>

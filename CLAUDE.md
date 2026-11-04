@@ -22,7 +22,7 @@ Phone and desktop use the same layout: one page at a time with swipe/tap navigat
   → Overdue (missed calendar items, red date badges, tap to jump to that date).
   Today/Overdue collapse to a bare `(0)` when empty.
 - **Calendar**: Monday-first month grid with touching day cells (thin dividing lines, no gaps) that fill the full width, ~54px tall on phones and 64px on laptops; one-off, recurring and multi-day events; notes via a highlighter-style tag;
-  repeat patterns including biweekly; dates, times and repeat rules can be edited after creation.
+  repeat patterns including biweekly; dates, times and repeat rules can be edited after creation. On screens ≥1000px the month grid is on the left and the selected day's items (`#calDetail`) sit in a panel on the right (`#section-calendar` grid).
 - **ETracker** (expenses; tab and page title renamed from "Expenses", data still `data.expenses`): euro-based; defaults to today's entries in time order; "ALL DETAILS" shows the whole month by date+time.
   A positive monthly balance rolls into the next month.
   **Wishlist** (WISHLIST button beside ALL DETAILS; `data.wishlist = [{id, desc, amount}]`, its own synced section; `renderWishlist`/`addWish`): swaps the ETracker view for a list of items you'd like to buy (item + amount, tap to edit, ⠿ handle drags to reorder (`startWishDrag`), ✕ removes) with the total of all; not part of any month's totals. Press WISHLIST again to go back.

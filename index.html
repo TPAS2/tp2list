@@ -806,6 +806,11 @@
   #wishlistList .expense-item{ align-items: center; }
   #wishlistList .expense-item.dragging-row{ opacity: .6; outline: 1px dashed var(--accent); }
   #wishlistList .other-grip{ margin-right: 8px; }
+  .expense-type-toggle.wish-cur{ color: var(--accent2); border-color: rgba(139,61,255,.55); background: rgba(139,61,255,.10); font-weight: 800; }
+  .wish-cur-chip{ font: 600 .66rem ui-monospace, 'SF Mono', Menlo, monospace; padding: 2px 6px; border-radius: 6px; margin-right: 8px; cursor: pointer;
+    color: var(--accent2); border: 1px solid rgba(139,61,255,.45); background: rgba(139,61,255,.08); flex: none; }
+  .wish-conv{ font: 500 .66rem ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text-dim); margin-right: 8px; white-space: nowrap; }
+  #wishTotalGbp small{ color: var(--text-dim); font-weight: 400; margin-left: 6px; }
   .expense-summary.wish-summary{ border-top: none; margin-top: 10px; padding-top: 0; }
   .expense-row input#expenseAmount{
     flex: 0 0 90px;
@@ -1994,14 +1999,23 @@
       </div>
       <div id="wishlistView" style="display:none;">
         <form class="add-row expense-row no-generic-add" id="wishlistForm">
+          <button type="button" class="expense-type-toggle wish-cur" id="wishCur" data-cur="EUR" title="Tap to switch between euro and pound">€</button>
           <input type="text" id="wishDesc" placeholder="Item…" autocomplete="off">
           <input type="number" id="wishAmount" placeholder="0.00" step="0.01" inputmode="decimal">
           <button type="button" class="add">Add</button>
         </form>
         <ul class="list" id="wishlistList"></ul>
         <div class="expense-summary wish-summary">
+          <div class="expense-summary-row">
+            <span>Euro items</span>
+            <span id="wishTotalEur">€0.00</span>
+          </div>
+          <div class="expense-summary-row">
+            <span>Pound items</span>
+            <span id="wishTotalGbp">£0.00</span>
+          </div>
           <div class="expense-summary-row total">
-            <span>Total</span>
+            <span>Total in euro</span>
             <span id="wishTotal">€0.00</span>
           </div>
         </div>
@@ -2853,7 +2867,19 @@ function renderExpenseItemsDetailed(){
   });
 }
 
-/* Wishlist: things you'd like to buy (data.wishlist = [{id, desc, amount}]); not part of any month's totals */
+/* Wishlist: things you'd like to buy (data.wishlist = [{id, desc, amount, cur}], cur 'EUR' (default) or 'GBP');
+   not part of any month's totals. Pounds count as euros at WISH_GBP_EUR in the overall total. */
+const WISH_GBP_EUR = 1.15;
+const wishSym = (cur) => cur === 'GBP' ? '£' : '€';
+const wishMoney = (n, cur) => wishSym(cur) + (Math.round(Math.abs(Number(n) || 0) * 100) / 100).toFixed(2);
+const wishCurBtn = document.getElementById('wishCur');
+wishCurBtn.addEventListener('click', () => {
+  const next = wishCurBtn.dataset.cur === 'GBP' ? 'EUR' : 'GBP';
+  wishCurBtn.dataset.cur = next;
+  wishCurBtn.textContent = wishSym(next);
+  try{ localStorage.setItem('tpas2:wish:cur', next); }catch(e){}
+});
+try{ const c = localStorage.getItem('tpas2:wish:cur'); if(c === 'GBP'){ wishCurBtn.dataset.cur = 'GBP'; wishCurBtn.textContent = '£'; } }catch(e){}
 let wishlistOpen = false;
 const wishlistToggle = document.getElementById('wishlistToggle');
 const wishDescInput = document.getElementById('wishDesc');
@@ -2891,9 +2917,22 @@ function renderWishlist(){
     text.textContent = w.desc;
     text.onclick = () => startInlineEdit(text, w.desc, (v) => { if(v !== null && v.trim()){ w.desc = v.trim(); saveTasks(); } renderWishlist(); });
     li.appendChild(text);
+    const cur = w.cur === 'GBP' ? 'GBP' : 'EUR';
+    const chip = document.createElement('span');
+    chip.className = 'wish-cur-chip';
+    chip.textContent = cur === 'GBP' ? '£' : '€';
+    chip.title = 'Tap to switch between euro and pound';
+    chip.onclick = () => { w.cur = cur === 'GBP' ? 'EUR' : 'GBP'; saveTasks(); renderWishlist(); };
+    li.appendChild(chip);
+    if(cur === 'GBP'){
+      const conv = document.createElement('span');
+      conv.className = 'wish-conv';
+      conv.textContent = '≈ ' + wishMoney((Number(w.amount) || 0) * WISH_GBP_EUR, 'EUR');
+      li.appendChild(conv);
+    }
     const amount = document.createElement('div');
     amount.className = 'expense-amount';
-    amount.textContent = formatCurrency(w.amount);
+    amount.textContent = wishMoney(w.amount, cur);
     amount.onclick = () => startInlineEdit(amount, String(w.amount), (v) => {
       if(v !== null){ const n = parseFloat(v.replace(/[^0-9.\-]/g, '')); if(!isNaN(n)){ w.amount = Math.abs(n); saveTasks(); } }
       renderWishlist();
@@ -2906,8 +2945,15 @@ function renderWishlist(){
     li.appendChild(del);
     ul.appendChild(li);
   });
-  const total = items.reduce((s, w) => s + (Number(w.amount) || 0), 0);
-  document.getElementById('wishTotal').textContent = formatCurrency(total);
+  const eur = items.filter(w => w.cur !== 'GBP').reduce((s, w) => s + (Number(w.amount) || 0), 0);
+  const gbp = items.filter(w => w.cur === 'GBP').reduce((s, w) => s + (Number(w.amount) || 0), 0);
+  document.getElementById('wishTotalEur').textContent = wishMoney(eur, 'EUR');
+  const gbpEl = document.getElementById('wishTotalGbp');
+  gbpEl.textContent = wishMoney(gbp, 'GBP');
+  const small = document.createElement('small');
+  small.textContent = '≈ ' + wishMoney(gbp * WISH_GBP_EUR, 'EUR');
+  gbpEl.appendChild(small);
+  document.getElementById('wishTotal').textContent = wishMoney(eur + gbp * WISH_GBP_EUR, 'EUR');
 }
 /* drag an item by its ⠿ handle to change the order; saved on release */
 function startWishDrag(e, row){
@@ -2947,7 +2993,7 @@ function addWish(){
   const amount = parseFloat(wishAmountInput.value);
   if(!desc) return;
   if(!Array.isArray(data.wishlist)) data.wishlist = [];
-  data.wishlist.push({ id: Date.now() + Math.random().toString(36).slice(2), desc, amount: isNaN(amount) ? 0 : Math.abs(amount) });
+  data.wishlist.push({ id: Date.now() + Math.random().toString(36).slice(2), desc, amount: isNaN(amount) ? 0 : Math.abs(amount), cur: wishCurBtn.dataset.cur === 'GBP' ? 'GBP' : 'EUR' });
   wishDescInput.value = ''; wishAmountInput.value = '';
   renderWishlist(); saveTasks();
   wishDescInput.focus();

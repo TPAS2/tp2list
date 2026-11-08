@@ -1809,6 +1809,16 @@
   .ds-hint{ font-size: .78rem; color: var(--text-faint); line-height: 1.5; margin: 10px 0 0; }
   .ds-backup{ margin-top: 6px; }
   .ds-backup select.ds-input{ padding: 9px 10px; font-size: .82rem; letter-spacing: 0; text-transform: none; text-align: left; }
+  .archive-list{ list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .archive-list li{ display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--fill); }
+  .archive-list .a-main{ flex: 1; min-width: 0; }
+  .archive-list .a-text{ font-size: .92rem; overflow-wrap: anywhere; }
+  .archive-list .a-sub{ font: 500 .68rem ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text-dim); margin-top: 3px; }
+  .archive-list .a-kind{ color: var(--accent2); }
+  .archive-list .ds-btn{ padding: 6px 10px; font-size: .78rem; }
+  .archive-list .del{ flex: none; }
+  .archive-empty{ color: var(--text-faint); font-size: .85rem; padding: 10px 2px; }
+  .archive-btn{ margin-left: auto; }
   .ds-or{ display: flex; align-items: center; gap: 10px; color: var(--text-faint); font-size: .75rem; margin: 16px 0 8px; }
   .ds-or::before, .ds-or::after{ content: ""; flex: 1; height: 1px; background: var(--line); }
   .ds-row{ display: flex; gap: 8px; }
@@ -1966,6 +1976,7 @@
     <div class="section" id="section-list">
       <div class="section-head">
         <div class="section-title">List <span class="count" id="tally-list">0 open</span></div>
+        <button type="button" class="expense-head-btn archive-btn" id="archiveBtn" title="Deleted items">🗑 Archived</button>
       </div>
       <form class="add-row" data-section="list">
         <input type="text" placeholder="Add to the list…" autocomplete="off">
@@ -2149,6 +2160,18 @@
   <ul class="bday-list" id="birthdayList"></ul>
 </div>
 
+<div class="ds-modal" id="archiveModal">
+  <div class="ds-sheet">
+    <div class="ds-head">
+      <h3>Archived <span class="count" id="archiveCount"></span></h3>
+      <button type="button" class="ds-close" id="archiveClose">×</button>
+    </div>
+    <p class="ds-hint" style="margin:0 0 10px;">Deleted items, newest first. Restore puts an item back where it was.</p>
+    <ul class="archive-list" id="archiveList"></ul>
+    <button type="button" class="ds-btn danger" id="archiveEmpty" style="margin-top:12px;">Empty archive</button>
+  </div>
+</div>
+
 <div class="ds-modal" id="dataSyncModal">
   <div class="ds-sheet">
     <div class="ds-head">
@@ -2292,6 +2315,7 @@ async function loadTasks(){
   if(!data.ledger) data.ledger = [];
   if(!Array.isArray(data.birthdays)) data.birthdays = [];
   if(!Array.isArray(data.wishlist)) data.wishlist = [];
+  if(!Array.isArray(data.archive)) data.archive = [];
   if(!Array.isArray(data.businessTabs)){
     data.businessTabs = Array.from({ length: BIZ_DEFAULT_COUNT }, (_, i) => ({ id: 'biz' + (i + 1), name: 'Section ' + (i + 1) }));
   }
@@ -2813,6 +2837,7 @@ function renderExpenseItemsCompact(){
     del.className = 'del';
     del.textContent = '✕';
     del.onclick = () => {
+      archiveAdd('expense', exp);
       data.expenses = data.expenses.filter(e => e.id !== exp.id);
       renderExpenses(); saveTasks();
       showStatus('removed');
@@ -2886,6 +2911,7 @@ function renderExpenseItemsDetailed(){
     del.className = 'del';
     del.textContent = '✕';
     del.onclick = () => {
+      archiveAdd('expense', exp);
       data.expenses = data.expenses.filter(e => e.id !== exp.id);
       renderExpenses(); saveTasks();
       showStatus('removed');
@@ -2970,7 +2996,7 @@ function renderWishlist(){
     const del = document.createElement('button');
     del.className = 'del';
     del.textContent = '✕';
-    del.onclick = () => { data.wishlist = data.wishlist.filter(x => x.id !== w.id); renderWishlist(); saveTasks(); showStatus('removed'); };
+    del.onclick = () => { archiveAdd('wish', w, { at: data.wishlist.indexOf(w) }); data.wishlist = data.wishlist.filter(x => x.id !== w.id); renderWishlist(); saveTasks(); showStatus('removed'); };
     li.appendChild(del);
     ul.appendChild(li);
   });
@@ -3068,7 +3094,99 @@ function toggle(section, id){
   if(t){ t.done = !t.done; renderSection(section); saveTasks(); }
 }
 
+/* ---------- archive: deleted items, newest first (data.archive = [{id, kind, at, item, key?, pos?}]), synced like any section ----------
+   kinds: list, calendar (key = date), recurring, span, skip (one skipped date of a series: key), expense, wish, other (an Other list; photos dropped) */
+const ARCHIVE_MAX = 300;
+function archiveAdd(kind, item, extra = {}){
+  if(!Array.isArray(data.archive)) data.archive = [];
+  let copy = JSON.parse(JSON.stringify(item));
+  if(kind === 'other' && Array.isArray(copy.images)) copy.images = [];   // photos are large: not kept in the archive
+  data.archive.unshift({ id: Date.now() + Math.random().toString(36).slice(2), kind, at: Date.now(), item: copy,
+                         key: extra.key, pos: extra.at });
+  if(data.archive.length > ARCHIVE_MAX) data.archive.length = ARCHIVE_MAX;
+  if(document.getElementById('archiveModal').classList.contains('open')) renderArchive();
+}
+function archiveLabel(a){
+  const it = a.item || {};
+  const date = (k) => k ? formatDateShort(k) : '';
+  switch(a.kind){
+    case 'list': return [it.text, 'List'];
+    case 'calendar': return [it.text, 'Calendar · ' + date(a.key) + (it.time ? ' ' + formatTime12h(it.time) : '')];
+    case 'recurring': return [it.text, 'Calendar · repeating ' + (REPEAT_LABELS[it.repeat] || '').toLowerCase()];
+    case 'span': return [it.text, 'Calendar · ' + date(it.startDate) + '–' + date(it.endDate)];
+    case 'skip': return [it.text, 'Calendar · one date of a series · ' + date(a.key)];
+    case 'expense': return [it.desc, 'ETracker · ' + (it.type === 'income' ? '+' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
+    case 'wish': return [it.desc, 'Wishlist · ' + (it.cur === 'GBP' ? '£' : '€') + (Number(it.amount) || 0).toFixed(2)];
+    case 'other': return [it.name, 'Other list · ' + (it.items || []).filter(x => (x.text || '').trim()).length + ' lines'];
+  }
+  return [it.text || it.desc || it.name || '(item)', a.kind];
+}
+function archiveAgo(t){
+  const m = Math.round((Date.now() - t) / 60000);
+  if(m < 1) return 'just now';
+  if(m < 60) return m + ' min ago';
+  const h = Math.round(m / 60);
+  if(h < 24) return h + ' h ago';
+  const d = new Date(t);
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+function archiveRestore(id){
+  const a = (data.archive || []).find(x => x.id === id);
+  if(!a) return;
+  const it = a.item;
+  const put = (arr, pos) => { if(arr.some(x => x.id === it.id)) return; if(typeof pos === 'number' && pos >= 0 && pos <= arr.length) arr.splice(pos, 0, it); else arr.push(it); };
+  switch(a.kind){
+    case 'list': put(data.list); break;
+    case 'calendar': if(!data.calendar[a.key]) data.calendar[a.key] = []; put(data.calendar[a.key]); break;
+    case 'recurring': put(data.recurringEvents); break;
+    case 'span': put(data.spanEvents); break;
+    case 'skip': { const ev = data.recurringEvents.find(e => e.id === it.id); if(ev && ev.skipDates) delete ev.skipDates[a.key]; else if(!ev){ showStatus('the series was deleted'); return; } break; }
+    case 'expense': put(data.expenses); break;
+    case 'wish': put(data.wishlist, a.pos); break;
+    case 'other': put(data.other, a.pos); break;
+    default: if(Array.isArray(data[a.kind])) put(data[a.kind]);
+  }
+  data.archive = data.archive.filter(x => x.id !== id);
+  saveTasks(); renderAll(); renderArchive();
+  showStatus('restored');
+}
+function renderArchive(){
+  const ul = document.getElementById('archiveList');
+  const items = Array.isArray(data.archive) ? data.archive.slice().sort((a, b) => b.at - a.at) : [];
+  document.getElementById('archiveCount').textContent = items.length ? '(' + items.length + ')' : '';
+  document.getElementById('archiveEmpty').style.display = items.length ? '' : 'none';
+  ul.innerHTML = '';
+  if(!items.length){
+    const e = document.createElement('div'); e.className = 'archive-empty'; e.textContent = 'Nothing deleted yet.'; ul.appendChild(e); return;
+  }
+  items.forEach(a => {
+    const [text, kind] = archiveLabel(a);
+    const li = document.createElement('li');
+    const main = document.createElement('div'); main.className = 'a-main';
+    const t = document.createElement('div'); t.className = 'a-text'; t.textContent = text || '(no text)';
+    const sub = document.createElement('div'); sub.className = 'a-sub';
+    const k = document.createElement('span'); k.className = 'a-kind'; k.textContent = kind;
+    sub.append(k, document.createTextNode(' · deleted ' + archiveAgo(a.at)));
+    main.append(t, sub);
+    const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'ds-btn'; rb.textContent = 'Restore';
+    rb.onclick = () => archiveRestore(a.id);
+    const del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = '✕'; del.title = 'Delete for good';
+    del.onclick = () => { data.archive = data.archive.filter(x => x.id !== a.id); saveTasks(); renderArchive(); };
+    li.append(main, rb, del);
+    ul.appendChild(li);
+  });
+}
+document.getElementById('archiveBtn').addEventListener('click', () => { renderArchive(); document.getElementById('archiveModal').classList.add('open'); });
+document.getElementById('archiveClose').addEventListener('click', () => document.getElementById('archiveModal').classList.remove('open'));
+document.getElementById('archiveModal').addEventListener('click', (e) => { if(e.target.id === 'archiveModal') e.currentTarget.classList.remove('open'); });
+document.getElementById('archiveEmpty').addEventListener('click', () => {
+  if(!confirm('Delete everything in the archive for good?')) return;
+  data.archive = []; saveTasks(); renderArchive();
+});
+
 function remove(section, id){
+  const gone = data[section].find(t => t.id === id);
+  if(gone) archiveAdd(section, gone);
   data[section] = data[section].filter(t => t.id !== id);
   renderSection(section); saveTasks();
   showStatus('removed');
@@ -3162,6 +3280,8 @@ function toggleSpanOccurrence(evId, key){
   renderCalendar(); saveTasks();
 }
 function removeSpanEvent(evId){
+  const gone = data.spanEvents.find(e => e.id === evId);
+  if(gone) archiveAdd('span', gone);
   data.spanEvents = data.spanEvents.filter(e => e.id !== evId);
   renderCalendar(); saveTasks();
   showStatus('multi-day event removed');
@@ -3845,6 +3965,8 @@ function renderOverdueInto(listId, tallyId, overdue){
 
 function removeCalendarItem(key, id){
   if(!data.calendar[key]) return;
+  const gone = data.calendar[key].find(i => i.id === id);
+  if(gone) archiveAdd('calendar', gone, { key });
   data.calendar[key] = data.calendar[key].filter(i => i.id !== id);
   renderCalendar(); saveTasks();
 }
@@ -3893,6 +4015,8 @@ function toggleRecurringOccurrence(evId, dateKeyStr){
 }
 
 function removeRecurringEvent(evId){
+  const gone = data.recurringEvents.find(e => e.id === evId);
+  if(gone) archiveAdd('recurring', gone);
   data.recurringEvents = data.recurringEvents.filter(e => e.id !== evId);
   renderCalendar(); saveTasks();
   showStatus('recurring event removed');
@@ -3903,6 +4027,7 @@ function skipRecurringOccurrence(evId, key){
   if(!ev) return;
   if(!ev.skipDates) ev.skipDates = {};
   ev.skipDates[key] = true;
+  archiveAdd('skip', { id: ev.id, text: ev.text }, { key });
   if(ev.doneDates) delete ev.doneDates[key];
   renderCalendar(); saveTasks();
   showStatus('this occurrence removed');
@@ -4145,6 +4270,7 @@ function removeOther(id){
   if(!r) return;
   if(r.items.some(it => it.text.trim()) && !confirm(`Delete "${r.name}" and everything in it?`)) return;
   const at = data.other.indexOf(r);
+  archiveAdd('other', r, { at });
   data.other = data.other.filter(x => x.id !== id);
   // select a neighbour, and on a phone go back to the names
   const next = data.other[at] || data.other[at - 1];
@@ -7590,7 +7716,7 @@ async function fbSync(){
         st.ts[k] = incoming[k].t;
       }
       // fill in anything older data may be missing, same defaults as loadTasks
-      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist', 'archive'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
       if(!Array.isArray(data.businessTabs)) data.businessTabs = [];
       if(!data.calendar || typeof data.calendar !== 'object') data.calendar = {};
       data.updatedAt = now;
@@ -7690,7 +7816,7 @@ function takeSafetyCopy(reason, minGapMs){
 }
 function restoreData(d){
   const fresh = JSON.parse(JSON.stringify(d));
-  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
+  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist', 'archive'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
   if(!fresh.calendar || typeof fresh.calendar !== 'object' || Array.isArray(fresh.calendar)) fresh.calendar = {};
   if(!Array.isArray(fresh.businessTabs)) fresh.businessTabs = Array.from({ length: BIZ_DEFAULT_COUNT }, (_, i) => ({ id: 'biz' + (i + 1), name: 'Section ' + (i + 1) }));
   data = fresh;

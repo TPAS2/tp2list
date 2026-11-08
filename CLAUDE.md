@@ -18,6 +18,7 @@ Bump `CACHE` in `sw.js` on every change: the new service worker fetches the file
 Swipeable pages, all sized the same: **List, Calendar, ETracker**, plus **Business** and **Other** as full-page views opened from the nav buttons.
 Phone and desktop use the same layout: one page at a time with swipe/tap navigation (the old desktop two-column layout was removed).
 
+- **Archived** (small "🗑 Archived" button in the List heading, `#archiveBtn` → `#archiveModal`): every deleted item is kept in `data.archive = [{id, kind, at, item, key?, pos?}]` (newest first, max `ARCHIVE_MAX` 300, its own synced section) via `archiveAdd`, called from `remove` (List), `removeCalendarItem` (`key` = date), `removeRecurringEvent`, `removeSpanEvent`, `skipRecurringOccurrence` (kind `skip`), the ETracker and wishlist ✕ buttons, and `removeOther` (Other lists; photos are dropped). The sheet lists them with what/where/when (`archiveLabel`, `archiveAgo`); **Restore** (`archiveRestore`) puts the item back where it was, ✕ deletes it for good, **Empty archive** clears all (confirm). When adding a new delete somewhere, call `archiveAdd` and teach `archiveLabel` / `archiveRestore` the new kind.
 - **List**: task list (shows nothing when empty: no placeholder text or divider) → Other button → Today widget (items scheduled today in Calendar; ticking one removes it)
   → Overdue (missed calendar items, red date badges, tap to jump to that date).
   Today/Overdue collapse to a bare `(0)` when empty.

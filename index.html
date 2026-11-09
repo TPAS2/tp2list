@@ -5843,8 +5843,10 @@ const txFare = (e) => carNum(e.amount);
 const txOwe = (e) => txIsCard(e) ? txFare(e) * (100 - txPct) / 100 : 0;
 const txCardOf = (d) => d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txFare(e), 0) : 0;
 const txOweOf = (d) => d ? (d.entries || []).reduce((s, e) => s + txOwe(e), 0) : 0;
-const txCashNet = (d) => d ? (d.entries || []).filter(e => e.kind !== 'expense' && !e.card).reduce((s, e) => s + txShare(e), 0) - txExpOfRaw(d) : 0;   // cash trips × cut% − the day's expenses
-const txExpOfRaw = (d) => (d.entries || []).filter(e => e.kind === 'expense').reduce((s, e) => s + carNum(e.amount), 0);
+// cash trips × cut% − the day's expenses, leaving out expenses that are in Shell payable (item.shellId still in `shell`):
+// Shell is paid separately, so that diesel doesn't come out of the cash the driver hands over
+const txCashNet = (d, shell) => d ? (d.entries || []).filter(e => e.kind !== 'expense' && !e.card).reduce((s, e) => s + txShare(e), 0)
+  - (d.entries || []).filter(e => e.kind === 'expense' && !(e.shellId && (shell || []).some(o => o.id === e.shellId))).reduce((s, e) => s + carNum(e.amount), 0) : 0;
 const txExpOf = (d) => d ? txSum((d.entries || []).filter(e => e.kind === 'expense')) : 0;
 function txMigrate(tx){   // older days kept trips and expenses in two lists: merge them (trips first, then expenses)
   for(const k in tx.days){
@@ -6299,7 +6301,7 @@ function renderTaxiPanel(cur){
   };
   adds.append(pic, picIn, picStatus);
   body.appendChild(adds);
-  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (share − expenses)', sCash); mkLine('Card trips (your share)', sCardShare); mkLine('Card payments (fare)', sCard);
+  mkLine('Trips total (full fares)', sTrips); mkLine('Your share of trips', sShare); mkLine('Expenses', sExp); mkLine('Profit for the day', sProfit); mkLine('Cash trips (share − expenses, not Shell payable)', sCash); mkLine('Card trips (your share)', sCardShare); mkLine('Card payments (fare)', sCard);
   body.appendChild(sumBox);
   const cashRow = el('div', 'tx-cashin'); const cashIn = el('input'); cashIn.type = 'text'; cashIn.inputMode = 'decimal'; cashIn.placeholder = '0.00'; cashIn.autocomplete = 'off';
   cashIn.value = (tx.days[key] && tx.days[key].cashIn) || '';
@@ -6437,7 +6439,7 @@ function renderTaxiPanel(cur){
     tInc.textContent = carMoney(inc); tExp.textContent = carMoney(exp); tExp.parentElement.title = shellMonth ? 'Includes ' + carMoney(shellMonth) + ' of Shell payable dated this month' : ''; tOth.textContent = carMoney(other); tShell.textContent = carMoney(shell);
     tProfit.textContent = carMoney(profit); tProfit.parentElement.classList.toggle('pos', profit > 0); tProfit.parentElement.classList.toggle('neg', profit < 0);
     tNet.textContent = carMoney(net); tNet.parentElement.title = 'Initial Startup Cost + Other expenses + Shell payable − cash received − card received (all time). Above 0 is still to be recovered.'; tNet.parentElement.classList.toggle('neg', net > 0); tNet.parentElement.classList.toggle('pos', net < 0);
-    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txCashNet(dd); });   // all time, days not settled yet: cash trips (your share) and card owed
+    let owe = 0; Object.keys(tx.days).forEach(k => { const dd = dayOf(k, false); if(dd.settled) return; owe += txOweOf(dd); open += txCashNet(dd, tx.shell); });   // all time, days not settled yet: cash trips (your share) and card owed
     tOpen.textContent = carMoney(open); tCard.textContent = carMoney(owe); tCard.parentElement.classList.toggle('neg', owe > 0);
     infos.otherExpenses.textContent = carMoney(other); infos.shell.textContent = carMoney(shell); infos.startup.textContent = carMoney(startup); paintOday();
     const shellFlag = tx.shell.some(txDieselLine);   // the Shell payable box and heading wear the stripes while a diesel entry has no amount
@@ -6445,7 +6447,7 @@ function renderTaxiPanel(cur){
     creditInfo.textContent = 'Total ' + carMoney(txSum(tx.credit));
     const d = tx.days[key], di = txInc(d), de = txExpOf(d), dp = di - de;
     sTrips.textContent = carMoney(d ? (d.entries || []).filter(e => e.kind !== 'expense').reduce((s, e) => s + txFare(e), 0) : 0); sShare.textContent = carMoney(di); sExp.textContent = carMoney(de);
-    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(txCashNet(d)); sCardShare.textContent = carMoney(d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0) : 0);
+    const cd = txCardOf(d), co = txOweOf(d); sCard.textContent = cd ? carMoney(cd) + ' · you owe ' + carMoney(co) : '—'; sCash.textContent = carMoney(txCashNet(d, tx.shell)); sCardShare.textContent = carMoney(d ? (d.entries || []).filter(txIsCard).reduce((s, e) => s + txShare(e), 0) : 0);
     sProfit.textContent = carMoney(dp); sProfit.className = dp > 0 ? 'pos' : dp < 0 ? 'neg' : '';
   };
   paintSettle(); paintDay(key);

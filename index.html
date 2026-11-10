@@ -2415,9 +2415,10 @@ function renderSection(section){
 
   if(tasks.length === 0) return;  // an empty list shows nothing, not even a placeholder line
 
+  const noTick = section === 'list';   // the main List has no tick box (items are just removed with ✕); old `done` flags are kept but not shown
   tasks.forEach((t) => {
     const li = document.createElement('li');
-    li.className = 'item' + (t.done ? ' done' : '');
+    li.className = 'item' + (t.done && !noTick ? ' done' : '');
     li.dataset.id = t.id;
     li.dataset.section = section;
 
@@ -2450,9 +2451,9 @@ function renderSection(section){
     del.onclick = () => remove(section, t.id);
 
     li.appendChild(handle);
-    li.appendChild(box);
+    if(!noTick) li.appendChild(box);
     li.appendChild(text);
-    li.appendChild(stampMark);
+    if(!noTick) li.appendChild(stampMark);
     li.appendChild(del);
     container.appendChild(li);
   });

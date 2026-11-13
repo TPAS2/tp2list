@@ -1241,6 +1241,8 @@
   .car-exp{ display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
   .car-exp input:first-child{ flex: 1; }
   .tx-drophead{ cursor: pointer; user-select: none; }
+  .car-rent-info{ text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-faint); }
+  .car-rent-body{ display: flex; flex-direction: column; gap: inherit; }
   .tx-arrow{ display: inline-block; width: 1.2em; color: var(--text-dim); }
   .tx-share{ font-size: 12px; color: var(--text-dim); white-space: nowrap; min-width: 0; flex: none; }
   .car-body .car-exp .amt{ width: 110px; text-align: right; flex: none; }
@@ -3485,8 +3487,9 @@ function renderCalDetail(){
           saveTasks();
           renderCalDetail();
         }
-        input.addEventListener('change', commit);
+        // save only when you're done (leave the box or press Enter), not on every change: typing the hour used to save and close it
         input.addEventListener('blur', commit);
+        input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); input.blur(); } if(e.key === 'Escape'){ input.value = entry.time || ''; input.blur(); } });
       };
       timeBadge.appendChild(timeText);
 
@@ -3521,8 +3524,8 @@ function renderCalDetail(){
           if(input.value){ entry.ref.time = input.value; saveTasks(); }
           renderCalDetail();
         }
-        input.addEventListener('change', commit);
-        input.addEventListener('blur', commit);
+        input.addEventListener('blur', commit);   // only when done, not after each part of the time
+        input.addEventListener('keydown', (e) => { if(e.key === 'Enter'){ e.preventDefault(); input.blur(); } if(e.key === 'Escape'){ input.value = ''; input.blur(); } });
       };
       li.appendChild(addTimeBtn);
     }
@@ -5725,19 +5728,28 @@ function renderCarsPanel(cur){
 
       body.appendChild(field('Sale price (€)', v.sold, (x) => { v.sold = x; }, () => { if(carSold(v) !== wasSold){ saveTasks(); redraw(); } }));
 
-      body.appendChild(el('div', 'car-sub', 'Renting'));
-      body.appendChild(field('Rent per month (€)', v.rentPerMonth, (x) => { v.rentPerMonth = x; }));
+      // Renting: a drop-down (tap the heading), closed by default; open/closed is kept per device and per car
+      const rentKey = 'tpas2:car:rent:' + v.id;
+      let rentOpen = false; try{ rentOpen = localStorage.getItem(rentKey) === '1'; }catch(e){}
+      const rentHead = el('div', 'car-sub tx-drophead car-rent-head');
+      const rentArrow = el('span', 'tx-arrow', rentOpen ? '▾' : '▸');
+      const rentInfo = el('span', 'car-rent-info', carRent(v) ? ' · ' + carMoney(carRent(v)) + ' income' : (carNum(v.rentPerMonth) ? ' · ' + carMoney(carNum(v.rentPerMonth)) + '/month' : ''));
+      rentHead.append(rentArrow, document.createTextNode(' Renting'), rentInfo);
+      const rentBody = el('div', 'car-rent-body'); rentBody.style.display = rentOpen ? '' : 'none';
+      rentHead.onclick = () => { rentOpen = !rentOpen; rentBody.style.display = rentOpen ? '' : 'none'; rentArrow.textContent = rentOpen ? '▾' : '▸'; try{ localStorage.setItem(rentKey, rentOpen ? '1' : '0'); }catch(e){} };
+      body.appendChild(rentHead); body.appendChild(rentBody);
+      rentBody.appendChild(field('Rent per month (€)', v.rentPerMonth, (x) => { v.rentPerMonth = x; }));
       const dateField = (label, key) => {
         const row = el('label', 'car-field'); row.appendChild(el('span', null, label));
         const inp = el('input'); inp.type = 'date'; inp.value = v[key] || '';
         inp.addEventListener('change', () => { v[key] = inp.value; saveTasks(); redraw(); });
         row.appendChild(inp); return row;
       };
-      body.appendChild(dateField('Rent started', 'rentStart'));
-      body.appendChild(dateField('Rent ends (optional)', 'rentEnd'));
+      rentBody.appendChild(dateField('Rent started', 'rentStart'));
+      rentBody.appendChild(dateField('Rent ends (optional)', 'rentEnd'));
       const monthsRow = field(carRentAuto(v) ? 'Months rented (automatic)' : 'Months rented', carRentAuto(v) ? String(carRentMonths(v)) : v.rentMonths, (x) => { v.rentMonths = x; });
       if(carRentAuto(v)) monthsRow.querySelector('input').disabled = true;   // worked out from the dates
-      body.appendChild(monthsRow);
+      rentBody.appendChild(monthsRow);
       const sum = el('div', 'car-sum');
       const l1 = el('div'); l1.append(el('span', null, 'Total cost'), card._cost = el('b'));
       const lr = el('div'); lr.append(el('span', null, 'Rent income'), card._rent = el('b')); sum.appendChild(lr);

@@ -6147,7 +6147,7 @@ function renderTaxiPanel(cur){
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
   const stat = (label) => { const box = el('div', 'cars-stat'); box.append(el('small', null, label)); const v = el('b'); box.appendChild(v); totals.appendChild(box); return v; };
-  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe him'), tRecv = stat('Cash received · all time'), tRecvCard = stat('Card received · all time');
+  const tInc = stat('Income'), tExp = stat('Expenses'), tOth = stat('Other expenses · all time'), tShell = stat('Shell payable · all time'), tProfit = stat('Profit this month'), tNet = stat('Net P/L · all time'), tOpen = stat('Not settled cash · all time'), tCard = stat('Not settled card · you owe them'), tRecv = stat('Cash received · all time'), tRecvCard = stat('Card received · all time');
   tShell.parentElement.classList.add('tx-shell'); tOpen.parentElement.classList.add('tx-blue'); tCard.parentElement.classList.add('tx-blue');
   if(!dayView) scroll.appendChild(totals);
 
@@ -6258,7 +6258,7 @@ function renderTaxiPanel(cur){
     const d = el('input'); d.type = 'text'; d.placeholder = item.kind === 'expense' ? 'What for (fuel, tolls…)' : 'Trip (route, passenger…)'; d.value = item.desc || ''; d.autocomplete = 'off';
     d.addEventListener('input', () => { item.desc = d.value; paintDok(); syncShell(); if(item.kind !== 'expense' && item.card === undefined && /\bcard\b/i.test(d.value)){ item.card = true; paintCard(); paintDay(key); updateAll(); } paintDay(key); save(); });
     const a = el('input', 'amt'); a.type = 'text'; a.inputMode = 'decimal'; a.placeholder = '0.00'; a.value = item.amount == null ? '' : item.amount; a.autocomplete = 'off';
-    const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe him his share';
+    const cardB = el('button', 'tx-card', 'Card'); cardB.type = 'button'; cardB.title = 'Paid by card: you hold the money and owe them their share';
     const bank = el('input', 'tx-bank'); bank.type = 'checkbox'; bank.checked = !!item.banked; bank.title = 'Tick when this card payment has reached your bank';
     bank.addEventListener('change', () => { item.banked = bank.checked; row.classList.toggle('is-banked', bank.checked); paintDay(key); saveTasks(); });
     const syncShell = () => {   // an expense sent to Shell payable (item.shellId): the list entry follows the day's amount and description

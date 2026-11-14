@@ -1241,6 +1241,11 @@
   .car-exp{ display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
   .car-exp input:first-child{ flex: 1; }
   .tx-drophead{ cursor: pointer; user-select: none; }
+  .tx-drivers{ display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+  .tx-drivers-label{ color: var(--text-dim); font-size: .68rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-right: 2px; }
+  .tx-driver{ border: 1px solid var(--line); background: var(--fill); color: var(--text); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .tx-driver.on{ background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 4px 16px -6px rgba(111,0,255,.6); }
+  .tx-driver-del{ color: var(--danger); }
   .car-rent-info{ text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-faint); }
   .car-rent-body{ display: flex; flex-direction: column; gap: inherit; }
   .tx-arrow{ display: inline-block; width: 1.2em; color: var(--text-dim); }
@@ -6069,8 +6074,17 @@ function taxiParseTable(lines, width, cutPct){
   return { entries, used, notes, byLine, columns: centres.length };
 }
 function renderTaxiPanel(cur){
-  if(!cur.taxi) cur.taxi = { days: {}, otherExpenses: [] };
-  const tx = cur.taxi;
+  // drivers: each has his own, completely separate taxi data. The first driver keeps cur.taxi (the original data),
+  // others live in cur.taxiData[driverId]; the driver on screen is chosen per device (tpas2:tx:driver:<sectionId>)
+  if(!Array.isArray(cur.taxiDrivers) || !cur.taxiDrivers.length) cur.taxiDrivers = [{ id: 'd1', name: 'Driver 1' }];
+  if(!cur.taxiData || typeof cur.taxiData !== 'object') cur.taxiData = {};
+  const drvKey = 'tpas2:tx:driver:' + cur.id;
+  let drvId = ''; try{ drvId = localStorage.getItem(drvKey) || ''; }catch(e){}
+  if(!cur.taxiDrivers.some(d => d.id === drvId)) drvId = cur.taxiDrivers[0].id;
+  const firstDrv = drvId === cur.taxiDrivers[0].id;
+  if(firstDrv){ if(!cur.taxi) cur.taxi = { days: {}, otherExpenses: [] }; }
+  else if(!cur.taxiData[drvId]) cur.taxiData[drvId] = { days: {}, otherExpenses: [], cutPct: cur.taxi && cur.taxi.cutPct };
+  const tx = firstDrv ? cur.taxi : cur.taxiData[drvId];
   if(!tx.days || typeof tx.days !== 'object') tx.days = {};
   if(!Array.isArray(tx.otherExpenses)) tx.otherExpenses = [];
   if(!Array.isArray(tx.shell)) tx.shell = [];
@@ -6095,6 +6109,40 @@ function renderTaxiPanel(cur){
 
   const dayView = false;   // the full-screen single-day view was removed: the day card sits under the calendar
   const scroll = el('div', 'cars-wrap');
+
+  // driver switch: tap a name to switch, ✎ renames the one on screen, + Driver adds another (all data kept apart)
+  const drvBar = el('div', 'tx-drivers');
+  drvBar.appendChild(el('span', 'tx-drivers-label', 'Driver'));
+  cur.taxiDrivers.forEach(d => {
+    const b = el('button', 'tx-driver' + (d.id === drvId ? ' on' : ''), d.name || 'Driver'); b.type = 'button';
+    b.onclick = () => { if(d.id === drvId) return; try{ localStorage.setItem(drvKey, d.id); }catch(e){} taxiScrollKeep = 0; renderBizPanel(cur); };
+    drvBar.appendChild(b);
+  });
+  const ren = el('button', 'sheet-mini', '✎ Name'); ren.type = 'button'; ren.title = 'Rename the driver on screen';
+  ren.onclick = () => { const d = cur.taxiDrivers.find(x => x.id === drvId); const n = prompt('Driver name:', d.name || ''); if(n === null || !n.trim()) return; d.name = n.trim(); saveTasks(); redraw(); };
+  const addD = el('button', 'sheet-mini', '+ Driver'); addD.type = 'button'; addD.title = 'Add another driver with his own separate records';
+  addD.onclick = () => {
+    const n = prompt('Name of the new driver:', 'Driver ' + (cur.taxiDrivers.length + 1)); if(n === null || !n.trim()) return;
+    const id = 'd' + Date.now().toString(36);
+    cur.taxiDrivers.push({ id, name: n.trim() });
+    cur.taxiData[id] = { days: {}, otherExpenses: [], cutPct: tx.cutPct };
+    try{ localStorage.setItem(drvKey, id); }catch(e){}
+    saveTasks(); taxiScrollKeep = 0; renderBizPanel(cur);
+  };
+  drvBar.append(ren, addD);
+  if(!firstDrv){
+    const delD = el('button', 'sheet-mini tx-driver-del', '✕'); delD.type = 'button'; delD.title = 'Remove this driver and all his records';
+    delD.onclick = () => {
+      const d = cur.taxiDrivers.find(x => x.id === drvId);
+      if(!confirm('Remove ' + (d.name || 'this driver') + ' and ALL his trips, expenses and lists? (A safety copy is taken first.)')) return;
+      takeSafetyCopy('before removing driver');
+      cur.taxiDrivers = cur.taxiDrivers.filter(x => x.id !== drvId); delete cur.taxiData[drvId];
+      try{ localStorage.setItem(drvKey, cur.taxiDrivers[0].id); }catch(e){}
+      saveTasks(); taxiScrollKeep = 0; renderBizPanel(cur);
+    };
+    drvBar.appendChild(delD);
+  }
+  scroll.appendChild(drvBar);
 
   // totals for the month on screen
   const totals = el('div', 'cars-totals tx-totals');
@@ -6346,7 +6394,7 @@ function renderTaxiPanel(cur){
   const monthName = new Date(Y, M - 1, 1).toLocaleDateString([], { month: 'long' });
   const rest = el('div');   // everything below the day: only shown with the calendar
   // drop-down blocks: tap the heading to open / close; open state is remembered per device
-  const dropKey = (k) => 'tpas2:tx:drop:' + cur.id + ':' + k;
+  const dropKey = (k) => 'tpas2:tx:drop:' + cur.id + (firstDrv ? '' : ':' + drvId) + ':' + k;
   const drop = (head, body, k) => {
     let open = false; try{ open = localStorage.getItem(dropKey(k)) === '1'; }catch(e){}
     const arrow = el('span', 'tx-arrow', open ? '▾' : '▸'); head.insertBefore(arrow, head.firstChild); head.classList.add('tx-drophead');

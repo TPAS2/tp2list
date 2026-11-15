@@ -1246,6 +1246,11 @@
   .tx-driver{ border: 1px solid var(--line); background: var(--fill); color: var(--text); border-radius: 999px; padding: 6px 14px; font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer; }
   .tx-driver.on{ background: linear-gradient(135deg, var(--accent), var(--accent2)); border-color: transparent; color: #fff; box-shadow: 0 4px 16px -6px rgba(111,0,255,.6); }
   .tx-driver-del{ color: var(--danger); }
+  .tx-all-table{ display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .tx-all-row{ display: grid; grid-template-columns: minmax(0, 1.4fr) .6fr 1fr 1fr 1fr; gap: 8px; align-items: center; padding: 9px 12px; border-radius: 10px; background: var(--fill); font-size: .88rem; }
+  .tx-all-row span:not(:first-child){ text-align: right; font-variant-numeric: tabular-nums; }
+  .tx-all-row.head{ background: none; color: var(--text-dim); font-size: .68rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding-top: 0; padding-bottom: 0; }
+  .tx-all-row.total{ font-weight: 800; border: 1px solid rgba(111,0,255,.45); }
   .car-rent-info{ text-transform: none; letter-spacing: 0; font-weight: 600; color: var(--text-faint); }
   .car-rent-body{ display: flex; flex-direction: column; gap: inherit; }
   .tx-arrow{ display: inline-block; width: 1.2em; color: var(--text-dim); }
@@ -6073,6 +6078,56 @@ function taxiParseTable(lines, width, cutPct){
   });
   return { entries, used, notes, byLine, columns: centres.length };
 }
+const TX_ALL = '__all';
+// combined view of every driver (read only): per driver and in total, what is not settled (all time) and the money received
+function renderTaxiAll(cur, drvKey){
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if(cls) e.className = cls; if(text != null) e.textContent = text; return e; };
+  const scroll = el('div', 'cars-wrap');
+  const bar = el('div', 'tx-drivers'); bar.appendChild(el('span', 'tx-drivers-label', 'Driver'));
+  const allB = el('button', 'tx-driver tx-driver-all on', 'All drivers'); allB.type = 'button'; bar.appendChild(allB);
+  cur.taxiDrivers.forEach(d => {
+    const b = el('button', 'tx-driver', d.name || 'Driver'); b.type = 'button';
+    b.onclick = () => { try{ localStorage.setItem(drvKey, d.id); }catch(e){} taxiScrollKeep = 0; renderBizPanel(cur); };
+    bar.appendChild(b);
+  });
+  scroll.appendChild(bar);
+  const keepPct = txPct;
+  const rows = cur.taxiDrivers.map((d, i) => {
+    const tx = i === 0 ? cur.taxi : (cur.taxiData || {})[d.id];
+    const r = { name: d.name || 'Driver', cash: 0, card: 0, days: 0, recv: 0, recvC: 0 };
+    if(!tx || !tx.days) return r;
+    txMigrate(tx);
+    txPct = Math.max(0, Math.min(100, parseFloat(tx.cutPct) || 60));   // each driver's own cut
+    Object.keys(tx.days).forEach(k => {
+      const day = tx.days[k]; if(!day) return;
+      r.recv += carNum(day.cashIn); r.recvC += carNum(day.cardIn);
+      if(day.settled || !(day.entries || []).length) return;
+      r.cash += txCashNet(day, tx.shell); r.card += txOweOf(day); r.days++;
+    });
+    return r;
+  });
+  txPct = keepPct;
+  const sum = (k) => rows.reduce((n, r) => n + r[k], 0);
+  const totals = el('div', 'cars-totals tx-totals');
+  const stat = (label, val, cls) => { const box = el('div', 'cars-stat' + (cls ? ' ' + cls : '')); box.append(el('small', null, label), el('b', null, carMoney(val))); totals.appendChild(box); };
+  stat('Not settled cash · all drivers', sum('cash'), 'tx-blue');
+  stat('Not settled card · you owe them', sum('card'), 'tx-blue');
+  stat('Not settled in total', sum('cash') - sum('card'));
+  stat('Cash received · all drivers', sum('recv'));
+  stat('Card received · all drivers', sum('recvC'));
+  scroll.appendChild(totals);
+  const head = el('div', 'car-group'); head.append(el('span', 'car-group-title', 'By driver · not settled, all time'));
+  scroll.appendChild(head);
+  const tbl = el('div', 'tx-all-table');
+  const line = (cells, cls) => { const row = el('div', 'tx-all-row' + (cls ? ' ' + cls : '')); cells.forEach(c => row.appendChild(el('span', null, c))); tbl.appendChild(row); };
+  line(['Driver', 'Days', 'Cash', 'Card · owe', 'Received'], 'head');
+  rows.forEach(r => line([r.name, String(r.days), carMoney(r.cash), carMoney(r.card), carMoney(r.recv + r.recvC)]));
+  line(['Total', String(sum('days')), carMoney(sum('cash')), carMoney(sum('card')), carMoney(sum('recv') + sum('recvC'))], 'total');
+  scroll.appendChild(tbl);
+  scroll.appendChild(el('p', 'ds-hint', 'Tap a driver above to see or change his days. "Not settled in total" is the cash you are still to receive minus the card money you still owe.'));
+  bizPanelEl.appendChild(scroll);
+}
+
 function renderTaxiPanel(cur){
   // drivers: each has his own, completely separate taxi data. The first driver keeps cur.taxi (the original data),
   // others live in cur.taxiData[driverId]; the driver on screen is chosen per device (tpas2:tx:driver:<sectionId>)
@@ -6080,6 +6135,7 @@ function renderTaxiPanel(cur){
   if(!cur.taxiData || typeof cur.taxiData !== 'object') cur.taxiData = {};
   const drvKey = 'tpas2:tx:driver:' + cur.id;
   let drvId = ''; try{ drvId = localStorage.getItem(drvKey) || ''; }catch(e){}
+  if(drvId === TX_ALL && cur.taxiDrivers.length > 1){ renderTaxiAll(cur, drvKey); return; }   // the combined "All drivers" view
   if(!cur.taxiDrivers.some(d => d.id === drvId)) drvId = cur.taxiDrivers[0].id;
   const firstDrv = drvId === cur.taxiDrivers[0].id;
   if(firstDrv){ if(!cur.taxi) cur.taxi = { days: {}, otherExpenses: [] }; }
@@ -6113,6 +6169,11 @@ function renderTaxiPanel(cur){
   // driver switch: tap a name to switch, ✎ renames the one on screen, + Driver adds another (all data kept apart)
   const drvBar = el('div', 'tx-drivers');
   drvBar.appendChild(el('span', 'tx-drivers-label', 'Driver'));
+  if(cur.taxiDrivers.length > 1){
+    const allB = el('button', 'tx-driver tx-driver-all', 'All drivers'); allB.type = 'button'; allB.title = 'Combined totals of every driver';
+    allB.onclick = () => { try{ localStorage.setItem(drvKey, TX_ALL); }catch(e){} taxiScrollKeep = 0; renderBizPanel(cur); };
+    drvBar.appendChild(allB);
+  }
   cur.taxiDrivers.forEach(d => {
     const b = el('button', 'tx-driver' + (d.id === drvId ? ' on' : ''), d.name || 'Driver'); b.type = 'button';
     b.onclick = () => { if(d.id === drvId) return; try{ localStorage.setItem(drvKey, d.id); }catch(e){} taxiScrollKeep = 0; renderBizPanel(cur); };

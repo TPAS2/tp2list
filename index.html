@@ -2211,6 +2211,8 @@
         <button type="button" class="ds-btn danger" id="dsLeave">Disconnect</button>
       </div>
     </div>
+    <div class="ds-or">Sounds</div>
+    <div class="ds-actions"><button type="button" class="ds-btn" id="dsSound">🔊 Button sounds: on</button></div>
     <div class="ds-backup">
       <div class="ds-or">Backup</div>
       <div class="ds-actions">
@@ -8340,6 +8342,69 @@ document.addEventListener('touchend', (e) => {
   }
   lastTouchEnd = now;
 }, { passive: false });
+
+/* ---------- button sounds: short clicks made with Web Audio (no sound files), a different one for each kind of button.
+   On/off per device in tpas2:sound ('off' = muted), switched in the Sync sheet (#dsSound). Inputs and text never click. */
+const uiSound = (() => {
+  let ctx = null, on = true;
+  try{ on = localStorage.getItem('tpas2:sound') !== 'off'; }catch(e){}
+  const ac = () => {
+    if(!ctx){ const C = window.AudioContext || window.webkitAudioContext; if(!C) return null; ctx = new C(); }
+    if(ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  };
+  const jit = (f) => f * (1 + (Math.random() - .5) * .06);   // a little variation so repeats don't sound robotic
+  // one tone: frequency glide f1 -> f2, quick attack, exponential decay
+  const tone = (c, t, f1, f2, dur, vol, type) => {
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine';
+    o.frequency.setValueAtTime(jit(f1), t); o.frequency.exponentialRampToValueAtTime(Math.max(30, jit(f2)), t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.004); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+  };
+  // a tiny burst of filtered noise: the "tick" of a mechanical switch
+  const noise = (c, t, dur, vol, freq) => {
+    const n = Math.floor(c.sampleRate * dur), b = c.createBuffer(1, n, c.sampleRate), d = b.getChannelData(0);
+    for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 3);
+    const src = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
+    f.type = 'bandpass'; f.frequency.value = jit(freq); f.Q.value = 1.2; g.gain.value = vol;
+    src.buffer = b; src.connect(f); f.connect(g); g.connect(c.destination); src.start(t);
+  };
+  const sounds = {
+    tap(c, t){ noise(c, t, 0.025, 0.5, 3200); tone(c, t, 1800, 1200, 0.03, 0.05, 'triangle'); },          // ordinary button: crisp tick
+    tab(c, t){ noise(c, t, 0.02, 0.35, 4500); tone(c, t, 900, 1300, 0.05, 0.06, 'sine'); },                // page / section / driver tabs: light rising click
+    add(c, t){ tone(c, t, 520, 880, 0.07, 0.09, 'sine'); tone(c, t + 0.05, 880, 1320, 0.09, 0.07, 'sine'); },  // add: bubbly two-step pop up
+    del(c, t){ noise(c, t, 0.03, 0.4, 900); tone(c, t, 320, 140, 0.09, 0.09, 'triangle'); },               // delete: soft low thunk
+    tick(c, t){ tone(c, t, 660, 990, 0.06, 0.08, 'sine'); tone(c, t + 0.06, 1320, 1320, 0.12, 0.05, 'sine'); },  // tick box: little "ding"
+    toggle(c, t){ noise(c, t, 0.015, 0.45, 2500); noise(c, t + 0.045, 0.015, 0.3, 1800); },              // switches (theme, settled, card…): double click
+    open(c, t){ tone(c, t, 400, 700, 0.08, 0.06, 'sine'); },                                               // drop-downs / sheets opening: soft whoop
+  };
+  const kindOf = (el) => {
+    const txt = (el.textContent || '').trim();
+    if(el.matches('.del, .car-del, .tx-driver-del, .ds-btn.danger') || /^[✕×]$/.test(txt)) return 'del';
+    if(el.matches('.box, .tx-bank, input[type=checkbox]')) return 'tick';
+    if(el.matches('button.add, .car-add-exp') || /^\+/.test(txt) || /^add$/i.test(txt)) return 'add';
+    if(el.matches('.page-dot, .tx-driver, .biz-tab, [class*="tab"], #businessNavBtn, #otherNavBtn')) return 'tab';
+    if(el.matches('.tx-drophead, .car-sub, #syncBtn, #archiveBtn, .ds-close')) return 'open';
+    if(el.matches('#themeBtn, .expense-type-toggle, .tx-card, .tx-settle, [aria-pressed], .expense-head-btn')) return 'toggle';
+    return 'tap';
+  };
+  const play = (kind) => {
+    if(!on) return;
+    try{ const c = ac(); if(!c) return; (sounds[kind] || sounds.tap)(c, c.currentTime + 0.001); }catch(e){}
+  };
+  document.addEventListener('click', (e) => {
+    if(!on) return;
+    const el = e.target.closest && e.target.closest('button, .box, .page-dot, .tx-drophead, .car-rent-head, [role="button"], input[type=checkbox]');
+    if(!el || el.disabled) return;
+    play(kindOf(el));
+  }, true);
+  const btn = document.getElementById('dsSound');
+  const paint = () => { if(btn) btn.textContent = on ? '🔊 Button sounds: on' : '🔇 Button sounds: off'; };
+  if(btn) btn.addEventListener('click', () => { on = !on; try{ localStorage.setItem('tpas2:sound', on ? 'on' : 'off'); }catch(e){} paint(); if(on) play('tick'); });
+  paint();
+  return { play, kindOf };
+})();
 
 /* the pages keep 90px of empty room at the bottom (so the "Saved" pill never covers the last item), but that room must not
    create a scrollbar when everything already fits: use only as much bottom room as fits, and the full 90px once the page really scrolls */

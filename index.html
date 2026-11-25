@@ -2059,7 +2059,7 @@
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
         <button type="button" class="add">Add</button>
       </form>
-      <div class="savings-sheet-row" id="savingsSheetRow" style="display:none;"><button type="button" class="expense-head-btn" id="savingsSheetBtn" title="Show your savings total in a Google Sheet">📊 Google Sheets</button></div>
+      <div class="savings-sheet-row" id="savingsSheetRow"><button type="button" class="expense-head-btn" id="savingsSheetBtn" title="Show this tracker’s total in a Google Sheet">📊 Google Sheets</button></div>
       <div class="expense-summary" id="expenseSummary">
         <div class="expense-summary-row" id="carryRow" style="display:none;">
           <span>Carried over</span>
@@ -2178,8 +2178,8 @@
 
 <div class="ds-modal" id="savingsSheetModal">
   <div class="ds-sheet">
-    <div class="ds-head"><h3>Savings in Google Sheets</h3><button type="button" class="ds-close" id="savingsSheetClose">×</button></div>
-    <p class="ds-hint" style="margin-top:0">Paste this formula into any cell of your Google Sheet. The cell shows your savings total (all income − all expenses in Savings) and follows it when it changes. Google Sheets refreshes it by itself about once an hour (reopening the sheet or editing the formula refreshes it sooner).</p>
+    <div class="ds-head"><h3 id="savingsSheetTitle">In Google Sheets</h3><button type="button" class="ds-close" id="savingsSheetClose">×</button></div>
+    <p class="ds-hint" style="margin-top:0">Paste this formula into any cell of your Google Sheet. The cell shows this tracker’s total (all its income − all its expenses, every month) and follows it when it changes. The ETracker and Savings each have their own formula. Google Sheets refreshes it by itself about once an hour (reopening the sheet or editing the formula refreshes it sooner).</p>
     <input class="ds-input" id="savingsSheetFormula" readonly style="width:100%;box-sizing:border-box;font-size:.78rem;text-transform:none;letter-spacing:0;text-align:left">
     <div class="ds-actions" style="margin-top:10px"><button type="button" class="ds-btn primary" id="savingsSheetCopy">Copy formula</button><span class="grow"></span><button type="button" class="ds-btn danger" id="savingsSheetStop">Stop sharing</button></div>
     <p class="ds-hint">Total being shared now: <b id="savingsSheetNow"></b>. The address is a long private code: anyone who has the formula can see this one number, nothing else.</p>
@@ -2659,28 +2659,33 @@ function setSavingsMode(on, noRender){
   const b = document.getElementById('savingsToggle'), t = document.getElementById('expenseTitle');
   if(b) b.classList.toggle('active', expSavings);
   if(t && data) t.textContent = expTitle();
-  const row = document.getElementById('savingsSheetRow'); if(row) row.style.display = expSavings ? '' : 'none';
   if(!noRender) renderExpenses();
 }
 /* the tracker's own name inside the page (tap the title to rename, e.g. "Wallet"); the tab in the nav keeps its name.
    data.etNames = { main, savings } (synced) */
 function expTitle(){ const n = data.etNames || {}; return expSavings ? (n.savings || 'Savings') : (n.main || 'ETracker'); }
-/* savings total shared with Google Sheets: data.savingsLink = random key (synced, so every device publishes to the same place);
-   the total is PUT to FB_DB/lists/<key>/total.json (a bare number), which =IMPORTDATA() in a Google Sheet reads */
-function savingsTotal(){ return Math.round((data.savings || []).reduce((n, e) => n + (e.type === 'income' ? 1 : -1) * (Number(e.amount) || 0), 0) * 100) / 100; }
-function savingsSheetUrl(){ return data.savingsLink ? FB_DB + '/lists/' + data.savingsLink + '/total.json' : ''; }
-let savingsPubTimer = null;
-function savingsPublish(force){
-  if(!data || !data.savingsLink) return;
-  clearTimeout(savingsPubTimer);
-  savingsPubTimer = setTimeout(() => {
-    try{
-      const total = savingsTotal(), key = 'tpas2:sav:pub';
-      let last = null; try{ last = localStorage.getItem(key); }catch(e){}
-      if(!force && last === data.savingsLink + ':' + total) return;
-      fetch(savingsSheetUrl(), { method: 'PUT', body: JSON.stringify(total) })
-        .then(r => { if(r.ok){ try{ localStorage.setItem(key, data.savingsLink + ':' + total); }catch(e){} } }).catch(() => {});
-    }catch(e){}
+/* tracker totals shared with Google Sheets, one link per tracker: data.mainLink (ETracker) and data.savingsLink (Savings), random keys
+   (synced, so every device publishes to the same place). Each total (all income − all expenses of that tracker) is PUT to
+   FB_DB/lists/<key>/total.json (a bare number), which =IMPORTDATA() in a Google Sheet reads */
+const SHEET_LINKS = { m: { key: 'mainLink', list: () => data.expenses, prefix: 'et_' }, s: { key: 'savingsLink', list: () => data.savings, prefix: 'sav_' } };
+function trackerTotal(k){ return Math.round((SHEET_LINKS[k].list() || []).reduce((n, e) => n + (e.type === 'income' ? 1 : -1) * (Number(e.amount) || 0), 0) * 100) / 100; }
+function trackerSheetUrl(k){ const id = data[SHEET_LINKS[k].key]; return id ? FB_DB + '/lists/' + id + '/total.json' : ''; }
+const savingsTotal = () => trackerTotal('s');
+let sheetPubTimer = null;
+function savingsPublish(force){   // publishes every tracker that has a link (only when its total changed, unless forced)
+  if(!data) return;
+  clearTimeout(sheetPubTimer);
+  sheetPubTimer = setTimeout(() => {
+    Object.keys(SHEET_LINKS).forEach(k => {
+      try{
+        const id = data[SHEET_LINKS[k].key]; if(!id) return;
+        const total = trackerTotal(k), lk = 'tpas2:sheetpub:' + k;
+        let last = null; try{ last = localStorage.getItem(lk); }catch(e){}
+        if(!force && last === id + ':' + total) return;
+        fetch(trackerSheetUrl(k), { method: 'PUT', body: JSON.stringify(total) })
+          .then(r => { if(r.ok){ try{ localStorage.setItem(lk, id + ':' + total); }catch(e){} } }).catch(() => {});
+      }catch(e){}
+    });
   }, force ? 0 : 1500);
 }
 const expensesListEl = document.getElementById('list-expenses');
@@ -3031,14 +3036,18 @@ document.getElementById('expenseTitle').addEventListener('click', (e) => {
   });
 });
 const savSheetModal = document.getElementById('savingsSheetModal');
+const sheetKind = () => expSavings ? 's' : 'm';
 const savSheetFill = () => {
-  document.getElementById('savingsSheetFormula').value = '=IMPORTDATA("' + savingsSheetUrl() + '")';
-  document.getElementById('savingsSheetNow').textContent = formatSigned(savingsTotal());
+  const k = sheetKind();
+  document.getElementById('savingsSheetTitle').textContent = expTitle() + ' in Google Sheets';
+  document.getElementById('savingsSheetFormula').value = '=IMPORTDATA("' + trackerSheetUrl(k) + '")';
+  document.getElementById('savingsSheetNow').textContent = formatSigned(trackerTotal(k));
 };
 document.getElementById('savingsSheetBtn').addEventListener('click', () => {
-  if(!data.savingsLink){
+  const L = SHEET_LINKS[sheetKind()];
+  if(!data[L.key]){
     const a = new Uint8Array(18); crypto.getRandomValues(a);
-    data.savingsLink = 'sav_' + Array.from(a, b => b.toString(36).padStart(2, '0')).join('').slice(0, 28);
+    data[L.key] = L.prefix + Array.from(a, b => b.toString(36).padStart(2, '0')).join('').slice(0, 28);
     saveTasks();
   }
   savingsPublish(true); savSheetFill(); savSheetModal.classList.add('open');
@@ -3050,9 +3059,10 @@ document.getElementById('savingsSheetCopy').addEventListener('click', () => {
   (navigator.clipboard ? navigator.clipboard.writeText(f.value) : Promise.reject()).then(() => showStatus('formula copied')).catch(() => { f.select(); document.execCommand('copy'); showStatus('formula copied'); });
 });
 document.getElementById('savingsSheetStop').addEventListener('click', () => {
-  if(!data.savingsLink || !confirm('Stop sharing the savings total? The formula in Google Sheets will stop working.')) return;
-  fetch(savingsSheetUrl(), { method: 'DELETE' }).catch(() => {});
-  delete data.savingsLink; saveTasks(); savSheetModal.classList.remove('open'); showStatus('stopped sharing');
+  const k = sheetKind(), L = SHEET_LINKS[k];
+  if(!data[L.key] || !confirm('Stop sharing the ' + expTitle() + ' total? Its formula in Google Sheets will stop working.')) return;
+  fetch(trackerSheetUrl(k), { method: 'DELETE' }).catch(() => {});
+  delete data[L.key]; saveTasks(); savSheetModal.classList.remove('open'); showStatus('stopped sharing');
 });   // button + title only: the first render happens with the rest of the app
 function renderWishlist(){
   const ul = document.getElementById('wishlistList');

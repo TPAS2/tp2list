@@ -907,6 +907,7 @@
     white-space: nowrap;
   }
   .expense-amount.income{ color: var(--success); }
+  html.et-exp-only #expenseTypeToggle{ display: none !important; }
   html.et-simple #savingsToggle, html.et-simple #expenseNoCount, html.et-simple #savingsSheetRow{ display: none !important; }
   .et-mode-btn{ opacity: .85; }
   .expense-amount.nocount{ color: var(--text-faint); font-style: italic; }
@@ -2074,7 +2075,7 @@
           <span>Carried over</span>
           <span id="sumCarry">€0.00</span>
         </div>
-        <div class="expense-summary-row">
+        <div class="expense-summary-row" id="incomeRow">
           <span>Income</span>
           <span id="sumIncome" class="sum-income">€0.00</span>
         </div>
@@ -2086,7 +2087,7 @@
           <span>Spent today</span>
           <span id="sumToday" class="sum-expense">€0.00</span>
         </div>
-        <div class="expense-summary-row total">
+        <div class="expense-summary-row total" id="balanceRow">
           <span>Balance</span>
           <span id="sumBalance">€0.00</span>
         </div>
@@ -2670,6 +2671,7 @@ function setEtMode(simple, noRender){
   etSimple = !!simple;
   try{ localStorage.setItem('tpas2:exp:mode', etSimple ? 'simple' : 'full'); }catch(e){}
   document.documentElement.classList.toggle('et-simple', etSimple);
+  etApplyKind();
   const b = document.getElementById('etModeToggle');
   if(b){ b.textContent = etSimple ? 'SIMPLE' : 'FULL'; b.setAttribute('aria-pressed', etSimple ? 'true' : 'false'); }
   if(etSimple){
@@ -2680,12 +2682,22 @@ function setEtMode(simple, noRender){
   if(!noRender) renderExpenses();
 }
 document.documentElement.classList.toggle('et-simple', etSimple);
+/* Full mode: the main tracker is expenses only (no −/+ toggle, every entry is an expense; Income / Balance rows hidden unless
+   the month still has income or a carried-over amount from before), Savings keeps income and expenses. Simple mode keeps both everywhere. */
+function etExpOnly(){ return !etSimple && !expSavings; }
+function etApplyKind(){
+  const on = etExpOnly();
+  document.documentElement.classList.toggle('et-exp-only', on);
+  const t = document.getElementById('expenseTypeToggle');
+  if(on && t && t.dataset.type !== 'expense'){ t.dataset.type = 'expense'; t.textContent = '−'; }
+}
 function setSavingsMode(on, noRender){
   expSavings = !!on;
   try{ localStorage.setItem('tpas2:exp:savings', expSavings ? '1' : '0'); }catch(e){}
   const b = document.getElementById('savingsToggle'), t = document.getElementById('expenseTitle');
   if(b) b.classList.toggle('active', expSavings);
   if(t && data) t.textContent = expTitle();
+  etApplyKind();
   if(!noRender) renderExpenses();
 }
 /* the tracker's own name inside the page (tap the title to rename, e.g. "Wallet"); the tab in the nav keeps its name.
@@ -2864,6 +2876,9 @@ function renderExpenses(){
   sumExpense.textContent = '−' + formatCurrency(stats.expense);
   sumBalance.textContent = formatSigned(stats.balance);
   sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
+  const hideInc = etExpOnly() && !stats.income && !stats.carryIn;   // expenses-only tracker: no income → no Income / Balance rows
+  document.getElementById('incomeRow').style.display = hideInc ? 'none' : '';
+  document.getElementById('balanceRow').style.display = hideInc ? 'none' : '';
   const todayKey = dateKey(new Date());
   const spentToday = expList()
     .filter(e => e.type === 'expense' && dateKey(new Date(e.createdAt)) === todayKey)
@@ -3219,7 +3234,7 @@ function addExpense(){
   const amount = parseFloat(expenseAmountInput.value);
   if(!desc || isNaN(amount)) return;
   const noCount = expenseNoCount.getAttribute('aria-pressed') === 'true';
-  const type = noCount ? 'none' : expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
+  const type = noCount ? 'none' : (!etExpOnly() && expenseTypeToggle.dataset.type === 'income') ? 'income' : 'expense';
   if(noCount){ expenseNoCount.setAttribute('aria-pressed', 'false'); expenseNoCount.classList.remove('on'); }   // one entry at a time
   const monthKey = expenseMonthKey(expenseViewDate);
   // dated now when this month is on screen, otherwise the 1st of the month on screen, so the

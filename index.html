@@ -812,6 +812,8 @@
     color: var(--accent2); border: 1px solid rgba(139,61,255,.45); background: rgba(139,61,255,.08); flex: none; }
   .wish-conv{ font: 500 .66rem ui-monospace, 'SF Mono', Menlo, monospace; color: var(--text-dim); margin-right: 8px; white-space: nowrap; }
   #wishTotalGbp small{ color: var(--text-dim); font-weight: 400; margin-left: 6px; }
+  .savings-sheet-row{ display: flex; justify-content: flex-end; margin: 8px 0 -14px; }
+  .expense-title-edit{ cursor: text; }
   .expense-summary.wish-summary{ border-top: none; margin-top: 10px; padding-top: 0; }
   .expense-row input#expenseAmount{
     flex: 0 0 90px;
@@ -2015,8 +2017,9 @@
   <div class="page" id="page-expenses">
     <div class="section" id="section-expenses">
       <div class="section-head">
-        <div class="section-title">ETracker</div>
+        <div class="section-title" id="expenseTitle">ETracker</div>
         <div class="expense-head-actions">
+          <button type="button" class="expense-head-btn" id="savingsToggle" title="A separate tracker for your savings, works like the ETracker">SAVINGS</button>
           <button type="button" class="expense-head-btn" id="wishlistToggle" title="Things you'd like to buy">WISHLIST</button>
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
         </div>
@@ -2056,6 +2059,7 @@
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
         <button type="button" class="add">Add</button>
       </form>
+      <div class="savings-sheet-row" id="savingsSheetRow" style="display:none;"><button type="button" class="expense-head-btn" id="savingsSheetBtn" title="Show your savings total in a Google Sheet">📊 Google Sheets</button></div>
       <div class="expense-summary" id="expenseSummary">
         <div class="expense-summary-row" id="carryRow" style="display:none;">
           <span>Carried over</span>
@@ -2170,6 +2174,16 @@
     <button type="button" class="add">Add</button>
   </form>
   <ul class="bday-list" id="birthdayList"></ul>
+</div>
+
+<div class="ds-modal" id="savingsSheetModal">
+  <div class="ds-sheet">
+    <div class="ds-head"><h3>Savings in Google Sheets</h3><button type="button" class="ds-close" id="savingsSheetClose">×</button></div>
+    <p class="ds-hint" style="margin-top:0">Paste this formula into any cell of your Google Sheet. The cell shows your savings total (all income − all expenses in Savings) and follows it when it changes. Google Sheets refreshes it by itself about once an hour (reopening the sheet or editing the formula refreshes it sooner).</p>
+    <input class="ds-input" id="savingsSheetFormula" readonly style="width:100%;box-sizing:border-box;font-size:.78rem;text-transform:none;letter-spacing:0;text-align:left">
+    <div class="ds-actions" style="margin-top:10px"><button type="button" class="ds-btn primary" id="savingsSheetCopy">Copy formula</button><span class="grow"></span><button type="button" class="ds-btn danger" id="savingsSheetStop">Stop sharing</button></div>
+    <p class="ds-hint">Total being shared now: <b id="savingsSheetNow"></b>. The address is a long private code: anyone who has the formula can see this one number, nothing else.</p>
+  </div>
 </div>
 
 <div class="ds-modal" id="archiveModal">
@@ -2324,6 +2338,7 @@ async function loadTasks(){
   if(!data.list) data.list = [];
   if(!data.other) data.other = [];
   if(!data.expenses) data.expenses = [];
+  if(!Array.isArray(data.savings)) data.savings = [];
   if(!data.recurringEvents) data.recurringEvents = [];
   if(!data.spanEvents) data.spanEvents = [];
   if(!data.ledger) data.ledger = [];
@@ -2358,7 +2373,7 @@ async function loadTasks(){
   // migrate any expenses saved before monthly scoping existed
   if(data.expenses){
     const currentMonth = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
-    data.expenses.forEach(e => {
+    data.expenses.concat(Array.isArray(data.savings) ? data.savings : []).forEach(e => {
       if(!e.month) e.month = currentMonth;
       if(!e.createdAt) e.createdAt = 0;
     });
@@ -2632,6 +2647,42 @@ function startInlineEdit(textEl, currentValue, onCommit){
 }
 
 /* ---------- expenses ---------- */
+/* Savings: a second, separate tracker that works exactly like the ETracker (income / expense, months, balance carried over,
+   today / ALL DETAILS) on data.savings instead of data.expenses. The SAVINGS button switches; remembered per device (tpas2:exp:savings). */
+var expSavings = false;
+try{ expSavings = localStorage.getItem('tpas2:exp:savings') === '1'; }catch(e){}
+function expList(){ if(expSavings){ if(!Array.isArray(data.savings)) data.savings = []; return data.savings; } return data.expenses; }
+function expSet(arr){ if(expSavings) data.savings = arr; else data.expenses = arr; }
+function setSavingsMode(on, noRender){
+  expSavings = !!on;
+  try{ localStorage.setItem('tpas2:exp:savings', expSavings ? '1' : '0'); }catch(e){}
+  const b = document.getElementById('savingsToggle'), t = document.getElementById('expenseTitle');
+  if(b) b.classList.toggle('active', expSavings);
+  if(t && data) t.textContent = expTitle();
+  const row = document.getElementById('savingsSheetRow'); if(row) row.style.display = expSavings ? '' : 'none';
+  if(!noRender) renderExpenses();
+}
+/* the tracker's own name inside the page (tap the title to rename, e.g. "Wallet"); the tab in the nav keeps its name.
+   data.etNames = { main, savings } (synced) */
+function expTitle(){ const n = data.etNames || {}; return expSavings ? (n.savings || 'Savings') : (n.main || 'ETracker'); }
+/* savings total shared with Google Sheets: data.savingsLink = random key (synced, so every device publishes to the same place);
+   the total is PUT to FB_DB/lists/<key>/total.json (a bare number), which =IMPORTDATA() in a Google Sheet reads */
+function savingsTotal(){ return Math.round((data.savings || []).reduce((n, e) => n + (e.type === 'income' ? 1 : -1) * (Number(e.amount) || 0), 0) * 100) / 100; }
+function savingsSheetUrl(){ return data.savingsLink ? FB_DB + '/lists/' + data.savingsLink + '/total.json' : ''; }
+let savingsPubTimer = null;
+function savingsPublish(force){
+  if(!data || !data.savingsLink) return;
+  clearTimeout(savingsPubTimer);
+  savingsPubTimer = setTimeout(() => {
+    try{
+      const total = savingsTotal(), key = 'tpas2:sav:pub';
+      let last = null; try{ last = localStorage.getItem(key); }catch(e){}
+      if(!force && last === data.savingsLink + ':' + total) return;
+      fetch(savingsSheetUrl(), { method: 'PUT', body: JSON.stringify(total) })
+        .then(r => { if(r.ok){ try{ localStorage.setItem(key, data.savingsLink + ':' + total); }catch(e){} } }).catch(() => {});
+    }catch(e){}
+  }, force ? 0 : 1500);
+}
 const expensesListEl = document.getElementById('list-expenses');
 const expenseDescInput = document.getElementById('expenseDesc');
 const expenseAmountInput = document.getElementById('expenseAmount');
@@ -2698,9 +2749,9 @@ function formatSigned(n){
 // Walks forward month-by-month from the earliest transaction (through any empty months)
 // so a positive balance keeps rolling into the next month, stopping at the target month.
 function computeMonthStats(targetKey){
-  const allKeys = [...new Set(data.expenses.map(e => e.month))].filter(Boolean).sort();
+  const allKeys = [...new Set(expList().map(e => e.month))].filter(Boolean).sort();
   if(allKeys.length === 0 || targetKey < allKeys[0]){
-    const tx = data.expenses.filter(e => e.month === targetKey);
+    const tx = expList().filter(e => e.month === targetKey);
     const income = tx.filter(e => e.type === 'income').reduce((s,e) => s + (Number(e.amount)||0), 0);
     const expense = tx.filter(e => e.type === 'expense').reduce((s,e) => s + (Number(e.amount)||0), 0);
     return { income, expense, carryIn: 0, balance: income - expense };
@@ -2710,7 +2761,7 @@ function computeMonthStats(targetKey){
   let result = null;
   let guard = 0;
   while(guard < 3000){
-    const tx = data.expenses.filter(e => e.month === cursor);
+    const tx = expList().filter(e => e.month === cursor);
     const income = tx.filter(e => e.type === 'income').reduce((s,e) => s + (Number(e.amount)||0), 0);
     const expense = tx.filter(e => e.type === 'expense').reduce((s,e) => s + (Number(e.amount)||0), 0);
     const carryIn = running > 0 ? running : 0;
@@ -2757,10 +2808,12 @@ function groupExpenses(entries){
 }
 
 function renderExpenses(){
+  const tEl = document.getElementById('expenseTitle'); if(tEl && !tEl.isContentEditable) tEl.textContent = expTitle();
+  savingsPublish();
   const monthKey = expenseMonthKey(expenseViewDate);
   expenseMonthLabel.textContent = `${MONTH_NAMES[expenseViewDate.getMonth()]} ${expenseViewDate.getFullYear()}`;
 
-  const monthExpenses = data.expenses.filter(e => e.month === monthKey);
+  const monthExpenses = expList().filter(e => e.month === monthKey);
   const stats = computeMonthStats(monthKey);
   if(stats.carryIn > 0){
     carryRow.style.display = 'flex';
@@ -2774,7 +2827,7 @@ function renderExpenses(){
   sumBalance.textContent = formatSigned(stats.balance);
   sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
   const todayKey = dateKey(new Date());
-  const spentToday = data.expenses
+  const spentToday = expList()
     .filter(e => e.type !== 'income' && dateKey(new Date(e.createdAt)) === todayKey)
     .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   document.getElementById('sumToday').textContent = '−' + formatCurrency(spentToday);
@@ -2797,7 +2850,7 @@ function renderExpenseItems(){
 function renderExpenseItemsCompact(){
   const todayKey = dateKey(new Date());
   const viewKey = expenseMonthKey(expenseViewDate);
-  const todayExpenses = data.expenses
+  const todayExpenses = expList()
     .filter(e => e.month === viewKey && dateKey(new Date(e.createdAt)) === todayKey)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
@@ -2852,8 +2905,8 @@ function renderExpenseItemsCompact(){
     del.className = 'del';
     del.textContent = '✕';
     del.onclick = () => {
-      archiveAdd('expense', exp);
-      data.expenses = data.expenses.filter(e => e.id !== exp.id);
+      archiveAdd(expSavings ? 'saving' : 'expense', exp);
+      expSet(expList().filter(e => e.id !== exp.id));
       renderExpenses(); saveTasks();
       showStatus('removed');
     };
@@ -2865,7 +2918,7 @@ function renderExpenseItemsCompact(){
 
 function renderExpenseItemsDetailed(){
   const monthKey = expenseMonthKey(expenseViewDate);
-  const monthExpenses = data.expenses
+  const monthExpenses = expList()
     .filter(e => e.month === monthKey)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
@@ -2926,8 +2979,8 @@ function renderExpenseItemsDetailed(){
     del.className = 'del';
     del.textContent = '✕';
     del.onclick = () => {
-      archiveAdd('expense', exp);
-      data.expenses = data.expenses.filter(e => e.id !== exp.id);
+      archiveAdd(expSavings ? 'saving' : 'expense', exp);
+      expSet(expList().filter(e => e.id !== exp.id));
       renderExpenses(); saveTasks();
       showStatus('removed');
     };
@@ -2955,6 +3008,7 @@ const wishlistToggle = document.getElementById('wishlistToggle');
 const wishDescInput = document.getElementById('wishDesc');
 const wishAmountInput = document.getElementById('wishAmount');
 wishlistToggle.addEventListener('click', () => {
+  if(!wishlistOpen && expSavings) setSavingsMode(false);   // the wishlist replaces the savings view
   wishlistOpen = !wishlistOpen;
   wishlistToggle.classList.toggle('active', wishlistOpen);
   document.getElementById('wishlistView').style.display = wishlistOpen ? '' : 'none';
@@ -2962,6 +3016,44 @@ wishlistToggle.addEventListener('click', () => {
   expenseDetailsToggle.style.display = wishlistOpen ? 'none' : '';
   if(wishlistOpen) renderWishlist();
 });
+document.getElementById('savingsToggle').addEventListener('click', () => {
+  if(wishlistOpen) wishlistToggle.click();   // leave the wishlist first
+  setSavingsMode(!expSavings);
+});
+setSavingsMode(expSavings, true);
+document.getElementById('expenseTitle').classList.add('expense-title-edit');
+document.getElementById('expenseTitle').title = 'Tap to rename';
+document.getElementById('expenseTitle').addEventListener('click', (e) => {
+  const el = e.currentTarget;
+  startInlineEdit(el, expTitle(), (v) => {
+    if(v !== null){ if(!data.etNames) data.etNames = {}; data.etNames[expSavings ? 'savings' : 'main'] = v.trim().slice(0, 40); saveTasks(); }
+    el.textContent = expTitle();
+  });
+});
+const savSheetModal = document.getElementById('savingsSheetModal');
+const savSheetFill = () => {
+  document.getElementById('savingsSheetFormula').value = '=IMPORTDATA("' + savingsSheetUrl() + '")';
+  document.getElementById('savingsSheetNow').textContent = formatSigned(savingsTotal());
+};
+document.getElementById('savingsSheetBtn').addEventListener('click', () => {
+  if(!data.savingsLink){
+    const a = new Uint8Array(18); crypto.getRandomValues(a);
+    data.savingsLink = 'sav_' + Array.from(a, b => b.toString(36).padStart(2, '0')).join('').slice(0, 28);
+    saveTasks();
+  }
+  savingsPublish(true); savSheetFill(); savSheetModal.classList.add('open');
+});
+document.getElementById('savingsSheetClose').addEventListener('click', () => savSheetModal.classList.remove('open'));
+savSheetModal.addEventListener('click', (e) => { if(e.target === savSheetModal) savSheetModal.classList.remove('open'); });
+document.getElementById('savingsSheetCopy').addEventListener('click', () => {
+  const f = document.getElementById('savingsSheetFormula');
+  (navigator.clipboard ? navigator.clipboard.writeText(f.value) : Promise.reject()).then(() => showStatus('formula copied')).catch(() => { f.select(); document.execCommand('copy'); showStatus('formula copied'); });
+});
+document.getElementById('savingsSheetStop').addEventListener('click', () => {
+  if(!data.savingsLink || !confirm('Stop sharing the savings total? The formula in Google Sheets will stop working.')) return;
+  fetch(savingsSheetUrl(), { method: 'DELETE' }).catch(() => {});
+  delete data.savingsLink; saveTasks(); savSheetModal.classList.remove('open'); showStatus('stopped sharing');
+});   // button + title only: the first render happens with the rest of the app
 function renderWishlist(){
   const ul = document.getElementById('wishlistList');
   const items = Array.isArray(data.wishlist) ? data.wishlist : (data.wishlist = []);
@@ -3084,7 +3176,7 @@ function addExpense(){
   const createdAt = monthKey === expenseMonthKey(now) ? now.getTime()
     : new Date(expenseViewDate.getFullYear(), expenseViewDate.getMonth(), 1, 12, 0).getTime();
 
-  data.expenses.push({
+  expList().push({
     id: Date.now() + Math.random().toString(36).slice(2),
     desc, amount: Math.abs(amount), type,
     month: monthKey, createdAt
@@ -3130,6 +3222,7 @@ function archiveLabel(a){
     case 'recurring': return [it.text, 'Calendar · repeating ' + (REPEAT_LABELS[it.repeat] || '').toLowerCase()];
     case 'span': return [it.text, 'Calendar · ' + date(it.startDate) + '–' + date(it.endDate)];
     case 'skip': return [it.text, 'Calendar · one date of a series · ' + date(a.key)];
+    case 'saving': return [it.desc, 'Savings · ' + (it.type === 'income' ? '+' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
     case 'expense': return [it.desc, 'ETracker · ' + (it.type === 'income' ? '+' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
     case 'wish': return [it.desc, 'Wishlist · ' + (it.cur === 'GBP' ? '£' : '€') + (Number(it.amount) || 0).toFixed(2)];
     case 'other': return [it.name, 'Other list · ' + (it.items || []).filter(x => (x.text || '').trim()).length + ' lines'];
@@ -3157,6 +3250,7 @@ function archiveRestore(id){
     case 'span': put(data.spanEvents); break;
     case 'skip': { const ev = data.recurringEvents.find(e => e.id === it.id); if(ev && ev.skipDates) delete ev.skipDates[a.key]; else if(!ev){ showStatus('the series was deleted'); return; } break; }
     case 'expense': put(data.expenses); break;
+    case 'saving': put(data.savings); break;
     case 'wish': put(data.wishlist, a.pos); break;
     case 'other': put(data.other, a.pos); break;
     default: if(Array.isArray(data[a.kind])) put(data[a.kind]);
@@ -7855,7 +7949,7 @@ async function fbSync(){
         st.ts[k] = incoming[k].t;
       }
       // fill in anything older data may be missing, same defaults as loadTasks
-      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist', 'archive'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
+      ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist', 'archive', 'savings'].forEach(k => { if(!Array.isArray(data[k])) data[k] = []; });
       if(!Array.isArray(data.businessTabs)) data.businessTabs = [];
       if(!data.calendar || typeof data.calendar !== 'object') data.calendar = {};
       data.updatedAt = now;
@@ -7955,7 +8049,7 @@ function takeSafetyCopy(reason, minGapMs){
 }
 function restoreData(d){
   const fresh = JSON.parse(JSON.stringify(d));
-  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist', 'archive'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
+  ['list', 'other', 'expenses', 'recurringEvents', 'spanEvents', 'ledger', 'birthdays', 'wishlist', 'archive', 'savings'].forEach(k => { if(!Array.isArray(fresh[k])) fresh[k] = []; });
   if(!fresh.calendar || typeof fresh.calendar !== 'object' || Array.isArray(fresh.calendar)) fresh.calendar = {};
   if(!Array.isArray(fresh.businessTabs)) fresh.businessTabs = Array.from({ length: BIZ_DEFAULT_COUNT }, (_, i) => ({ id: 'biz' + (i + 1), name: 'Section ' + (i + 1) }));
   data = fresh;

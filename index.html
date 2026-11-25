@@ -5131,6 +5131,16 @@ function sheetFn(name, args, ctx){
   const val = (i) => { if(i >= args.length) throw sErr('#ERR'); return sheetEval(args[i], ctx); };
   const nums = () => sheetItems(args, ctx).filter(x => !x.ref || typeof x.v === 'number').map(x => x.ref ? x.v : sToNum(x.v));
   switch(name){
+    /* tracker totals inside the app's own sheets: =ETRACKER() / =SAVINGS() (all income − all expenses, like the Google Sheets number),
+       and =IMPORTDATA("<the app's own …/lists/<key>/total.json link>") reads the same number locally (other URLs are not fetched) */
+    case 'ETRACKER': return trackerTotal('m');
+    case 'SAVINGS': if(!Array.isArray(data.savings)) return 0; return trackerTotal('s');
+    case 'IMPORTDATA': {
+      const m = String(val(0)).match(/\/lists\/([^\/?#]+)\/total\.json/);
+      const k = m && Object.keys(SHEET_LINKS).find(k => data[SHEET_LINKS[k].key] === decodeURIComponent(m[1]));
+      if(!k) throw sErr('#UNSUP');
+      return k === 's' && !Array.isArray(data.savings) ? 0 : trackerTotal(k);
+    }
     case 'SUM': return sFinite(nums().reduce((a, b) => a + b, 0));
     case 'PRODUCT': { const v = nums(); return v.length ? sFinite(v.reduce((a, b) => a * b, 1)) : 0; }
     case 'AVERAGE': case 'AVG': { const v = nums(); if(!v.length) throw sErr('#DIV/0!'); return v.reduce((a, b) => a + b, 0) / v.length; }
@@ -5485,6 +5495,8 @@ async function importSheetFile(cur, file){
 const exportFormula = (f) => f.replace(/"(?:[^"]|"")*"|[^"]+/g, (seg) => seg[0] === '"' ? seg : seg.toUpperCase().replace(/\bAVG\(/g, 'AVERAGE('));
 // formula autocomplete: suggestions pop up under the cell while typing a function name after "="
 const SHEET_FUNCS = [
+  ['ETRACKER', 'ETRACKER()', 'ETracker total (income − expenses)'], ['SAVINGS', 'SAVINGS()', 'Savings total (income − expenses)'],
+  ['IMPORTDATA', 'IMPORTDATA(url)', 'Reads this app’s Google Sheets tracker link'],
   ['SUM', 'SUM(range)', 'Adds numbers'], ['AVERAGE', 'AVERAGE(range)', 'Average of numbers'], ['AVG', 'AVG(range)', 'Same as AVERAGE'],
   ['MIN', 'MIN(range)', 'Smallest number'], ['MAX', 'MAX(range)', 'Largest number'], ['MEDIAN', 'MEDIAN(range)', 'Middle number'],
   ['COUNT', 'COUNT(range)', 'Counts numbers'], ['COUNTA', 'COUNTA(range)', 'Counts non-empty cells'], ['PRODUCT', 'PRODUCT(range)', 'Multiplies numbers'],

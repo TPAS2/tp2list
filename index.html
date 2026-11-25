@@ -665,7 +665,7 @@
     flex-wrap: wrap;
   }
   .expense-row input#expenseDesc{
-    flex: 1 1 140px;
+    flex: 1 1 70px;
     min-width: 0;
   }
   .ledger-item{
@@ -835,7 +835,9 @@
   .expense-item .text{ flex: 1; }
   .expense-head-actions{
     display:flex;
-    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 6px 8px;
   }
   .expense-head-btn{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
@@ -905,6 +907,11 @@
     white-space: nowrap;
   }
   .expense-amount.income{ color: var(--success); }
+  html.et-simple #savingsToggle, html.et-simple #expenseNoCount, html.et-simple #savingsSheetRow{ display: none !important; }
+  .et-mode-btn{ opacity: .85; }
+  .expense-amount.nocount{ color: var(--text-faint); font-style: italic; }
+  .expense-type-toggle.nocount{ border-color: var(--line); color: var(--text-dim); background: transparent; }
+  .expense-type-toggle.nocount.on{ border-color: var(--accent2); color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
   .expense-count-badge{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
     font-size: 0.68rem;
@@ -2019,6 +2026,7 @@
       <div class="section-head">
         <div class="section-title" id="expenseTitle">ETracker</div>
         <div class="expense-head-actions">
+          <button type="button" class="expense-head-btn et-mode-btn" id="etModeToggle" title="Switch between the simple ETracker and the full one (Savings, Google Sheets, not-counted entries)">FULL</button>
           <button type="button" class="expense-head-btn" id="savingsToggle" title="A separate tracker for your savings, works like the ETracker">SAVINGS</button>
           <button type="button" class="expense-head-btn" id="wishlistToggle" title="Things you'd like to buy">WISHLIST</button>
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL DETAILS</button>
@@ -2055,6 +2063,7 @@
       </div>
       <form class="add-row expense-row no-generic-add" id="expenseForm">
         <button type="button" class="expense-type-toggle" id="expenseTypeToggle" data-type="expense" title="Tap to switch between expense and income">−</button>
+        <button type="button" class="expense-type-toggle nocount" id="expenseNoCount" aria-pressed="false" title="Not counted: the amount is kept as a record but doesn’t count towards income, expenses or the balance">⊘</button>
         <input type="text" id="expenseDesc" placeholder="Description…" autocomplete="off">
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
         <button type="button" class="add">Add</button>
@@ -2653,6 +2662,24 @@ var expSavings = false;
 try{ expSavings = localStorage.getItem('tpas2:exp:savings') === '1'; }catch(e){}
 function expList(){ if(expSavings){ if(!Array.isArray(data.savings)) data.savings = []; return data.savings; } return data.expenses; }
 function expSet(arr){ if(expSavings) data.savings = arr; else data.expenses = arr; }
+/* Simple / Full switch (per device, tpas2:exp:mode = 'simple' | 'full', default full): simple hides SAVINGS, the ⊘ not-counted
+   button and 📊 Google Sheets and shows the main tracker; nothing in the data changes, so switching back shows it all again */
+var etSimple = false;
+try{ etSimple = localStorage.getItem('tpas2:exp:mode') === 'simple'; }catch(e){}
+function setEtMode(simple, noRender){
+  etSimple = !!simple;
+  try{ localStorage.setItem('tpas2:exp:mode', etSimple ? 'simple' : 'full'); }catch(e){}
+  document.documentElement.classList.toggle('et-simple', etSimple);
+  const b = document.getElementById('etModeToggle');
+  if(b){ b.textContent = etSimple ? 'SIMPLE' : 'FULL'; b.setAttribute('aria-pressed', etSimple ? 'true' : 'false'); }
+  if(etSimple){
+    const nc = document.getElementById('expenseNoCount');
+    if(nc){ nc.setAttribute('aria-pressed', 'false'); nc.classList.remove('on'); }
+    if(expSavings){ setSavingsMode(false, noRender); return; }
+  }
+  if(!noRender) renderExpenses();
+}
+document.documentElement.classList.toggle('et-simple', etSimple);
 function setSavingsMode(on, noRender){
   expSavings = !!on;
   try{ localStorage.setItem('tpas2:exp:savings', expSavings ? '1' : '0'); }catch(e){}
@@ -2668,7 +2695,7 @@ function expTitle(){ const n = data.etNames || {}; return expSavings ? (n.saving
    (synced, so every device publishes to the same place). Each total (all income − all expenses of that tracker) is PUT to
    FB_DB/lists/<key>/total.json (a bare number), which =IMPORTDATA() in a Google Sheet reads */
 const SHEET_LINKS = { m: { key: 'mainLink', list: () => data.expenses, prefix: 'et_' }, s: { key: 'savingsLink', list: () => data.savings, prefix: 'sav_' } };
-function trackerTotal(k){ return Math.round((SHEET_LINKS[k].list() || []).reduce((n, e) => n + (e.type === 'income' ? 1 : -1) * (Number(e.amount) || 0), 0) * 100) / 100; }
+function trackerTotal(k){ return Math.round((SHEET_LINKS[k].list() || []).reduce((n, e) => n + (e.type === 'income' ? 1 : e.type === 'expense' ? -1 : 0) * (Number(e.amount) || 0), 0) * 100) / 100; }
 function trackerSheetUrl(k){ const id = data[SHEET_LINKS[k].key]; return id ? FB_DB + '/lists/' + id + '/total.json' : ''; }
 const savingsTotal = () => trackerTotal('s');
 let sheetPubTimer = null;
@@ -2779,6 +2806,12 @@ function computeMonthStats(targetKey){
   return result || { income: 0, expense: 0, carryIn: 0, balance: 0 };
 }
 
+const expenseNoCount = document.getElementById('expenseNoCount');
+expenseNoCount.addEventListener('click', () => {   // the next entry is "not counted" (type 'none'): shown in the list, left out of every total
+  const on = expenseNoCount.getAttribute('aria-pressed') !== 'true';
+  expenseNoCount.setAttribute('aria-pressed', on ? 'true' : 'false');
+  expenseNoCount.classList.toggle('on', on);
+});
 expenseTypeToggle.addEventListener('click', () => {
   const isExpense = expenseTypeToggle.dataset.type === 'expense';
   expenseTypeToggle.dataset.type = isExpense ? 'income' : 'expense';
@@ -2833,7 +2866,7 @@ function renderExpenses(){
   sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
   const todayKey = dateKey(new Date());
   const spentToday = expList()
-    .filter(e => e.type !== 'income' && dateKey(new Date(e.createdAt)) === todayKey)
+    .filter(e => e.type === 'expense' && dateKey(new Date(e.createdAt)) === todayKey)
     .reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
   document.getElementById('sumToday').textContent = '−' + formatCurrency(spentToday);
   renderExpenseItems();
@@ -2891,10 +2924,11 @@ function renderExpenseItemsCompact(){
     };
     li.appendChild(ts);
 
-    const isIncome = exp.type === 'income';
+    const isIncome = exp.type === 'income', isNone = exp.type === 'none';
     const amount = document.createElement('div');
-    amount.className = 'expense-amount' + (isIncome ? ' income' : '');
-    amount.textContent = (isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    amount.className = 'expense-amount' + (isIncome ? ' income' : '') + (isNone ? ' nocount' : '');
+    amount.textContent = (isNone ? '⊘ ' : isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    if(isNone) amount.title = 'Not counted towards income, expenses or the balance';
     amount.onclick = () => {
       startInlineEdit(amount, String(exp.amount), (newVal) => {
         if(newVal !== null){
@@ -2965,10 +2999,11 @@ function renderExpenseItemsDetailed(){
     };
     li.appendChild(ts);
 
-    const isIncome = exp.type === 'income';
+    const isIncome = exp.type === 'income', isNone = exp.type === 'none';
     const amount = document.createElement('div');
-    amount.className = 'expense-amount' + (isIncome ? ' income' : '');
-    amount.textContent = (isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    amount.className = 'expense-amount' + (isIncome ? ' income' : '') + (isNone ? ' nocount' : '');
+    amount.textContent = (isNone ? '⊘ ' : isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    if(isNone) amount.title = 'Not counted towards income, expenses or the balance';
     amount.onclick = () => {
       startInlineEdit(amount, String(exp.amount), (newVal) => {
         if(newVal !== null){
@@ -3020,6 +3055,11 @@ wishlistToggle.addEventListener('click', () => {
   document.getElementById('expenseMainView').style.display = wishlistOpen ? 'none' : '';
   expenseDetailsToggle.style.display = wishlistOpen ? 'none' : '';
   if(wishlistOpen) renderWishlist();
+});
+setEtMode(etSimple, true);
+document.getElementById('etModeToggle').addEventListener('click', () => {
+  if(wishlistOpen) wishlistToggle.click();   // back to the tracker
+  setEtMode(!etSimple);
 });
 document.getElementById('savingsToggle').addEventListener('click', () => {
   if(wishlistOpen) wishlistToggle.click();   // leave the wishlist first
@@ -3178,7 +3218,9 @@ function addExpense(){
   const desc = expenseDescInput.value.trim();
   const amount = parseFloat(expenseAmountInput.value);
   if(!desc || isNaN(amount)) return;
-  const type = expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
+  const noCount = expenseNoCount.getAttribute('aria-pressed') === 'true';
+  const type = noCount ? 'none' : expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
+  if(noCount){ expenseNoCount.setAttribute('aria-pressed', 'false'); expenseNoCount.classList.remove('on'); }   // one entry at a time
   const monthKey = expenseMonthKey(expenseViewDate);
   // dated now when this month is on screen, otherwise the 1st of the month on screen, so the
   // entry is listed in the same month its money counts in
@@ -3232,8 +3274,8 @@ function archiveLabel(a){
     case 'recurring': return [it.text, 'Calendar · repeating ' + (REPEAT_LABELS[it.repeat] || '').toLowerCase()];
     case 'span': return [it.text, 'Calendar · ' + date(it.startDate) + '–' + date(it.endDate)];
     case 'skip': return [it.text, 'Calendar · one date of a series · ' + date(a.key)];
-    case 'saving': return [it.desc, 'Savings · ' + (it.type === 'income' ? '+' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
-    case 'expense': return [it.desc, 'ETracker · ' + (it.type === 'income' ? '+' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
+    case 'saving': return [it.desc, 'Savings · ' + (it.type === 'income' ? '+' : it.type === 'none' ? '⊘ ' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
+    case 'expense': return [it.desc, 'ETracker · ' + (it.type === 'income' ? '+' : it.type === 'none' ? '⊘ ' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
     case 'wish': return [it.desc, 'Wishlist · ' + (it.cur === 'GBP' ? '£' : '€') + (Number(it.amount) || 0).toFixed(2)];
     case 'other': return [it.name, 'Other list · ' + (it.items || []).filter(x => (x.text || '').trim()).length + ' lines'];
   }

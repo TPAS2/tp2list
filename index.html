@@ -2084,7 +2084,7 @@
           <span>Expenses</span>
           <span id="sumExpense" class="sum-expense">€0.00</span>
         </div>
-        <div class="expense-summary-row">
+        <div class="expense-summary-row" id="todayRow">
           <span>Spent today</span>
           <span id="sumToday" class="sum-expense">€0.00</span>
         </div>
@@ -2879,6 +2879,7 @@ function renderExpenses(){
   sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
   if(etExpOnly()){ carryRow.style.display = 'none'; }   // expenses-only tracker: just Expenses, Spent today and Balance
   document.getElementById('incomeRow').style.display = etExpOnly() ? 'none' : '';
+  document.getElementById('todayRow').style.display = expSavings ? 'none' : '';   // Savings: no Spent today
   const todayKey = dateKey(new Date());
   const spentToday = expList()
     .filter(e => e.type === 'expense' && dateKey(new Date(e.createdAt)) === todayKey)

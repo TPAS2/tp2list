@@ -1932,6 +1932,15 @@
   .section-title::after{ content: ""; flex: 1; min-width: 20px; height: 1px; align-self: center;
                          background: linear-gradient(90deg, rgba(111,0,255,.55), transparent); }
   .section-head .section-title{ flex: 1; }
+  /* ETracker header on phones: title and every button on one row, like the laptop */
+  @media (max-width: 600px){
+    #section-expenses > .section-head{ gap: 6px; }
+    #section-expenses > .section-head .section-title{ letter-spacing: .1em; min-width: 0; overflow: hidden; white-space: nowrap; }
+    #section-expenses > .section-head .section-title::after{ min-width: 0; }
+    #section-expenses .expense-head-actions{ flex-wrap: nowrap; gap: 4px; flex: 0 0 auto; }
+    #section-expenses .expense-head-btn{ padding: 4px 7px; letter-spacing: 0; font-size: .6rem; }
+    #section-expenses .expense-head-btn.sheet-icon-btn{ padding: 2px 6px; font-size: .74rem; }
+  }
   /* rows */
   .item{ border-color: transparent; background: var(--panel-solid); }
   .item:hover{ border-color: rgba(111,0,255,.45); background: var(--panel-raised); }

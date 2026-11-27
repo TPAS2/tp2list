@@ -916,8 +916,9 @@
   .rev-chip{ flex: 0 0 auto; align-self: center; font-size: .62rem; font-weight: 800; letter-spacing: .03em; padding: 2px 6px; border-radius: 10px;
     border: 1px solid var(--line); color: var(--text-faint); background: transparent; cursor: pointer; line-height: 1.3; }
   .rev-chip.on{ border-color: #4f7dff; color: #fff; background: linear-gradient(135deg, #2b59ff, #4f7dff); }
-  html.et-simple #savingsToggle, html.et-simple #expenseNoCount, html.et-simple #savingsSheetRow{ display: none !important; }
+  html.et-simple #savingsToggle, html.et-simple #expenseNoCount, html.et-simple #savingsSheetBtn{ display: none !important; }
   .et-mode-btn{ opacity: .85; }
+  .expense-head-btn.sheet-icon-btn{ padding: 3px 8px; font-size: .8rem; line-height: 1; }
   .expense-amount.nocount{ color: var(--text-faint); font-style: italic; }
   .expense-type-toggle.nocount{ border-color: var(--line); color: var(--text-dim); background: transparent; }
   .expense-type-toggle.nocount.on{ border-color: var(--accent2); color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
@@ -2039,6 +2040,7 @@
           <button type="button" class="expense-head-btn" id="savingsToggle" title="A separate tracker for your savings, works like the ETracker">SAVINGS</button>
           <button type="button" class="expense-head-btn" id="wishlistToggle" title="Things you'd like to buy">WISHLIST</button>
           <button type="button" class="expense-head-btn" id="expenseDetailsToggle">ALL</button>
+          <button type="button" class="expense-head-btn sheet-icon-btn" id="savingsSheetBtn" title="Google Sheets: show this tracker’s total in a Google Sheet" aria-label="Google Sheets">📊</button>
         </div>
       </div>
       <div id="wishlistView" style="display:none;">
@@ -2078,7 +2080,6 @@
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
         <button type="button" class="add">Add</button>
       </form>
-      <div class="savings-sheet-row" id="savingsSheetRow"><button type="button" class="expense-head-btn" id="savingsSheetBtn" title="Show this tracker’s total in a Google Sheet">📊 Google Sheets</button></div>
       <div class="expense-summary" id="expenseSummary">
         <div class="expense-summary-row" id="carryRow" style="display:none;">
           <span>Carried over</span>

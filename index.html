@@ -908,8 +908,9 @@
     white-space: nowrap;
   }
   .expense-amount.income{ color: var(--success); }
-  html.et-exp-only #expenseTypeToggle{ display: none !important; }
-  @media (max-width: 480px){ .expense-row input#expenseAmount{ flex-basis: 70px; padding-left: 6px; padding-right: 8px; } #expenseForm{ gap: 6px; } }
+  @media (max-width: 480px){ .expense-row input#expenseAmount{ flex-basis: 64px; padding-left: 6px; padding-right: 8px; } #expenseForm{ gap: 5px; }
+    #expenseForm .expense-type-toggle{ flex-basis: 36px; width: 36px; } #expenseForm .expense-type-toggle.rev-btn.on{ font-size: .8rem; }
+    #expenseForm input#expenseDesc{ padding-left: 8px; padding-right: 6px; } #expenseForm button.add{ padding-left: 12px; padding-right: 12px; } }
   html.et-sav #expenseRevolut, html.et-sav .rev-chip{ display: none !important; }
   .expense-type-toggle.rev-btn{ border-color: var(--line); color: var(--text-dim); background: transparent; font-family: inherit; font-weight: 800; }
   .expense-type-toggle.rev-btn.on{ border-color: #4f7dff; color: #fff; background: linear-gradient(135deg, #2b59ff, #4f7dff); }
@@ -2712,8 +2713,6 @@ function etApplyKind(){
   const on = etExpOnly();
   document.documentElement.classList.toggle('et-exp-only', on);
   document.documentElement.classList.toggle('et-sav', !!expSavings);   // Revolut marking is for the main tracker only
-  const t = document.getElementById('expenseTypeToggle');
-  if(on && t && t.dataset.type !== 'expense'){ t.dataset.type = 'expense'; t.textContent = '−'; }
 }
 function setSavingsMode(on, noRender){
   expSavings = !!on;
@@ -3282,7 +3281,7 @@ function addExpense(){
   const amount = parseFloat(expenseAmountInput.value);
   if(!desc || isNaN(amount)) return;
   const noCount = expenseNoCount.getAttribute('aria-pressed') === 'true';
-  const type = noCount ? 'none' : (!etExpOnly() && expenseTypeToggle.dataset.type === 'income') ? 'income' : 'expense';
+  const type = noCount ? 'none' : expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
   if(noCount){ expenseNoCount.setAttribute('aria-pressed', 'false'); expenseNoCount.classList.remove('on'); }   // one entry at a time
   const monthKey = expenseMonthKey(expenseViewDate);
   // dated now when this month is on screen, otherwise the 1st of the month on screen, so the

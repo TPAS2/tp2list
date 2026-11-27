@@ -4749,6 +4749,13 @@ let bizSheetClip = null, bizLastCopy = null, bizRenderToken = 0, bizScrollRestor
   if(typing && !ae.matches('.sheet-grid td input')) return;   // some other box (formula bar, notes…): normal behaviour
   if(type === 'paste') c.paste(e); else c.copy(e, type === 'cut');
 }));
+document.addEventListener('keydown', (e) => {
+  if(e.key !== 'Delete' && e.key !== 'Backspace') return;
+  const c = bizSheetClip; if(!c || !c.wrap.isConnected || c.wrap.offsetParent === null || !c.clearSel) return;
+  const ae = document.activeElement;
+  if(ae && ae.matches && ae.matches('input, textarea, select, [contenteditable]') && !ae.matches('.sheet-grid td input')) return;
+  if(c.clearSel()){ e.preventDefault(); e.stopPropagation(); }
+}, true);
 let bizPickCandidate = null;   // formula being typed when a tab was pressed
 let bizPending = null;         // { tabId, ref, text, caret }
 function bizFormulaState(){
@@ -7401,11 +7408,17 @@ function renderBizPanel(cur){
         const up = () => { cancelAnimationFrame(raf); window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); setTimeout(() => { dragging = false; }, 0); };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
       });
+      // "fresh" = the cell was just selected (one click / arrow keys), not opened for editing: Delete / Backspace then clear
+      // the whole cell like Google Sheets. Typing, a second click or a double-click switches to normal editing.
+      inp.addEventListener('pointerdown', () => { if(document.activeElement === inp) inp._fresh = false; });
+      inp.addEventListener('dblclick', () => { inp._fresh = false; });
       inp.addEventListener('focus', () => {
+        inp._fresh = true;
         inp.value = sh.cells[ref] == null ? '' : sh.cells[ref];   // show the formula while editing
         if(!dragging && !extra.length && !(sel && (sel.r1 !== sel.r2 || sel.c1 !== sel.c2) && r >= sel.r1 && r <= sel.r2 && c >= sel.c1 && c <= sel.c2)){ anchor = { r, c }; setSel(r, c, r, c); }
       });
       inp.addEventListener('input', () => {
+        inp._fresh = false;
         if(inp.value === '') delete sh.cells[ref]; else sh.cells[ref] = inp.value;
         if(sh.cache) delete sh.cache[ref];
         refresh(inp);
@@ -7416,6 +7429,12 @@ function renderBizPanel(cur){
       inp.addEventListener('blur', () => { if(!table._noFocus) clearPick(); fnPopClose(); clearTimeout(timer); saveTasks(); showCell(ref, sheetShownInfo(sh, ref)); });
       inp.addEventListener('keydown', (e) => {
         if(fnPopKey(e)) return;
+        if((e.key === 'Delete' || e.key === 'Backspace') && inp._fresh && !e.metaKey && !e.ctrlKey && !e.altKey){
+          e.preventDefault();
+          if(inp.value !== ''){ inp.value = ''; inp.dispatchEvent(new Event('input')); }
+          inp._fresh = true;   // still just selected: typing now starts a new value
+          return;
+        }
         if(!['Shift', 'Meta', 'Control', 'Alt'].includes(e.key)) clearPick();
         if((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey){
           // like Sheets: ← / → jump to the next cell when the caret is already at that edge of the text (or all of it is selected); otherwise they move the caret
@@ -7613,6 +7632,18 @@ function renderBizPanel(cur){
   };
   bizSheetClip = {
     wrap,
+    // Delete / Backspace with several cells selected clears their contents (formatting stays, like Google Sheets)
+    clearSel(){
+      if(!sel) return false;
+      const many = extra.length || sel.r1 !== sel.r2 || sel.c1 !== sel.c2;
+      if(!many) return false;
+      let any = false; forSel((ref) => { if(sh.cells[ref] != null && sh.cells[ref] !== '') any = true; });
+      if(!any) return true;
+      takeSafetyCopy('before clear');
+      forSel((ref) => { delete sh.cells[ref]; if(sh.cache) delete sh.cache[ref]; });
+      saveTasks(); redrawKeep();
+      return true;
+    },
     copy(e, isCut){
       const ae = document.activeElement;
       if(ae && ae.matches && ae.matches('input') && ae.selectionStart !== ae.selectionEnd) return;   // text selected inside a cell: normal copy

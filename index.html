@@ -7250,6 +7250,7 @@ function renderBizPanel(cur){
     if(!sel) return;
     forSel((ref) => { const i = inputs[ref]; if(i) i.parentElement.classList.add('sel'); });
     if(placeHandle) placeHandle();
+    if(typeof mergeLabel === 'function') mergeLabel();
     [sel, ...extra].forEach(g => { for(let c = g.c1; c <= g.c2; c++) if(colTh[c]) colTh[c].classList.add('sel'); for(let r = g.r1; r <= g.r2; r++) if(rowTh[r]) rowTh[r].classList.add('sel'); });
     updateBar();
   };
@@ -7454,12 +7455,16 @@ function renderBizPanel(cur){
     if(i && a && z) i.style.height = Math.max(24, Math.round(z.getBoundingClientRect().bottom - a.getBoundingClientRect().top - 1)) + 'px';
   });
   applyMerges(); sizeMerged();
+  /* the button reads "Unmerge" whenever the selection sits inside a merged block (e.g. you just clicked a merged cell);
+     pressing it then splits that block. A bigger selection that covers merged blocks merges everything into one. */
+  const mergeHits = () => { if(!sel) return []; return (sh.merges || []).filter(m => !(m.r2 < sel.r1 || m.r1 > sel.r2 || m.c2 < sel.c1 || m.c1 > sel.c2)); };
+  const selInMerge = () => sel && mergeHits().some(m => m.r1 <= sel.r1 && m.r2 >= sel.r2 && m.c1 <= sel.c1 && m.c2 >= sel.c2);
+  var mergeLabel = () => { const un = selInMerge(); mergeBtn.innerHTML = un ? '<span style="font-size:.95em">⊟</span> Unmerge' : '<span style="font-size:.95em">⊞</span> Merge'; mergeBtn.title = un ? 'Unmerge: split this merged cell back into separate cells' : 'Merge the selected cells into one'; };
   const toggleMerge = () => {
     if(!sel) return;
-    const same = (m) => m.r1 === sel.r1 && m.r2 === sel.r2 && m.c1 === sel.c1 && m.c2 === sel.c2;
     const hit = (m) => !(m.r2 < sel.r1 || m.r1 > sel.r2 || m.c2 < sel.c1 || m.c1 > sel.c2);
     const list = sh.merges || [];
-    if(list.some(same)) sh.merges = list.filter(m => !same(m));
+    if(selInMerge()){ const gone = mergeHits(); sh.merges = list.filter(m => !gone.includes(m)); gone.forEach(m => { sel = { r1: Math.min(sel.r1, m.r1), r2: Math.max(sel.r2, m.r2), c1: Math.min(sel.c1, m.c1), c2: Math.max(sel.c2, m.c2) }; }); }
     else if(sel.r1 === sel.r2 && sel.c1 === sel.c2) return;
     else sh.merges = list.filter(m => !hit(m)).concat([{ r1: sel.r1, c1: sel.c1, r2: sel.r2, c2: sel.c2 }]);
     if(!sh.merges.length) delete sh.merges;
@@ -7468,6 +7473,7 @@ function renderBizPanel(cur){
     paintSel(); saveTasks();
   };
   mergeBtn.onclick = toggleMerge;
+  mergeLabel();
 
   // ---- fill handle: drag the small square at the corner of the selection to continue numbers / formulas / text over more cells ----
   const handle = mk('div', 'fill-handle'); handle.title = 'Drag to fill';

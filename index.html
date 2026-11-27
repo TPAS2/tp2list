@@ -909,6 +909,13 @@
   }
   .expense-amount.income{ color: var(--success); }
   html.et-exp-only #expenseTypeToggle{ display: none !important; }
+  @media (max-width: 480px){ .expense-row input#expenseAmount{ flex-basis: 70px; padding-left: 6px; padding-right: 8px; } #expenseForm{ gap: 6px; } }
+  html.et-sav #expenseRevolut, html.et-sav .rev-chip{ display: none !important; }
+  .expense-type-toggle.rev-btn{ border-color: var(--line); color: var(--text-dim); background: transparent; font-family: inherit; font-weight: 800; }
+  .expense-type-toggle.rev-btn.on{ border-color: #4f7dff; color: #fff; background: linear-gradient(135deg, #2b59ff, #4f7dff); }
+  .rev-chip{ flex: 0 0 auto; align-self: center; font-size: .62rem; font-weight: 800; letter-spacing: .03em; padding: 2px 6px; border-radius: 10px;
+    border: 1px solid var(--line); color: var(--text-faint); background: transparent; cursor: pointer; line-height: 1.3; }
+  .rev-chip.on{ border-color: #4f7dff; color: #fff; background: linear-gradient(135deg, #2b59ff, #4f7dff); }
   html.et-simple #savingsToggle, html.et-simple #expenseNoCount, html.et-simple #savingsSheetRow{ display: none !important; }
   .et-mode-btn{ opacity: .85; }
   .expense-amount.nocount{ color: var(--text-faint); font-style: italic; }
@@ -2066,6 +2073,7 @@
       <form class="add-row expense-row no-generic-add" id="expenseForm">
         <button type="button" class="expense-type-toggle" id="expenseTypeToggle" data-type="expense" title="Tap to switch between expense and income">−</button>
         <button type="button" class="expense-type-toggle nocount" id="expenseNoCount" aria-pressed="false" title="Not counted: the amount is kept as a record but doesn’t count towards income, expenses or the balance">⊘</button>
+        <button type="button" class="expense-type-toggle rev-btn" id="expenseRevolut" aria-pressed="false" title="Revolut: tap so the next entries are marked as paid with Revolut (tap again for cash / other)">R</button>
         <input type="text" id="expenseDesc" placeholder="Description…" autocomplete="off">
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
         <button type="button" class="add">Add</button>
@@ -2083,6 +2091,10 @@
         <div class="expense-summary-row">
           <span>Expenses</span>
           <span id="sumExpense" class="sum-expense">€0.00</span>
+        </div>
+        <div class="expense-summary-row" id="revolutRow" style="display:none;">
+          <span>of which Revolut</span>
+          <span id="sumRevolut" class="sum-expense">€0.00</span>
         </div>
         <div class="expense-summary-row" id="todayRow">
           <span>Spent today</span>
@@ -2689,6 +2701,7 @@ function etExpOnly(){ return !etSimple && !expSavings; }
 function etApplyKind(){
   const on = etExpOnly();
   document.documentElement.classList.toggle('et-exp-only', on);
+  document.documentElement.classList.toggle('et-sav', !!expSavings);   // Revolut marking is for the main tracker only
   const t = document.getElementById('expenseTypeToggle');
   if(on && t && t.dataset.type !== 'expense'){ t.dataset.type = 'expense'; t.textContent = '−'; }
 }
@@ -2819,6 +2832,25 @@ function computeMonthStats(targetKey){
   return result || { income: 0, expense: 0, carryIn: 0, balance: 0 };
 }
 
+/* Revolut: main tracker entries can be marked as paid with Revolut (exp.revolut = true). The R button in the form stays on
+   for the next entries until tapped again (per device, tpas2:exp:revolut); the small R chip on a row switches that entry. */
+const expenseRevolut = document.getElementById('expenseRevolut');
+function setRevBtn(on){ expenseRevolut.setAttribute('aria-pressed', on ? 'true' : 'false'); expenseRevolut.classList.toggle('on', on); expenseRevolut.textContent = on ? 'R ✓' : 'R'; }
+try{ setRevBtn(localStorage.getItem('tpas2:exp:revolut') === '1'); }catch(e){ setRevBtn(false); }
+expenseRevolut.addEventListener('click', () => {
+  const on = expenseRevolut.getAttribute('aria-pressed') !== 'true';
+  setRevBtn(on);
+  try{ localStorage.setItem('tpas2:exp:revolut', on ? '1' : '0'); }catch(e){}
+});
+function revChip(exp){
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'rev-chip' + (exp.revolut ? ' on' : '');
+  b.textContent = exp.revolut ? 'Revolut' : 'R';
+  b.title = exp.revolut ? 'Paid with Revolut (tap to unmark)' : 'Tap to mark as paid with Revolut';
+  b.onclick = (e) => { e.stopPropagation(); if(exp.revolut) delete exp.revolut; else exp.revolut = true; saveTasks(); renderExpenses(); };
+  return b;
+}
 const expenseNoCount = document.getElementById('expenseNoCount');
 expenseNoCount.addEventListener('click', () => {   // the next entry is "not counted" (type 'none'): shown in the list, left out of every total
   const on = expenseNoCount.getAttribute('aria-pressed') !== 'true';
@@ -2879,7 +2911,10 @@ function renderExpenses(){
   sumBalance.style.color = stats.balance < 0 ? 'var(--danger)' : 'var(--success)';
   if(etExpOnly()){ carryRow.style.display = 'none'; }   // expenses-only tracker: just Expenses, Spent today and Balance
   document.getElementById('incomeRow').style.display = etExpOnly() ? 'none' : '';
-  document.getElementById('todayRow').style.display = expSavings ? 'none' : '';   // Savings: no Spent today
+  document.getElementById('todayRow').style.display = expSavings ? 'none' : '';
+  const revSum = expSavings ? 0 : expList().filter(e => e.month === monthKey && e.type === 'expense' && e.revolut).reduce((n, e) => n + (Number(e.amount) || 0), 0);
+  document.getElementById('revolutRow').style.display = revSum ? '' : 'none';
+  document.getElementById('sumRevolut').textContent = '−' + formatCurrency(revSum);   // Savings: no Spent today
   const todayKey = dateKey(new Date());
   const spentToday = expList()
     .filter(e => e.type === 'expense' && dateKey(new Date(e.createdAt)) === todayKey)
@@ -2939,6 +2974,7 @@ function renderExpenseItemsCompact(){
       startTimestampEdit(ts, exp, () => renderExpenses());
     };
     li.appendChild(ts);
+    if(!expSavings) li.appendChild(revChip(exp));
 
     const isIncome = exp.type === 'income', isNone = exp.type === 'none';
     const amount = document.createElement('div');
@@ -3014,6 +3050,7 @@ function renderExpenseItemsDetailed(){
       startTimestampEdit(ts, exp, () => renderExpenses());
     };
     li.appendChild(ts);
+    if(!expSavings) li.appendChild(revChip(exp));
 
     const isIncome = exp.type === 'income', isNone = exp.type === 'none';
     const amount = document.createElement('div');
@@ -3247,7 +3284,8 @@ function addExpense(){
   expList().push({
     id: Date.now() + Math.random().toString(36).slice(2),
     desc, amount: Math.abs(amount), type,
-    month: monthKey, createdAt
+    month: monthKey, createdAt,
+    ...(!expSavings && expenseRevolut.getAttribute('aria-pressed') === 'true' ? { revolut: true } : {})
   });
   expenseDescInput.value = '';
   expenseAmountInput.value = '';

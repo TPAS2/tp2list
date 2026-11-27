@@ -2084,7 +2084,7 @@
       </div>
       <form class="add-row expense-row no-generic-add" id="expenseForm">
         <button type="button" class="expense-type-toggle" id="expenseTypeToggle" data-type="expense" title="Tap to switch between expense and income">−</button>
-        <button type="button" class="expense-type-toggle nocount" id="expenseNoCount" aria-pressed="false" title="Not counted: the amount is kept as a record but doesn’t count towards income, expenses or the balance">⊘</button>
+        <button type="button" class="expense-type-toggle nocount" id="expenseNoCount" aria-pressed="false" title="Balance fix: the next entry changes only the balance (− takes away, + adds), not income, expenses or spent today">⊘</button>
         <button type="button" class="expense-type-toggle rev-btn" id="expenseRevolut" aria-pressed="false" title="Revolut: tap so the next entries are marked as paid with Revolut (tap again for cash / other)">R</button>
         <input type="text" id="expenseDesc" placeholder="Description…" autocomplete="off">
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
@@ -2730,7 +2730,7 @@ function expTitle(){ const n = data.etNames || {}; return expSavings ? (n.saving
    (synced, so every device publishes to the same place). Each total (all income − all expenses of that tracker) is PUT to
    FB_DB/lists/<key>/total.json (a bare number), which =IMPORTDATA() in a Google Sheet reads */
 const SHEET_LINKS = { m: { key: 'mainLink', list: () => data.expenses, prefix: 'et_' }, s: { key: 'savingsLink', list: () => data.savings, prefix: 'sav_' } };
-function trackerTotal(k){ return Math.round((SHEET_LINKS[k].list() || []).reduce((n, e) => n + (e.type === 'income' ? 1 : e.type === 'expense' ? -1 : 0) * (Number(e.amount) || 0), 0) * 100) / 100; }
+function trackerTotal(k){ return Math.round((SHEET_LINKS[k].list() || []).reduce((n, e) => n + (e.type === 'income' ? 1 : e.type === 'expense' ? -1 : expAdjSign(e)) * (Number(e.amount) || 0), 0) * 100) / 100; }
 function trackerSheetUrl(k){ const id = data[SHEET_LINKS[k].key]; return id ? FB_DB + '/lists/' + id + '/total.json' : ''; }
 const savingsTotal = () => trackerTotal('s');
 let sheetPubTimer = null;
@@ -2815,13 +2815,17 @@ function formatSigned(n){
 
 // Walks forward month-by-month from the earliest transaction (through any empty months)
 // so a positive balance keeps rolling into the next month, stopping at the target month.
+/* ⊘ "balance fix" entries (type 'none'): they change only the balance (and what carries over / the Sheets total), never
+   income, expenses or spent today. exp.adj = +1 adds, −1 takes away (from the −/+ toggle when added; older ones without adj count as −). */
+function expAdjSign(e){ return e.adj === 1 ? 1 : -1; }
+function expAdjSum(tx){ return tx.filter(e => e.type === 'none').reduce((s, e) => s + expAdjSign(e) * (Number(e.amount) || 0), 0); }
 function computeMonthStats(targetKey){
   const allKeys = [...new Set(expList().map(e => e.month))].filter(Boolean).sort();
   if(allKeys.length === 0 || targetKey < allKeys[0]){
     const tx = expList().filter(e => e.month === targetKey);
     const income = tx.filter(e => e.type === 'income').reduce((s,e) => s + (Number(e.amount)||0), 0);
     const expense = tx.filter(e => e.type === 'expense').reduce((s,e) => s + (Number(e.amount)||0), 0);
-    return { income, expense, carryIn: 0, balance: income - expense };
+    return { income, expense, carryIn: 0, balance: income - expense + expAdjSum(tx) };
   }
   let cursor = allKeys[0];
   let running = 0;
@@ -2832,7 +2836,7 @@ function computeMonthStats(targetKey){
     const income = tx.filter(e => e.type === 'income').reduce((s,e) => s + (Number(e.amount)||0), 0);
     const expense = tx.filter(e => e.type === 'expense').reduce((s,e) => s + (Number(e.amount)||0), 0);
     const carryIn = running > 0 ? running : 0;
-    const balance = carryIn + income - expense;
+    const balance = carryIn + income - expense + expAdjSum(tx);
     running = balance;
     if(cursor === targetKey){ result = { income, expense, carryIn, balance }; break; }
     cursor = nextMonthKey(cursor);
@@ -2988,8 +2992,8 @@ function renderExpenseItemsCompact(){
     const isIncome = exp.type === 'income', isNone = exp.type === 'none';
     const amount = document.createElement('div');
     amount.className = 'expense-amount' + (isIncome ? ' income' : '') + (isNone ? ' nocount' : '');
-    amount.textContent = (isNone ? '⊘ ' : isIncome ? '+' : '−') + formatCurrency(exp.amount);
-    if(isNone) amount.title = 'Not counted towards income, expenses or the balance';
+    amount.textContent = (isNone ? '⊘ ' + (expAdjSign(exp) > 0 ? '+' : '−') : isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    if(isNone) amount.title = 'Balance fix: changes only the balance, not income, expenses or spent today';
     amount.onclick = () => {
       startInlineEdit(amount, String(exp.amount), (newVal) => {
         if(newVal !== null){
@@ -3064,8 +3068,8 @@ function renderExpenseItemsDetailed(){
     const isIncome = exp.type === 'income', isNone = exp.type === 'none';
     const amount = document.createElement('div');
     amount.className = 'expense-amount' + (isIncome ? ' income' : '') + (isNone ? ' nocount' : '');
-    amount.textContent = (isNone ? '⊘ ' : isIncome ? '+' : '−') + formatCurrency(exp.amount);
-    if(isNone) amount.title = 'Not counted towards income, expenses or the balance';
+    amount.textContent = (isNone ? '⊘ ' + (expAdjSign(exp) > 0 ? '+' : '−') : isIncome ? '+' : '−') + formatCurrency(exp.amount);
+    if(isNone) amount.title = 'Balance fix: changes only the balance, not income, expenses or spent today';
     amount.onclick = () => {
       startInlineEdit(amount, String(exp.amount), (newVal) => {
         if(newVal !== null){
@@ -3282,6 +3286,7 @@ function addExpense(){
   if(!desc || isNaN(amount)) return;
   const noCount = expenseNoCount.getAttribute('aria-pressed') === 'true';
   const type = noCount ? 'none' : expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
+  const adj = noCount ? (expenseTypeToggle.dataset.type === 'income' ? 1 : -1) : 0;
   if(noCount){ expenseNoCount.setAttribute('aria-pressed', 'false'); expenseNoCount.classList.remove('on'); }   // one entry at a time
   const monthKey = expenseMonthKey(expenseViewDate);
   // dated now when this month is on screen, otherwise the 1st of the month on screen, so the
@@ -3294,6 +3299,7 @@ function addExpense(){
     id: Date.now() + Math.random().toString(36).slice(2),
     desc, amount: Math.abs(amount), type,
     month: monthKey, createdAt,
+    ...(adj ? { adj } : {}),
     ...(!expSavings && expenseRevolut.getAttribute('aria-pressed') === 'true' ? { revolut: true } : {})
   });
   expenseDescInput.value = '';
@@ -3337,8 +3343,8 @@ function archiveLabel(a){
     case 'recurring': return [it.text, 'Calendar · repeating ' + (REPEAT_LABELS[it.repeat] || '').toLowerCase()];
     case 'span': return [it.text, 'Calendar · ' + date(it.startDate) + '–' + date(it.endDate)];
     case 'skip': return [it.text, 'Calendar · one date of a series · ' + date(a.key)];
-    case 'saving': return [it.desc, 'Savings · ' + (it.type === 'income' ? '+' : it.type === 'none' ? '⊘ ' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
-    case 'expense': return [it.desc, 'ETracker · ' + (it.type === 'income' ? '+' : it.type === 'none' ? '⊘ ' : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
+    case 'saving': return [it.desc, 'Savings · ' + (it.type === 'income' ? '+' : it.type === 'none' ? '⊘ ' + (expAdjSign(it) > 0 ? '+' : '−') : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
+    case 'expense': return [it.desc, 'ETracker · ' + (it.type === 'income' ? '+' : it.type === 'none' ? '⊘ ' + (expAdjSign(it) > 0 ? '+' : '−') : '−') + formatCurrency(it.amount) + ' · ' + formatExpenseTimestamp(it.createdAt)];
     case 'wish': return [it.desc, 'Wishlist · ' + (it.cur === 'GBP' ? '£' : '€') + (Number(it.amount) || 0).toFixed(2)];
     case 'other': return [it.name, 'Other list · ' + (it.items || []).filter(x => (x.text || '').trim()).length + ' lines'];
   }

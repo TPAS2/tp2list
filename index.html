@@ -917,12 +917,10 @@
   .rev-chip{ flex: 0 0 auto; align-self: center; font-size: .62rem; font-weight: 800; letter-spacing: .03em; padding: 2px 6px; border-radius: 10px;
     border: 1px solid var(--line); color: var(--text-faint); background: transparent; cursor: pointer; line-height: 1.3; }
   .rev-chip.on{ border-color: #4f7dff; color: #fff; background: linear-gradient(135deg, #2b59ff, #4f7dff); }
-  html.et-simple #savingsToggle, html.et-simple #expenseNoCount, html.et-simple #savingsSheetBtn{ display: none !important; }
+  html.et-simple #savingsToggle, html.et-simple #savingsSheetBtn{ display: none !important; }
   .et-mode-btn{ opacity: .85; }
   .expense-head-btn.sheet-icon-btn{ padding: 3px 8px; font-size: .8rem; line-height: 1; }
   .expense-amount.nocount{ color: var(--text-faint); font-style: italic; }
-  .expense-type-toggle.nocount{ border-color: var(--line); color: var(--text-dim); background: transparent; }
-  .expense-type-toggle.nocount.on{ border-color: var(--accent2); color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
   .expense-count-badge{
     font-family: ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
     font-size: 0.68rem;
@@ -2084,7 +2082,6 @@
       </div>
       <form class="add-row expense-row no-generic-add" id="expenseForm">
         <button type="button" class="expense-type-toggle" id="expenseTypeToggle" data-type="expense" title="Tap to switch between expense and income">−</button>
-        <button type="button" class="expense-type-toggle nocount" id="expenseNoCount" aria-pressed="false" title="Balance fix: the next entry changes only the balance (− takes away, + adds), not income, expenses or spent today">⊘</button>
         <button type="button" class="expense-type-toggle rev-btn" id="expenseRevolut" aria-pressed="false" title="Revolut: tap so the next entries are marked as paid with Revolut (tap again for cash / other)">R</button>
         <input type="text" id="expenseDesc" placeholder="Description…" autocomplete="off">
         <input type="number" id="expenseAmount" placeholder="0.00" step="0.01" inputmode="decimal">
@@ -2699,8 +2696,6 @@ function setEtMode(simple, noRender){
   const b = document.getElementById('etModeToggle');
   if(b){ b.textContent = etSimple ? 'SIMPLE' : 'FULL'; b.setAttribute('aria-pressed', etSimple ? 'true' : 'false'); }
   if(etSimple){
-    const nc = document.getElementById('expenseNoCount');
-    if(nc){ nc.setAttribute('aria-pressed', 'false'); nc.classList.remove('on'); }
     if(expSavings){ setSavingsMode(false, noRender); return; }
   }
   if(!noRender) renderExpenses();
@@ -2864,12 +2859,6 @@ function revChip(exp){
   b.onclick = (e) => { e.stopPropagation(); if(exp.revolut) delete exp.revolut; else exp.revolut = true; saveTasks(); renderExpenses(); };
   return b;
 }
-const expenseNoCount = document.getElementById('expenseNoCount');
-expenseNoCount.addEventListener('click', () => {   // the next entry is "not counted" (type 'none'): shown in the list, left out of every total
-  const on = expenseNoCount.getAttribute('aria-pressed') !== 'true';
-  expenseNoCount.setAttribute('aria-pressed', on ? 'true' : 'false');
-  expenseNoCount.classList.toggle('on', on);
-});
 expenseTypeToggle.addEventListener('click', () => {
   const isExpense = expenseTypeToggle.dataset.type === 'expense';
   expenseTypeToggle.dataset.type = isExpense ? 'income' : 'expense';
@@ -3284,10 +3273,7 @@ function addExpense(){
   const desc = expenseDescInput.value.trim();
   const amount = parseFloat(expenseAmountInput.value);
   if(!desc || isNaN(amount)) return;
-  const noCount = expenseNoCount.getAttribute('aria-pressed') === 'true';
-  const type = noCount ? 'none' : expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
-  const adj = noCount ? (expenseTypeToggle.dataset.type === 'income' ? 1 : -1) : 0;
-  if(noCount){ expenseNoCount.setAttribute('aria-pressed', 'false'); expenseNoCount.classList.remove('on'); }   // one entry at a time
+  const type = expenseTypeToggle.dataset.type === 'income' ? 'income' : 'expense';
   const monthKey = expenseMonthKey(expenseViewDate);
   // dated now when this month is on screen, otherwise the 1st of the month on screen, so the
   // entry is listed in the same month its money counts in
@@ -3299,7 +3285,6 @@ function addExpense(){
     id: Date.now() + Math.random().toString(36).slice(2),
     desc, amount: Math.abs(amount), type,
     month: monthKey, createdAt,
-    ...(adj ? { adj } : {}),
     ...(!expSavings && expenseRevolut.getAttribute('aria-pressed') === 'true' ? { revolut: true } : {})
   });
   expenseDescInput.value = '';
